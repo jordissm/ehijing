@@ -1,18 +1,15 @@
 # ===========================
 # temporary build directories
 # ===========================
-tmp/**
+build/
+external/pythia8/bin/
+external/pythia8/lib/
+external/pythia8/tmp/
 
 # ===========================
 # Python
 # ===========================
 __pycache__/
-*.pyc
-
-# ===========================
-# ehijing build files
-# ===========================
-eHIJING-examples/build/**
 
 # ===========================
 # macOS
@@ -23,4 +20,3 @@ eHIJING-examples/build/**
 # VSCode
 # ===========================
 .vscode/
-
