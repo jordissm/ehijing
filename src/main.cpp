@@ -981,8 +981,8 @@ int main(int argc, char* argv[])
   const int mode   = std::stoi(require_arg(args, "--mode", argv[0]));
   const double K   = std::stod(require_arg(args, "--K", argv[0]));
   const std::string TableDir  = require_arg(args, "--table-dir", argv[0]);
-  const std::string outdir    = require_arg(args, "--out-dir", argv[0]);
-  const std::string configfile= require_arg(args, "--config", argv[0]);
+  const std::string outdir    = require_arg(args, "--run-dir", argv[0]);
+  const std::string configfile= require_arg(args, "--config-file", argv[0]);
 
 
   // Optional seed (make runs reproducible)
