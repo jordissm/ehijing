@@ -21,6 +21,40 @@ std::uniform_real_distribution<> Ran_gen(0.0, 1.0);
 // TODO: JORDI ASK WENBIN !!! (COEFFICIENTS)
 // TODO: JORDI ASK WENBIN !!! (Fermi momentum)
 
+#include <filesystem>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+
+namespace fs = std::filesystem;
+
+static void usage(const char* prog) {
+  std::cerr
+    << "Usage:\n"
+    << "  " << prog << " --nevents N --Z Z --A A --mode M --K K "
+    << "--table-dir PATH --out-dir PATH --config PATH [--seed S]\n\n"
+    << "Example:\n"
+    << "  " << prog << " --nevents 1 --Z 1 --A 2 --mode 0 --K 4.0 "
+    << "--table-dir output/runs/ehijing/tables/K4p0 "
+    << "--out-dir output/runs/ehijing/events "
+    << "--config /opt/electra/ehijing_bin/config/experiments/hermes.setting "
+    << "--seed 12345\n";
+}
+
+static std::string require_arg(
+    const std::unordered_map<std::string,std::string>& m,
+    const std::string& key,
+    const char* prog)
+{
+  auto it = m.find(key);
+  if (it == m.end() || it->second.empty()) {
+    std::cerr << "ERROR: missing required argument: " << key << "\n";
+    usage(prog);
+    std::exit(2);
+  }
+  return it->second;
+}
+
 void rotate(double px, double py, double pz, double pr[4], int icc)
 {
     //     input:  (px,py,pz), (wx,wy,wz), argument (i)
@@ -766,7 +800,7 @@ void Output(int32_t Ntriggered, int Z, int A, Pythia& pythia,
 
     // Output nucleons
     double RA = 1.2 * pow(A, 1. / 3.);                   // fm
-    std::srand(static_cast<unsigned int>(std::time(0))); // Seed the random number generator
+    // std::srand(static_cast<unsigned int>(std::time(0))); // Seed the random number generator
     int randomBinary = std::rand() % 2;                  // Generate 0 or 1
 
     // Output proton data
@@ -922,14 +956,100 @@ class Modified_FF
 // The main routine:
 int main(int argc, char* argv[])
 {
+  // --- Simple flag parser: --key value ---
+  std::unordered_map<std::string,std::string> args;
+  for (int i = 1; i < argc; ++i) {
+    std::string k = argv[i];
+    if (k.rfind("--", 0) == 0) {
+      if (i + 1 >= argc) {
+        std::cerr << "ERROR: flag " << k << " requires a value\n";
+        usage(argv[0]);
+        return 2;
+      }
+      args[k] = argv[++i];
+    } else {
+      std::cerr << "ERROR: unexpected positional arg: " << k << "\n";
+      usage(argv[0]);
+      return 2;
+    }
+  }
 
+    // Required
+  const int nEvent = std::stoi(require_arg(args, "--nevents", argv[0]));
+  const int Z      = std::stoi(require_arg(args, "--Z", argv[0]));
+  const int A      = std::stoi(require_arg(args, "--A", argv[0]));
+  const int mode   = std::stoi(require_arg(args, "--mode", argv[0]));
+  const double K   = std::stod(require_arg(args, "--K", argv[0]));
+  const std::string TableDir  = require_arg(args, "--table-dir", argv[0]);
+  const std::string outdir    = require_arg(args, "--out-dir", argv[0]);
+  const std::string configfile= require_arg(args, "--config", argv[0]);
+
+
+  // Optional seed (make runs reproducible)
+  uint32_t seed = 0;
+  if (auto it = args.find("--seed"); it != args.end()) {
+    // Pythia seeds must be in [1, 900000000] typically; keep it in range
+    uint64_t s64 = std::stoull(it->second);
+    seed = static_cast<uint32_t>(1 + (s64 % 900000000ULL));
+  } else {
+    // non-deterministic fallback
+    seed = static_cast<uint32_t>(std::random_device{}());
+  }
+
+  // Ensure directories exist
+  try {
+    fs::create_directories(fs::path(outdir));
+    fs::create_directories(fs::path(TableDir));
+  } catch (const fs::filesystem_error& e) {
+    std::cerr << "ERROR: cannot create output/table directories:\n  " << e.what() << "\n";
+    return 3;
+  }
+
+  // build the nucleus ID used by Pythia & the PDF (the isospin effect)
+  const int inuclei = 100000000 + Z * 10000 + A * 10;
+
+  // Shadowing effect:
+  int nPDFset = 0; // (A>2)?3:0;
+
+  // Initialize the hadronizer instance:
+  hadronizer HZ;
+
+  // Initialize the eHIJING-pythia for high-Q parton shower in medium
+  Pythia pythia;
+  Event& event = pythia.event;
+
+  // Make Pythia deterministic
+  pythia.readString("Random:setSeed = on");
+  pythia.readString("Random:seed = " + std::to_string(seed));
+
+  // ALSO seed your own RNGs deterministically (important!)
+  // Replace your global std::mt19937 gen(rrd()) behavior with a fixed seed:
+  gen.seed(seed);
+  // And stop using srand(time(0)); later in Output(): use srand(seed) or remove rand() entirely
+  std::srand(seed);
+
+  // read settings
+  pythia.readFile(configfile);
+
+  add_arg<int>(pythia, "eHIJING:Mode", mode);
+  add_arg<int>(pythia, "PDF:nPDFSetA", nPDFset);
+  add_arg<int>(pythia, "PDF:nPDFBeamA", inuclei);
+  add_arg<int>(pythia, "eHIJING:AtomicNumber", A);
+  add_arg<int>(pythia, "eHIJING:ChargeNumber", Z);
+  add_arg<double>(pythia, "eHIJING:Kfactor", K);
+  add_arg<std::string>(pythia, "eHIJING:TablePath", TableDir);
+
+  pythia.init();
+
+  Modified_FF MFF(mode, Z, A, K, pythia.settings.parm("eHIJING:xG-n"),
+                  pythia.settings.parm("eHIJING:xG-lambda"), TableDir);
     // Read commandline arguments
     // number of events, atomic Z and A
-    int nEvent = atoi(argv[1]);
-    int Z = atoi(argv[2]);
-    int A = atoi(argv[3]);
+    // int nEvent = atoi(argv[1]);
+    // int Z = atoi(argv[2]);
+    // int A = atoi(argv[3]);
     // build the nucleus ID used by Pythia & the PDF (the isospin effect)
-    int inuclei = 100000000 + Z * 10000 + A * 10;
+    // int inuclei = 100000000 + Z * 10000 + A * 10;
     // Shadowing effect:
     //   nPDFset=0: only isospin
     //   nPDFset = 1: EPS09 LO
@@ -937,45 +1057,45 @@ int main(int argc, char* argv[])
     //   nPDFset = 2: EPPS16 NLO
     // We will use only isospin for deuteron,
     // and EPPS16 NLO for heavier nucleus
-    int nPDFset = 0; //(A>2)?3:0;
+    // int nPDFset = 0; //(A>2)?3:0;
 
     // mode=0: higher-twist, in the soft-gluon-emission limit
     // mode=1: generalized higher-twist, in the soft-gluon-emission limit
-    int mode = atof(argv[4]);
+    // int mode = atof(argv[4]);
 
-    // K-factor of the gluon distribution.
-    double K = atof(argv[5]);
+    // // K-factor of the gluon distribution.
+    // double K = atof(argv[5]);
 
-    // eHIJING table path
-    std::string TablePath(argv[6]);
+    // // eHIJING table path
+    // std::string TablePath(argv[6]);
 
-    // Pythia8+other eHijing params configurations
-    auto configfile = std::string(argv[8]);
+    // // Pythia8+other eHijing params configurations
+    // auto configfile = std::string(argv[8]);
 
-    // header/folder of the output
-    // use CPU process id used to name the output file
-    auto outdir = std::string(argv[7]);
+    // // header/folder of the output
+    // // use CPU process id used to name the output file
+    // auto outdir = std::string(argv[7]);
 
-    // initialize the hadronizer instance:
-    hadronizer HZ;
+    // // initialize the hadronizer instance:
+    // hadronizer HZ;
 
-    // Initialize the eHIJING-pythia for high-Q parton shower in medium
-    Pythia pythia;               // Generator
-    Event& event = pythia.event; // Event record
-    pythia.readFile(configfile); // read settings
-    add_arg<int>(pythia, "eHIJING:Mode", mode);
-    add_arg<int>(pythia, "PDF:nPDFSetA", nPDFset);
-    add_arg<int>(pythia, "PDF:nPDFBeamA", inuclei);
-    add_arg<int>(pythia, "eHIJING:AtomicNumber", A);
-    add_arg<int>(pythia, "eHIJING:ChargeNumber", Z);
-    add_arg<double>(pythia, "eHIJING:Kfactor", K);
-    add_arg<std::string>(pythia, "eHIJING:TablePath", TablePath);
-    pythia.init();
-    // pythia.particleData.list(); // Remove this line when we don't need particle list
+    // // Initialize the eHIJING-pythia for high-Q parton shower in medium
+    // Pythia pythia;               // Generator
+    // Event& event = pythia.event; // Event record
+    // pythia.readFile(configfile); // read settings
+    // add_arg<int>(pythia, "eHIJING:Mode", mode);
+    // add_arg<int>(pythia, "PDF:nPDFSetA", nPDFset);
+    // add_arg<int>(pythia, "PDF:nPDFBeamA", inuclei);
+    // add_arg<int>(pythia, "eHIJING:AtomicNumber", A);
+    // add_arg<int>(pythia, "eHIJING:ChargeNumber", Z);
+    // add_arg<double>(pythia, "eHIJING:Kfactor", K);
+    // add_arg<std::string>(pythia, "eHIJING:TablePath", TablePath);
+    // pythia.init();
+    // // pythia.particleData.list(); // Remove this line when we don't need particle list
 
-    // initialize the modified FF class
-    Modified_FF MFF(mode, Z, A, K, pythia.settings.parm("eHIJING:xG-n"),
-                    pythia.settings.parm("eHIJING:xG-lambda"), TablePath);
+    // // initialize the modified FF class
+    // Modified_FF MFF(mode, Z, A, K, pythia.settings.parm("eHIJING:xG-n"),
+    //                 pythia.settings.parm("eHIJING:xG-lambda"), TablePath);
 
     // Begin event loop.
     auto start = std::chrono::high_resolution_clock::now();
