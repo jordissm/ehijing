@@ -164,7 +164,7 @@ class hadronizer
             "StringFragmentation:stopMass = 0.0");         // Wenbin lower limit of string mass
         pythia.readString("HadronLevel:mStringMin = 0.5"); // Wenbin
         // Set some hadronic & decay specific channls
-        pythia.readString("HadronLevel:Decay = off");
+        pythia.readString("HadronLevel:Decay = on");
         pythia.readString("PDF:nPDFSetA=0");
         pythia.readString("PDF:nPDFSetB=0");
         // Enabling setting of vertex information.
