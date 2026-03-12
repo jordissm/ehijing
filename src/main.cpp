@@ -770,7 +770,7 @@ void Output(int32_t eventNumber, int Z, int A, Pythia& pythia,
         Vec4 local_pos = {p.xProd(), p.yProd(), p.zProd(), p.tProd()};
         Vec4 pCoM = p.p();
         Vec4 phadron = p.p();
-        // phadron.bstback(pCoM); // JORDI, try this off
+        phadron.bstback(pCoM); // JORDI, try this off
         local_pos.bstback(pCoM);
         // Asign the formation time 1 fm in its local rest frame
         Vec4 formation_4 = {0.00001 * phadron.px() / phadron.e() + local_pos.px(),
