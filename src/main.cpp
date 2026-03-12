@@ -15,12 +15,6 @@ std::mt19937 gen(rrd()); // Mersenne Twister engine
 // Define a distribution (range 0.0 to 1.0)
 std::uniform_real_distribution<> Ran_gen(0.0, 1.0);
 
-// TODO: JORDI ASK WENBIN !!! (Turn decays off)
-// TODO: JORDI ASK WENBIN !!! (Commented out code)
-// TODO: JORDI ASK WENBIN !!! (Number of events to generate)
-// TODO: JORDI ASK WENBIN !!! (COEFFICIENTS)
-// TODO: JORDI ASK WENBIN !!! (Fermi momentum)
-
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -141,6 +135,8 @@ double samplePointInSphere(double R)
     return (r);
 }
 
+// ==============================================================
+
 // A separate Pythia instance that only handles hadronization
 class hadronizer
 {
@@ -160,11 +156,15 @@ class hadronizer
         // Lund String interative breaking conditions
         // ** We have changed stopMass=0.0 GeV, different from Pythia8 Default
         // too match HERMES FF measurements of pion and Kaon.
-        pythia.readString(
-            "StringFragmentation:stopMass = 0.0");         // Wenbin lower limit of string mass
+        pythia.readString("StringFragmentation:stopMass = 0.0");         // Wenbin lower limit of string mass
         pythia.readString("HadronLevel:mStringMin = 0.5"); // Wenbin
         // Set some hadronic & decay specific channls
         pythia.readString("HadronLevel:Decay = on");
+        pythia.readString("111:mayDecay=off");
+        pythia.readString("211:mayDecay=off");
+        pythia.readString("321:mayDecay=off");
+
+        // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
         pythia.readString("PDF:nPDFSetA=0");
         pythia.readString("PDF:nPDFSetB=0");
         // Enabling setting of vertex information.
@@ -173,9 +173,6 @@ class hadronizer
         pythia.readString("PartonVertex:emissionWidth = 0.1");
         pythia.readString("Fragmentation:setVertices = on");
 
-        pythia.readString("111:mayDecay=off");
-        pythia.readString("211:mayDecay=off");
-        pythia.readString("321:mayDecay=off");
         pythia.init();
     }
 
@@ -241,6 +238,7 @@ class hadronizer
                                 p.m());
         }
 
+        // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
         // Assign the space-time to partons
         for (int i = 0; i < pythia.event.size(); i++)
         {
@@ -634,7 +632,6 @@ class hadronizer
         }
         // Do Hadronization
         pythia.next();
-        // if (!pythia.next()) return FinalParticles;
         // Return only final-state particles.
         for (int i = 0; i < pythia.event.size(); i++)
         {
@@ -704,7 +701,6 @@ void Output(int32_t eventNumber, int Z, int A, Pythia& pythia,
     Vec4 pProton = pythia.event[1].p();
     Vec4 peIn = pythia.event[4].p();
     Vec4 peOut = pythia.event[6].p();
-    Vec4 pPhoton = peIn - peOut;
     Vec4 pGamma = peIn - peOut;
     // Q2, W2, Bjorken x, y.
     double nu = (pProton * pGamma) / std::sqrt(pProton * pProton);  // photon energy in target rest frame
@@ -745,9 +741,12 @@ void Output(int32_t eventNumber, int Z, int A, Pythia& pythia,
     double gamma = 1. / (std::sqrt(1. - beta * beta));
     double P0B = gamma * pProtonB.e() + gamma * beta * pProtonB.pz();
 
-    Vec4 pCoM = pPhoton + pProton;
-    Vec4 pPhoton_in_com = pPhoton;
+    Vec4 pCoM = pGamma + pProton;
+    Vec4 pPhoton_in_com = pGamma;
+
     pPhoton_in_com.bstback(pCoM);
+
+    // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
     double gamma_com_theta = pPhoton_in_com.theta();
     double gamma_com_phi = pPhoton_in_com.phi();
     double vz = pPhoton_in_com.e() / std::sqrt(pPhoton_in_com.e() * pPhoton_in_com.e() + Q2);
@@ -860,75 +859,6 @@ void Output(int32_t eventNumber, int Z, int A, Pythia& pythia,
     }
 
     F << "# event " << eventNumber << " end 0" << std::endl;
-
-    /*
-    // Compute four-momenta of proton, electron, virtual
-    Vec4 pProton = pythia.event[1].p(); // four-momentum of proton
-    Vec4 pProtonB = pProton;
-    Vec4 peIn    = pythia.event[4].p(); // incoming electron
-    Vec4 peOut   = pythia.event[6].p(); // outgoing electron
-    Vec4 pGamma  = peIn - peOut; // virtual boson photon/Z^0/W^+-
-    double Q2 = - pGamma.m2Calc(); // hard scale square
-    double xB  = Q2 / (2. * pProton * pGamma); // Bjorken x
-    double Q2overmu2 = 4. * xB * xB * pProton.m2Calc() / std::abs(Q2);
-    double absQ = std::sqrt(std::abs(Q2));
-    //double gamma = std::sqrt(1.+ 1./Q2overmu2);
-    //double beta = -1.*std::sqrt(1 + Q2overmu2);
-    Vec4 pCoM = pGamma + pProton;
-    double WCoM2 = (pCoM).m2Calc();
-    double WCoM = std::sqrt(WCoM2);
-    double nu = pGamma.e();
-    double theta = - pGamma.theta();
-    double phi = - pGamma.phi();
-    Vec4 pGamma_CM = pGamma;
-    int Count = 0;
-    pProtonB.rot(0, phi);
-    pProtonB.rot(theta + M_PI, 0);
-    Vec4 pGamma_test = pGamma;
-    pGamma_test.rot(0, phi);
-    pGamma_test.rot(theta + M_PI, 0);
-    double beta = -pGamma_test.e()/pGamma_test.pz();
-    double gamma = 1./(std::sqrt(1.-beta*beta));
-    double P0B = gamma * pProtonB.e() + gamma * beta * pProtonB.pz();
-    for (auto & p : plist) {
-        if (p.isFinal() && p.isHadron()){
-                Count = Count + 1;
-         }
-    }
-    pGamma_CM.bstback(pCoM);
-
-    F << "# " << Q2 << " " << xB << " " << Count << " " << P0B << std::endl;
-    for (auto & p : plist) {
-        if (p.isFinal() && p.isHadron()){
-            // first boost to CM frame, the rotate to photon negative z -frame
-            auto photon_nz = p.p();
-            photon_nz.bstback(pCoM);
-            photon_nz.rot(0, -pGamma_CM.phi());
-            photon_nz.rot(M_PI - pGamma_CM.theta(), 0);
-            double zCM = (photon_nz.e() + photon_nz.pz())/WCoM;
-            double thetaCM = std::acos(photon_nz.pz()/photon_nz.e());
-            // Fixed target frame
-            double z = p.e()/nu;
-            auto prot = p.p();
-            prot.rot(0, phi);
-            prot.rot(theta + M_PI, 0);
-            // Boost to the Breit frame
-            double bp0 = gamma * beta * prot.pz() + gamma * prot.e();
-            double bp3 = gamma * beta * prot.e() + gamma * prot.pz();
-            double bp0plusbp3 = bp0 + bp3;
-            double bp0minusbp3 = bp0 - bp3;
-            double pT = p.pT();
-            double kT = prot.pT();
-            //std::cout << p.id() <<std::endl;
-            F << " " << xB << " " << Q2 << "  " <<  p.id() << " "
-            // photon-z frame
-            << z << " " << kT << " "
-            // first boost to CM frame, the rotate to photon negative z -frame
-            <<  photon_nz.eta() << " " << zCM
-            << std::endl;
-         }
-    }
-    */
 }
 
 // low-Q2 medium correction (a Monte Carlo version of the the modified FF model)
@@ -1017,6 +947,7 @@ int main(int argc, char* argv[])
   // build the nucleus ID used by Pythia & the PDF (the isospin effect)
   const int inuclei = 100000000 + Z * 10000 + A * 10;
 
+  // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
   // Shadowing effect:
   int nPDFset = 0; // (A>2)?3:0;
 
@@ -1027,6 +958,7 @@ int main(int argc, char* argv[])
   Pythia pythia;
   Event& event = pythia.event;
 
+  // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
   // Make Pythia deterministic
   pythia.readString("Random:setSeed = on");
   pythia.readString("Random:seed = " + std::to_string(seed));
@@ -1107,7 +1039,6 @@ int main(int argc, char* argv[])
     //                 pythia.settings.parm("eHIJING:xG-lambda"), TablePath);
 
     // Begin event loop.
-    auto start = std::chrono::high_resolution_clock::now();
     int Ntriggered = 0;
     int Ntotal = 0, Nfailed = 0;
 
@@ -1179,11 +1110,6 @@ int main(int argc, char* argv[])
     std::cout << "Trigger Rate = " << Ntriggered * 100. / Ntotal << "%" << std::endl;
     // Check the rate of failed events
     std::cout << "Failed Rate = " << Nfailed * 100. / Ntotal << "%" << std::endl;
-    auto end = std::chrono::high_resolution_clock::now();
-    // Calculate duration in milliseconds
-    std::chrono::duration<double, std::milli> duration = end - start;
-
-    std::cout << "Elapsed time: " << duration.count() << " ms\n";
     // Done.
     return 0;
 }
@@ -1251,7 +1177,7 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
         Rz = event.Rz();
 
         double sumq2 = 0.; // useful quantity for H-T approach
-        // for (int i=0; i<Ncolls; i++) sumq2 += qt2s[i];
+        for (int i=0; i<Ncolls; i++) sumq2 += qt2s[i];
         if (sumq2 < 1e-9)
             continue; // negelect too soft momentum kicks
 
