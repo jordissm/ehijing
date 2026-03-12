@@ -31,13 +31,13 @@ namespace fs = std::filesystem;
 static void usage(const char* prog) {
   std::cerr
     << "Usage:\n"
-    << "  " << prog << " --nevents N --Z Z --A A --mode M --K K "
-    << "--table-dir PATH --out-dir PATH --config PATH [--seed S]\n\n"
+    << "  " << prog << " --nevents N --event-id I --Z Z --A A --mode M --K K "
+    << "--table-dir PATH --run-dir PATH --config-file PATH --seed S\n\n"
     << "Example:\n"
-    << "  " << prog << " --nevents 1 --Z 1 --A 2 --mode 0 --K 4.0 "
+    << "  " << prog << " --nevents 1 --event-id 0 --Z 1 --A 2 --mode 0 --K 4.0 "
     << "--table-dir output/runs/ehijing/tables/K4p0 "
-    << "--out-dir output/runs/ehijing/events "
-    << "--config /opt/electra/ehijing_bin/config/experiments/hermes.setting "
+    << "--run-dir output/runs/ehijing/events "
+    << "--config-file /opt/electra/ehijing_bin/config/experiments/hermes.setting "
     << "--seed 12345\n";
 }
 
@@ -694,12 +694,12 @@ bool trigger(Pythia& pythia)
 
 // Output function, we need the final-particle list and kinematics of the original event
 // to compute Q, x, etc.
-void Output(int32_t Ntriggered, int Z, int A, Pythia& pythia,
+void Output(int32_t eventNumber, int Z, int A, Pythia& pythia,
             std::vector<Particle>& plist,
             std::ofstream& F,
             std::ofstream& M)
 {
-    int32_t eventNumber = Ntriggered - 1; // Start event numbering from 0
+    // int32_t eventNumber = Ntriggered - 1; // Start event numbering from 0
     // Four-momenta of proton, electron, virtual photon/Z^0/W^+-.
     Vec4 pProton = pythia.event[1].p();
     Vec4 peIn = pythia.event[4].p();
@@ -719,7 +719,7 @@ void Output(int32_t Ntriggered, int Z, int A, Pythia& pythia,
     // ===============================
     M << std::setprecision(16);
     M << "{\n";
-    M << "  \"event\": " << (Ntriggered - 1) << ",\n";
+    M << "  \"event\": " << eventNumber << ",\n";
     M << "  \"Z\": " << Z << ", \"A\": " << A << ",\n";
     M << "  \"xB\": " << xB << ",\n";
     M << "  \"Q2\": " << Q2 << ",\n";
@@ -770,7 +770,7 @@ void Output(int32_t Ntriggered, int Z, int A, Pythia& pythia,
         Vec4 local_pos = {p.xProd(), p.yProd(), p.zProd(), p.tProd()};
         Vec4 pCoM = p.p();
         Vec4 phadron = p.p();
-        phadron.bstback(pCoM);
+        // phadron.bstback(pCoM); // JORDI, try this off
         local_pos.bstback(pCoM);
         // Asign the formation time 1 fm in its local rest frame
         Vec4 formation_4 = {0.00001 * phadron.px() / phadron.e() + local_pos.px(),
@@ -984,6 +984,15 @@ int main(int argc, char* argv[])
   const std::string outdir    = require_arg(args, "--run-dir", argv[0]);
   const std::string configfile= require_arg(args, "--config-file", argv[0]);
 
+    // Optional explicit event id; mainly used when --nevents 1
+    int64_t event_id_arg = 0;
+    if (auto it = args.find("--event-id"); it != args.end()) {
+        event_id_arg = std::stoll(it->second);
+        if (event_id_arg < 0) {
+            std::cerr << "ERROR: --event-id must be >= 0\n";
+            return 2;
+        }
+    }
 
   // Optional seed (make runs reproducible)
   uint32_t seed = 0;
@@ -1135,37 +1144,35 @@ int main(int argc, char* argv[])
         {
             // Ntriggered starts at 1 after increment; event index for naming starts at 0 or 1—your
             // choice. Here we use 0-based to match evt_000000.oscar for the first triggered event:
-            int event_idx = Ntriggered - 1;
-
-            std::ostringstream filename;
-            filename << outdir << "/evt_" << std::setw(6) << std::setfill('0') << event_idx
-                     << ".oscar";
-
-            std::ofstream fout_event(filename.str());
-            if (!fout_event)
             {
-                std::cerr << "ERROR: cannot open output file: " << filename.str() << std::endl;
-                return 1;
+                const int64_t event_id = (nEvent == 1) ? event_id_arg : (Ntriggered - 1);
+
+                std::ostringstream filename;
+                filename << outdir << "/evt_" << std::setw(6) << std::setfill('0') << event_id
+                        << ".oscar";
+
+                std::ofstream fout_event(filename.str());
+                if (!fout_event) {
+                    std::cerr << "ERROR: cannot open output file: " << filename.str() << std::endl;
+                    return 1;
+                }
+
+                std::ostringstream meta_filename;
+                meta_filename << outdir << "/evt_" << std::setw(6) << std::setfill('0') << event_id
+                            << ".meta.json";
+
+                std::ofstream fout_meta(meta_filename.str());
+                if (!fout_meta) {
+                    std::cerr << "ERROR: cannot open metadata file: " << meta_filename.str() << std::endl;
+                    return 1;
+                }
+
+                fout_event << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge\n";
+                fout_event << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none\n";
+
+                // IMPORTANT: pass event_id, not Ntriggered
+                Output(event_id, Z, A, pythia, event2, fout_event, fout_meta);
             }
-
-            // Open metadata sidecar file
-            std::ostringstream meta_filename;
-            meta_filename << outdir << "/evt_" << std::setw(6)
-                        << std::setfill('0') << event_idx << ".meta.json";
-
-            std::ofstream fout_meta(meta_filename.str());
-            if (!fout_meta)
-            {
-                std::cerr << "ERROR: cannot open metadata file: "
-                        << meta_filename.str() << std::endl;
-                return 1;
-            }
-
-            // OSCAR header for each per-event file
-            fout_event << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge\n";
-            fout_event << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none\n";
-
-            Output(Ntriggered, Z, A, pythia, event2, fout_event, fout_meta);
         } // fout_event closes here
     }
     // Check the trigger rate
