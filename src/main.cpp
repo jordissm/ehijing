@@ -1251,6 +1251,7 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
         Rz = event.Rz();
 
         double sumq2 = 0.; // useful quantity for H-T approach
+        for (int i=0; i<Ncolls; i++) sumq2 += qt2s[i];
         if (sumq2 < 1e-9)
             continue; // negelect too soft momentum kicks
 
