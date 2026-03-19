@@ -31,9 +31,7 @@ LOCAL_SHARE=share/Pythia8
 LOCAL_SRC=src
 LOCAL_TMP=tmp
 LOCAL_MKDIRS:=$(shell mkdir -p $(LOCAL_TMP) $(LOCAL_LIB))
-CXX_COMMON:=--std=c++17 -I$(LOCAL_INCLUDE) $(CXX_COMMON) \
--I/Users/jordi/Library/CloudStorage/Box-Box/Research/codes/eic-simulation/3rdparty/gsl-2.8/build/include \
--L/Users/jordi/Library/CloudStorage/Box-Box/Research/codes/eic-simulation/3rdparty/gsl-2.8/build/lib -lgsl -lgslcblas -lm
+CXX_COMMON:=--std=c++17 -I$(LOCAL_INCLUDE) $(CXX_COMMON) -lgsl -lgslcblas -lm
 
 
 # PYTHIA.
