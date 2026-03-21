@@ -25,14 +25,31 @@ namespace fs = std::filesystem;
 static void usage(const char* prog) {
   std::cerr
     << "Usage:\n"
-    << "  " << prog << " --nevents N --event-id I --Z Z --A A --mode M --K K "
+    << "  " << prog << " --nevents N --first-event-id I --Z Z --A A --mode M --K K "
     << "--table-dir PATH --run-dir PATH --config-file PATH --seed S\n\n"
     << "Example:\n"
-    << "  " << prog << " --nevents 1 --event-id 0 --Z 1 --A 2 --mode 0 --K 4.0 "
+    << "  " << prog << " --nevents 1000 --first-event-id 0 --Z 1 --A 2 --mode 0 --K 4.0 "
     << "--table-dir output/runs/ehijing/tables/K4p0 "
     << "--run-dir output/runs/ehijing/events "
     << "--config-file /opt/electra/ehijing_bin/config/experiments/hermes.setting "
     << "--seed 12345\n";
+}
+
+static constexpr int64_t SHARD_SIZE = 1000;
+
+static std::string zero_pad_int(int64_t value, int width = 8) {
+    std::ostringstream os;
+    os << std::setw(width) << std::setfill('0') << value;
+    return os.str();
+}
+
+static fs::path shard_dir_for_event(const fs::path& base_events_dir, int64_t event_id) {
+    const int64_t shard_begin = (event_id / SHARD_SIZE) * SHARD_SIZE;
+    const int64_t shard_end   = shard_begin + SHARD_SIZE - 1;
+
+    std::ostringstream name;
+    name << "events_" << zero_pad_int(shard_begin) << "-" << zero_pad_int(shard_end);
+    return base_events_dir / name.str();
 }
 
 static std::string require_arg(
@@ -914,12 +931,12 @@ int main(int argc, char* argv[])
   const std::string outdir    = require_arg(args, "--run-dir", argv[0]);
   const std::string configfile= require_arg(args, "--config-file", argv[0]);
 
-    // Optional explicit event id; mainly used when --nevents 1
-    int64_t event_id_arg = 0;
-    if (auto it = args.find("--event-id"); it != args.end()) {
-        event_id_arg = std::stoll(it->second);
-        if (event_id_arg < 0) {
-            std::cerr << "ERROR: --event-id must be >= 0\n";
+    // Optional first global event id for this job/chunk
+    int64_t first_event_id = 0;
+    if (auto it = args.find("--first-event-id"); it != args.end()) {
+        first_event_id = std::stoll(it->second);
+        if (first_event_id < 0) {
+            std::cerr << "ERROR: --first-event-id must be >= 0\n";
             return 2;
         }
     }
@@ -1070,41 +1087,54 @@ int main(int argc, char* argv[])
         // put the parton level event into a separate hadronizer
         auto event2 = HZ.hadronize(pythia, Z, A, Rx, Ry, Rz);
 
-        // output
-        // one file per triggered event
+        // output: one file triplet per triggered event, grouped in shard directories
         {
-            // Ntriggered starts at 1 after increment; event index for naming starts at 0 or 1—your
-            // choice. Here we use 0-based to match evt_000000.oscar for the first triggered event:
-            {
-                const int64_t event_id = (nEvent == 1) ? event_id_arg : (Ntriggered - 1);
+            const int64_t event_id = first_event_id + (Ntriggered - 1);
 
-                std::ostringstream filename;
-                filename << outdir << "/evt_" << std::setw(6) << std::setfill('0') << event_id
-                        << ".oscar";
+            const fs::path base_events_dir(outdir);
+            const fs::path shard_dir = shard_dir_for_event(base_events_dir, event_id);
 
-                std::ofstream fout_event(filename.str());
-                if (!fout_event) {
-                    std::cerr << "ERROR: cannot open output file: " << filename.str() << std::endl;
-                    return 1;
-                }
-
-                std::ostringstream meta_filename;
-                meta_filename << outdir << "/evt_" << std::setw(6) << std::setfill('0') << event_id
-                            << ".meta.json";
-
-                std::ofstream fout_meta(meta_filename.str());
-                if (!fout_meta) {
-                    std::cerr << "ERROR: cannot open metadata file: " << meta_filename.str() << std::endl;
-                    return 1;
-                }
-
-                fout_event << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge\n";
-                fout_event << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none\n";
-
-                // IMPORTANT: pass event_id, not Ntriggered
-                Output(event_id, Z, A, pythia, event2, fout_event, fout_meta);
+            try {
+                fs::create_directories(shard_dir);
+            } catch (const fs::filesystem_error& e) {
+                std::cerr << "ERROR: cannot create shard directory:\n  "
+                          << shard_dir << "\n  " << e.what() << std::endl;
+                return 3;
             }
-        } // fout_event closes here
+
+            const std::string event_str = zero_pad_int(event_id);
+
+            const fs::path event_path = shard_dir / ("event_" + event_str + ".oscar");
+            const fs::path meta_path  = shard_dir / ("event_" + event_str + ".meta.json");
+            const fs::path done_path  = shard_dir / ("event_" + event_str + ".done");
+
+            std::ofstream fout_event(event_path);
+            if (!fout_event) {
+                std::cerr << "ERROR: cannot open output file: " << event_path << std::endl;
+                return 1;
+            }
+
+            std::ofstream fout_meta(meta_path);
+            if (!fout_meta) {
+                std::cerr << "ERROR: cannot open metadata file: " << meta_path << std::endl;
+                return 1;
+            }
+
+            fout_event << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge\n";
+            fout_event << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none\n";
+
+            Output(event_id, Z, A, pythia, event2, fout_event, fout_meta);
+
+            fout_event.close();
+            fout_meta.close();
+
+            std::ofstream fout_done(done_path);
+            if (!fout_done) {
+                std::cerr << "ERROR: cannot create done file: " << done_path << std::endl;
+                return 1;
+            }
+            fout_done << "ok\n";
+        }
     }
     // Check the trigger rate
     std::cout << "Trigger Rate = " << Ntriggered * 100. / Ntotal << "%" << std::endl;
