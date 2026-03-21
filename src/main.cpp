@@ -35,17 +35,15 @@ static void usage(const char* prog) {
     << "--seed 12345\n";
 }
 
-static constexpr int64_t SHARD_SIZE = 1000;
-
 static std::string zero_pad_int(int64_t value, int width = 8) {
     std::ostringstream os;
     os << std::setw(width) << std::setfill('0') << value;
     return os.str();
 }
 
-static fs::path shard_dir_for_event(const fs::path& base_events_dir, int64_t event_id) {
-    const int64_t shard_begin = (event_id / SHARD_SIZE) * SHARD_SIZE;
-    const int64_t shard_end   = shard_begin + SHARD_SIZE - 1;
+static fs::path shard_dir_for_event(const fs::path& base_events_dir, int64_t event_id, int64_t chunk_size) {
+    const int64_t shard_begin = (event_id / chunk_size) * chunk_size;
+    const int64_t shard_end   = shard_begin + chunk_size - 1;
 
     std::ostringstream name;
     name << "events_" << zero_pad_int(shard_begin) << "-" << zero_pad_int(shard_end);
@@ -941,6 +939,16 @@ int main(int argc, char* argv[])
         }
     }
 
+    // Optional chunk size
+    int64_t chunk_size = nEvent; // default: all events in one chunk
+    if (auto it = args.find("--chunk-size"); it != args.end()) {
+        chunk_size = std::stoll(it->second);
+        if (chunk_size <= 0) {
+            std::cerr << "ERROR: --chunk-size must be > 0\n";
+            return 2;
+        }
+    }
+
   // Optional seed (make runs reproducible)
   uint32_t seed = 0;
   if (auto it = args.find("--seed"); it != args.end()) {
@@ -1092,7 +1100,7 @@ int main(int argc, char* argv[])
             const int64_t event_id = first_event_id + (Ntriggered - 1);
 
             const fs::path base_events_dir(outdir);
-            const fs::path shard_dir = shard_dir_for_event(base_events_dir, event_id);
+            const fs::path shard_dir = shard_dir_for_event(base_events_dir, event_id, chunk_size);
 
             try {
                 fs::create_directories(shard_dir);
