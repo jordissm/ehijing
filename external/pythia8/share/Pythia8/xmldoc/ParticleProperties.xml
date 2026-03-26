@@ -148,8 +148,8 @@ In detail, the list of used or foreseen status codes is:
   <li>85, 86 : primary produced hadrons in junction fragmentation of 
            the first two string legs in to the junction, 
            in order of treatment</li> 
-  <li>87, 88 : primary produced baryon from a junction, with technical 
-            difference similar to codes 83 and 84.</li> 
+  <li>87, 88 : primary produced baryon from a junction (similar difference 
+               as for 83, 84)</li> 
   <li>89 : primary produced baryon from a junction in the ministring 
            framework</li> 
   </ul> 
@@ -164,7 +164,6 @@ In detail, the list of used or foreseen status codes is:
   <li>95, 96 : a forced decay handled by an external program, i.e. picked 
            from a subset of the possible channels to enhance the rate 
            of rare signals, normally or with oscillation</li> 
-  <li>97 : decay products from a resonance produced in rescattering</li> 
   <li>99 : particles with momenta shifted by Bose-Einstein effects 
            (not a proper decay, but bookkept as an <ei>1 &rarr; 1</ei> such, 
            happening after decays of short-lived resonances but before 
@@ -192,40 +191,13 @@ In detail, the list of used or foreseen status codes is:
   <li>107 : two temporary leftover gluons joined into one in the formation 
             of a gluino-gluon R-hadron</li> 
   </ul> 
-<li>121 - 129 : other special hadron production mechanisms</li> 
-  <ul> 
-  <li>121 : deuteron formed by coalescence, and other particles formed 
-  simultaneously (like a <ei>gamma</ei> or <ei>pi</ei>)</li> 
-  </ul> 
-<li>150 - 159 : new hadrons or hadrons with changed momentum due to hadron 
+<li>111 - 119 : hadrons with changed momentum due to hadron 
   (re)scattering</li> 
   <ul> 
-  <li>150 : reserved for possible future expansion</li> 
-  <li>151 : inelastic nondiffractive collisions</li> 
-  <li>152 : elastic scattering</li> 
-  <li>153 : single diffraction, first particle excited</li> 
-  <li>154 : single diffraction, second particle excited</li> 
-  <li>155 : double diffraction</li> 
-  <li>156 : reserved for future central diffraction</li> 
-  <li>157 : low-mass diffraction, forming explicit resonances 
-            (NN collisions only)</li> 
-  <li>158 : annihilation of incoming quark-antiquark pairs</li> 
-  <li>159 : formation of a resonance particle</li> 
+  <li>111 : first time scattering</li> 
+  <li>112 : second or more time scattering</li> 
   </ul> 
-<li>181 - 189 : reserved for the tracking of a cascade through a medium. 
-  Is not (yet) used in the core code, but only in the <code>main483</code> 
-  example 
-  <ul> 
-  <li>181 : a nucleon hit in the medium, specifically the first 
-  (by order in the event record) nucleon hit in the current nucleus</li> 
-  <li>182: a further nucleon hit in a nucleus, subsequent to the first 
-  one above.</li> 
-  </ul> 
-  Thus the number of -181 codes represents the number of medium nuclei 
-  hit, while the sum of -181 and -182 codes gives the total number of 
-  medium nucleons hit. In a hydrogen medium there would be no 182 codes. 
-</li> 
-<li>100 - 199 : reserved for future expansion</li> 
+<li>121 - 199 : reserved for future expansion</li> 
 <li>201 - : free to be used by anybody.</li> 
 </ul> 
 <note>Note:</note> a clarification on the role of the "hardest" vs. the 
@@ -246,7 +218,7 @@ beam remnant of one or two partons with status 63, that together define
 the mass and longitudinal axis of the diffractive system, for use in the 
 subsequent hadronization. An event may also contain two 20'ies 
 perturbative subcollisions if you use the 
-<aloc href="SecondHardProcess">Second Hard Process</aloc> 
+<aloc href="ASecondHardProcess">Second Hard Process</aloc> 
 generation machinery. 
 </method> 
  
@@ -441,10 +413,6 @@ sets the four-momentum components in one go.
 <method name="void Particle::vProd(double xProd, double yProd, 
 double zProd, double tProd)"> 
 sets the production vertex components in one go. 
-</method> 
- 
-<method name="void Particle::vProdAdd(Vec4 vProdIn)"> 
-shifts the production vertex four-vector by the input four-vector amount. 
 </method> 
  
 <h3>Further output methods</h3> 
@@ -654,12 +622,6 @@ the mass of the particle, picked according to a Breit-Wigner
 distribution for particles with width. It is different each time called, 
 and is therefore only used once per particle to set its mass 
 <code>m()</code>. 
-</method> 
- 
-<method name="double Particle::mSelInRange(double mMinNow, double mMaxNow)"> 
-same as <code>mSel()</code> above, but restricted to the range 
-between <code>mMinNow</code> and <code>mMaxNow</code>, which is assumed 
-to be a subrange of the <code>mMin()</code> to <code>mMax()</code> range. 
 </method> 
  
 <method name="double Particle::constituentMass()"> 
@@ -880,39 +842,6 @@ are erased from the event record, mother and daughter indices are
 updated to retain a correct history for the remaining particles. 
 </method> 
  
-<p/> 
-In <aloc href="HiddenValleyProcesses">Hidden Valley</aloc> 
-<b>SU(N)</b> scenarios, HV colour and anticolour tags are 
-assigned to relevant HV-particles. Since some particles may have 
-both regular and HV colour tags, it is not possible to reuse the 
-normal colour slots. (But it is possible to share in the same colour 
-tag enumeration  sequence.) Instead a special vector exists in the 
-event record, where only HV-coloured particles are bookkept by index 
-(in the event record) and colour tags. This vector would not be used 
-in non-HV applications  and therefore takes negligible space, unlike 
-a case where further integers had been introduced for all particles. 
-The particle methods that can be used to access the HV colours are 
- 
-<method name="int Particle::colHV()"> 
-</method> 
-<methodmore name="int Particle::acolHV()"> 
-return the particle HV colour or anticolour tag, or 0 where 
-there is no such tag. 
-</methodmore> 
- 
-<method name="int Particle::colHV(int colHV)"> 
-</method> 
-<methodmore name="int Particle::acolHV(int acolHV)"> 
-</methodmore> 
-<methodmore name="int Particle::colsHV(int colHV, int acolHV)"> 
-set the particle HV colour or anticolour tag, or both in one go. 
-</methodmore> 
- 
-Further methods are found in the 
-<aloc href="EventRecord">Event</aloc> class, notably 
-<code>Event::listHVcols()</code> to list the HV colours that have 
-been assigned. 
- 
 <h3>Methods that perform operations</h3> 
  
 There are some further methods, some of them inherited from 
@@ -960,11 +889,8 @@ as above, but also use <ei>gamma> = e/m</ei> to reduce roundoff errors.
 as above, but with sign of boost flipped. 
 </methodmore> 
  
-<method name="void Particle::rotbst(const RotBstMatrix& M, 
-bool boostVertex = true)"> 
+<method name="void Particle::rotbst(const RotBstMatrix& M)"> 
 combined rotation and boost of the four-momentum and production vertex. 
-If the optional second argument is false only the four-momentum is 
-boosted, and not the production vertex. 
 </method> 
  
 <method name="void Particle::offsetHistory( int minMother, int addMother, 
@@ -1031,4 +957,4 @@ particle species.
  
 </chapter> 
  
-<!-- Copyright (C) 2025 Torbjorn Sjostrand --> 
+<!-- Copyright (C) 2018 Torbjorn Sjostrand --> 
