@@ -1,6 +1,7 @@
 #include "filesystem_utils.hpp"
 
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 
 std::string zero_pad_int(int64_t value, int width) {
@@ -34,7 +35,7 @@ EventPaths make_event_paths(const std::filesystem::path& base_events_dir,
         std::filesystem::create_directories(shard_dir);
     } catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "ERROR: cannot create shard directory:\n  " << shard_dir << "\n  " << e.what() << std::endl;
-        return 3;
+        std::exit(2);
     }
 
     // Set the zero-padded event ID string for file naming
