@@ -11,11 +11,13 @@ find_package(GSL REQUIRED)
 
 # ---- Executable ----
 add_executable(ehijing
-  src/main.cpp
   src/cli.cpp
-  src/filesystem_utils.cpp
   src/dis_kinematics.cpp
   src/event_output.cpp
+  src/filesystem_utils.cpp
+  src/hadronizer.cpp
+  src/main.cpp
+  src/modified_ff.cpp
 )
 
 # ---- C++ standard (target-based) ----
