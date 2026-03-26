@@ -1,4 +1,6 @@
 #include "Pythia8/Pythia.h"
+#include "cli.hpp"
+
 using namespace Pythia8;
 #include <algorithm>
 #include <chrono>
@@ -9,31 +11,21 @@ using namespace Pythia8;
 #include <iomanip>
 #include <sstream>
 #include <unistd.h>
+#include <filesystem>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+
+
 std::random_device rrd;  // Non-deterministic generator
 std::mt19937 gen(rrd()); // Mersenne Twister engine
 
 // Define a distribution (range 0.0 to 1.0)
 std::uniform_real_distribution<> Ran_gen(0.0, 1.0);
 
-#include <filesystem>
-#include <iostream>
-#include <string>
-#include <unordered_map>
 
 namespace fs = std::filesystem;
 
-static void usage(const char* prog) {
-  std::cerr
-    << "Usage:\n"
-    << "  " << prog << " --nevents N --first-event-id I --Z Z --A A --mode M --K K "
-    << "--table-dir PATH --run-dir PATH --config-file PATH --seed S\n\n"
-    << "Example:\n"
-    << "  " << prog << " --nevents 1000 --first-event-id 0 --Z 1 --A 2 --mode 0 --K 4.0 "
-    << "--table-dir output/runs/ehijing/tables/K4p0 "
-    << "--run-dir output/runs/ehijing/events "
-    << "--config-file /opt/electra/ehijing_bin/config/experiments/hermes.setting "
-    << "--seed 12345\n";
-}
 
 static std::string zero_pad_int(int64_t value, int width = 8) {
     std::ostringstream os;
@@ -50,19 +42,6 @@ static fs::path shard_dir_for_event(const fs::path& base_events_dir, int64_t eve
     return base_events_dir / name.str();
 }
 
-static std::string require_arg(
-    const std::unordered_map<std::string,std::string>& m,
-    const std::string& key,
-    const char* prog)
-{
-  auto it = m.find(key);
-  if (it == m.end() || it->second.empty()) {
-    std::cerr << "ERROR: missing required argument: " << key << "\n";
-    usage(prog);
-    std::exit(2);
-  }
-  return it->second;
-}
 
 void rotate(double px, double py, double pz, double pr[4], int icc)
 {
@@ -153,11 +132,11 @@ double samplePointInSphere(double R)
 // ==============================================================
 
 // A separate Pythia instance that only handles hadronization
-class hadronizer
+class Hadronizer
 {
   public:
     // Constructor, set Pythia, random generator
-    hadronizer() : pythia(), rd(), gen(rd()), dist(0., 1.)
+    Hadronizer() : pythia(), rd(), gen(rd()), dist(0., 1.)
     {
         pythia.readString("ProcessLevel:all = off");
         pythia.readString("Print:quiet = on");
@@ -192,126 +171,192 @@ class hadronizer
     }
 
     // This function takes the shower PythiaIn (ep-shower with recoil particles)
-    // and assume it fragments in an evneronment of nucleus with proton Z and mass A
+    // and assume it fragments in a nuclear medium with charge Z and atomic mass A
     std::vector<Particle> hadronize(Pythia& pythiaIn, int Z, int A, double Rx, double Ry, double Rz)
     {
-        // proton fraction;
-        double ZoverA = Z * 1. / A;
-        std::vector<Particle> FinalParticles;
-        FinalParticles.clear();
+
+        // Define charge fraction
+        double ZoverA = Z * 1.0 / A;
+
+        // This vector will store the final hadrons after hadronization, and will be returned to the main function
+        std::vector<Particle> FinalStateParticles;
+        FinalStateParticles.clear();
+
         // Get the initial hard parton ID
         int hardid = pythiaIn.event[5].id();
-        // Reset the hadronizer Pythia
+
+        // Empty the event record of the hadronizer, and prepare to fill it with partons from the shower
         pythia.event.reset();
+
         // Loop over the partons in the shower PythiaIn, and put them in the hadronizer
-        for (int i = 0; i < pythiaIn.event.size(); i++)
+        for (int i = 0; i < pythiaIn.event.size(); ++i)
         {
-            auto& p = pythiaIn.event[i];
-            // Find the final-state parton stuff (this drops the deflected lepton in the event)
-            if (!(p.isFinal() && p.isParton()))
+
+            auto& particle = pythiaIn.event[i];
+
+            // Only consider final state partons
+            // Drop intermediate partons and non-partons
+            if (!(particle.isFinal() && particle.isParton()))
                 continue;
-            // These are di-quark remnants of the proton
-            if (p.status() == 63 && 1000 < p.idAbs() && p.idAbs() < 3000)
+            
+            // Di-quark remnants
+            // status() == 63 : outgoing beam remnant from particles produced by beam-remnant treatment
+            // idAbs() > 1000 && idAbs() < 3000 : di-quarks
+            //   (dd)_1 : 1103
+            //   (ud)_0 : 2101
+            //   (ud)_1 : 2103
+            //   (uu)_1 : 2203
+            if (particle.status() == 63 && 1000 < particle.idAbs() && particle.idAbs() < 3000)
             {
-                // valence stuff, the remnants will contain the rest flavor compoennt.
-                // note that the hard quark has already been sampled accorrding to the
+                // valence stuff, the remnants will contain the rest flavor component
+                // note that the hard quark has already been sampled according to the
                 // the isospin content of the nuclear PDF;
                 // *** However, the remanent is generated assuming the rest stuff comes
                 // from a proton. Therefore, we need to resample it according to the Z/A
                 // ratio this nuclei
-                // 1) decide wither it is from a neutron or proton
-                if (dist(gen) < ZoverA)
-                { // From a proton 2212
+                // 1) Decide whether it is from a neutron or proton
+                if (dist(gen) < ZoverA) // From a proton 2212
+                { 
                     if (hardid == 1)
-                    { // produce 2203
-                        p.id(2203);
+                    {
+                        // Produce (uu)_1 : 2203
+                        particle.id(2203);
                     }
                     if (hardid == 2)
-                    { // produce 2101 and 2103 with ratio 3:1
+                    { 
+                        // Produce (ud)_0 : 2101 and (ud)_1 : 2103 with ratio 3:1
                         if (dist(gen) < 0.75)
-                            p.id(2101);
+                            particle.id(2101);
                         else
-                            p.id(2103);
+                            particle.id(2103);
                     }
-                } else
-                { // From a neutron 2112
+                } else // From a neutron 2112
+                { 
                     if (hardid == 1)
-                    { // produce 2101 and 2103 with ratio 3:1
+                    {
+                        // Produce (ud)_0 : 2101 and (ud)_1 : 2103 with ratio 3:1
                         if (dist(gen) < 0.75)
-                            p.id(2101);
+                            particle.id(2101);
                         else
-                            p.id(2103);
+                            particle.id(2103);
                     }
                     if (hardid == 2)
-                    { // produce 1103
-                        p.id(1103);
+                    { 
+                        // Produce (dd)_1 : 1103
+                        particle.id(1103);
                     }
                 }
             }
             // For other partons, just put it in the shower
-            pythia.event.append(p.id(), 23, p.col(), p.acol(), p.px(), p.py(), p.pz(), p.e(),
-                                p.m());
+            // status() == 23 : outgoing particles of the hardest subprocess
+            pythia.event.append(particle.id(),
+                                23, 
+                                particle.col(), 
+                                particle.acol(), 
+                                particle.px(), 
+                                particle.py(), 
+                                particle.pz(), 
+                                particle.e(), 
+                                particle.m());
         }
 
         // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
         // Assign the space-time to partons
-        for (int i = 0; i < pythia.event.size(); i++)
+        // Loop over the partons in the hadronizer
+        for (int i = 0; i < pythia.event.size(); ++i)
         {
+
             auto& particle = pythia.event[i];
+
+            // Only consider partons
             if (particle.isParton())
             {
-                double position[3] = {0.0}; // spatial information of partons (x, y, z)
-                position[0] = 0.0;
-                position[1] = 0.0;
-                position[2] = 0.0;
-                // int ishower = 0;
-                double p0[4] = {0.0}; // particle's four momentum
-                double p4[4] = {0.0}; // mother's four momentum
+                
+                // Initialize the (x, y, z) position of the parton
+                double position[3] = {0.0};
+
+                // Initialize the four-momentum of the parton
+                double p0[4] = {0.0};
+
+                // Initialize the four-momentum of the mother
+                double p4[4] = {0.0};
+
+
                 double qt, time_step;
                 double timeplus = 0.0;
                 int IDmom1, IDmom2;
                 int timebreaker = 0;
                 int j = i;
                 int IDmom0 = j;
-                //... start to calculate the formation and the spatial information of partons ...
+
+                // Compute the formation and spatial information of partons
                 while (timebreaker == 0)
                 {
                     int IDiii = IDmom0;
-                    if (abs(pythia.event[IDiii].status()) == 23 ||
-                        abs(pythia.event[IDiii].status()) == 21 ||
-                        abs(pythia.event[IDiii].status()) == 12)
+                    if (std::abs(pythia.event[IDiii].status()) == 23 ||
+                        std::abs(pythia.event[IDiii].status()) == 21 ||
+                        std::abs(pythia.event[IDiii].status()) == 12)
                         timebreaker = 1;
+
+                    // Find the mothers of the parton
                     IDmom1 = pythia.event[IDiii].mother1();
                     IDmom2 = pythia.event[IDiii].mother2();
+
+                    // 1) Parton with no mother
                     if (IDmom1 == IDmom2 && IDmom1 == 0)
                         timebreaker = 1;
+
+                    // 2) Parton is a "carbon copy" of its mother, but with changed momentum as a "recoil" effect, e.g. in a shower
                     if (IDmom1 == IDmom2 && IDmom1 > 0)
                         IDmom0 = IDmom1;
+
+                    // 3) The "normal" mother case, where it is meaningful to speak of one single mother to several products, in a shower or decay;
                     if (IDmom1 > 0 && IDmom2 == 0)
                     {
+
                         IDmom0 = IDmom1;
+
+                        // Find the daughters of the mother
                         double IDdaughter1 = pythia.event[IDmom0].daughter1();
                         double IDdaughter2 = pythia.event[IDmom0].daughter2();
+
+                        // 
                         if (IDdaughter1 != IDdaughter2 && IDdaughter1 > 0 && IDdaughter2 > 0)
                         {
+
+                            // Compute the four-momentum of the mother by summing over the two daughters
                             p4[0] = pythia.event[IDdaughter1].e() + pythia.event[IDdaughter2].e();
                             p4[1] = pythia.event[IDdaughter1].px() + pythia.event[IDdaughter2].px();
                             p4[2] = pythia.event[IDdaughter1].py() + pythia.event[IDdaughter2].py();
                             p4[3] = pythia.event[IDdaughter1].pz() + pythia.event[IDdaughter2].pz();
+
+                            //
                             double x_split = pythia.event[IDiii].e() / p4[0];
                             if (x_split > 1)
                                 x_split = 1.0 / x_split;
+
+                            // Compute the four-momentum of the parton itself
                             p0[0] = pythia.event[IDiii].e();
                             p0[1] = pythia.event[IDiii].px();
                             p0[2] = pythia.event[IDiii].py();
                             p0[3] = pythia.event[IDiii].pz();
 
+                            // 
                             rotate(p4[1], p4[2], p4[3], p0, 1);
+
+                            // 
                             qt = sqrt(p0[1] * p0[1] + p0[2] * p0[2]);
+
+                            // 
                             rotate(p4[1], p4[2], p4[3], p0, -1);
+
+                            //
                             double kt_daughter = qt;
+
+                            //
                             if (x_split < 0.5)
                             {
+                                // 
                                 if (kt_daughter > 1.e-10)
                                 {
                                     time_step = 2.0 * p4[0] * x_split * (1 - x_split) /
@@ -335,8 +380,13 @@ class hadronizer
                                 }
                             }
                         }
-                    } // if(IDmom1>0 && IDmom2==0)
+                    }
 
+                    // 4) For abs(status) = 81 - 86: primary hadrons produced from the fragmentation of a
+                    // string spanning the range from mother1 to mother2, so that all partons in this
+                    // range should be considered mothers; and analogously for abs(status) = 101 - 106,
+                    // the formation of R-hadrons. Or, particles with two truly different mothers, in
+                    // particular the particles emerging from a hard 2 → n interaction.
                     if (IDmom1 < IDmom2 && IDmom1 > 0 && IDmom2 > 0)
                     {
                         if (pythia.event[IDmom1].e() > pythia.event[IDmom2].e())
@@ -437,8 +487,12 @@ class hadronizer
                                 }
                             }
                         }
-                    } // if(IDmom1<IDmom2 && IDmom1>0 && IDmom2>0)
+                    }
 
+                    // 5) Particles with two truly different mothers, notably for the special
+                    // case that two nearby partons are joined together into a status 73 or 74
+                    // new parton, in the g + q → q case the q is made first mother to
+                    // simplify flavour tracing.
                     if (IDmom1 > IDmom2 && IDmom1 > 0 && IDmom2 > 0)
                     {
                         if (pythia.event[IDmom1].e() > pythia.event[IDmom2].e())
@@ -542,7 +596,8 @@ class hadronizer
                             }
                         }
 
-                    } // if(IDmom1>IDmom2 && IDmom1>0 && IDmom2>0)
+                    }
+
 
                     if (IDmom1 == IDmom2 && IDmom1 > 0)
                     {
@@ -637,26 +692,28 @@ class hadronizer
                             }
                         }
                     }
+                }
 
-                } // while(timebreaker == 0)
-
+                // Compute shift in position
                 particle.vProd(particle.vProd() + Vec4(position[0] + Rx * HBARC,
                                                        position[1] + Ry * HBARC,
                                                        position[2] + Rz * HBARC, timeplus));
             }
         }
+
         // Do Hadronization
         pythia.next();
-        // Return only final-state particles.
-        for (int i = 0; i < pythia.event.size(); i++)
+
+        // Return only final state particles.
+        for (int i = 0; i < pythia.event.size(); ++i)
         {
-            auto& p = pythia.event[i];
-            if (p.isFinal())
+            auto& particle = pythia.event[i];
+            if (particle.isFinal())
             {
-                FinalParticles.push_back(p);
+                FinalStateParticles.push_back(particle);
             }
         }
-        return FinalParticles;
+        return FinalStateParticles;
     }
 
   private:
@@ -819,7 +876,7 @@ void Output(int32_t eventNumber, int Z, int A, Pythia& pythia,
 
     // Output proton data
     int totalProtons = Z - randomBinary;
-    for (auto i = 0; i < totalProtons; i++)
+    for (auto i = 0; i < totalProtons; ++i)
     {
         double rr = samplePointInSphere(RA);
         double phi = 2. * M_PI * Ran_gen(gen);
@@ -846,9 +903,9 @@ void Output(int32_t eventNumber, int Z, int A, Pythia& pythia,
 
     // Output neutron data
     int totalNeutrons = A - Z + randomBinary;
-    for (auto i = 0; i < totalNeutrons; i++)
+    for (auto i = 0; i < totalNeutrons; ++i)
     {
-        // for (auto i =0; i<A-Z-1 + randomBinary; i++) {
+        // for (auto i =0; i<A-Z-1 + randomBinary; ++i) {
         double rr = samplePointInSphere(RA);
         double phi = 2. * M_PI * Ran_gen(gen);
         double costheta = 1. - 2. * Ran_gen(gen);
@@ -898,124 +955,38 @@ class Modified_FF
     std::uniform_real_distribution<double> dist;
 };
 
-// The main routine:
 int main(int argc, char* argv[])
 {
-  // --- Simple flag parser: --key value ---
-  std::unordered_map<std::string,std::string> args;
-  for (int i = 1; i < argc; ++i) {
-    std::string k = argv[i];
-    if (k.rfind("--", 0) == 0) {
-      if (i + 1 >= argc) {
-        std::cerr << "ERROR: flag " << k << " requires a value\n";
-        usage(argv[0]);
-        return 2;
-      }
-      args[k] = argv[++i];
-    } else {
-      std::cerr << "ERROR: unexpected positional arg: " << k << "\n";
-      usage(argv[0]);
-      return 2;
-    }
-  }
 
-    // Required
-  const int nEvent = std::stoi(require_arg(args, "--nevents", argv[0]));
-  const int Z      = std::stoi(require_arg(args, "--Z", argv[0]));
-  const int A      = std::stoi(require_arg(args, "--A", argv[0]));
-  const int mode   = std::stoi(require_arg(args, "--mode", argv[0]));
-  const double K   = std::stod(require_arg(args, "--K", argv[0]));
-  const std::string TableDir  = require_arg(args, "--table-dir", argv[0]);
-  const std::string outdir    = require_arg(args, "--run-dir", argv[0]);
-  const std::string configfile= require_arg(args, "--config-file", argv[0]);
+    const RunConfig cfg = parse_args(argc, argv);
 
-    // Optional first global event id for this job/chunk
-    int64_t first_event_id = 0;
-    if (auto it = args.find("--first-event-id"); it != args.end()) {
-        first_event_id = std::stoll(it->second);
-        if (first_event_id < 0) {
-            std::cerr << "ERROR: --first-event-id must be >= 0\n";
-            return 2;
-        }
+    const int nEvents = cfg.nEvents;
+    const int Z = cfg.Z;
+    const int A = cfg.A;
+    const int mode = cfg.mode;
+    const double K = cfg.K;
+    const std::string& tableDir = cfg.tableDir;
+    const std::string& outDir = cfg.runDir;
+    const std::string& configFile = cfg.configFile;
+    const int64_t first_event_id = cfg.firstEventId;
+    const int64_t chunk_size = cfg.chunkSize;
+    const uint32_t seed = cfg.seed;
+
+    // Ensure output directories exist
+    try // Attempt to create the directories if they do not exist
+    {
+        fs::create_directories(fs::path(outDir));
+        fs::create_directories(fs::path(tableDir));
+    } catch (const fs::filesystem_error& e) // Handle any errors that occur during directory creation
+    {
+        std::cerr << "ERROR: cannot create output/table directories:\n  " << e.what() << "\n";
+        return 3;
     }
 
-    // Optional chunk size
-    int64_t chunk_size = nEvent; // default: all events in one chunk
-    if (auto it = args.find("--chunk-size"); it != args.end()) {
-        chunk_size = std::stoll(it->second);
-        if (chunk_size <= 0) {
-            std::cerr << "ERROR: --chunk-size must be > 0\n";
-            return 2;
-        }
-    }
+    // Build the nucleus ID used by Pythia & the PDF (the isospin effect)
+    const int iNuclei = 100000000 + Z * 10000 + A * 10;
 
-  // Optional seed (make runs reproducible)
-  uint32_t seed = 0;
-  if (auto it = args.find("--seed"); it != args.end()) {
-    // Pythia seeds must be in [1, 900000000] typically; keep it in range
-    uint64_t s64 = std::stoull(it->second);
-    seed = static_cast<uint32_t>(1 + (s64 % 900000000ULL));
-  } else {
-    // non-deterministic fallback
-    seed = static_cast<uint32_t>(std::random_device{}());
-  }
-
-  // Ensure directories exist
-  try {
-    fs::create_directories(fs::path(outdir));
-    fs::create_directories(fs::path(TableDir));
-  } catch (const fs::filesystem_error& e) {
-    std::cerr << "ERROR: cannot create output/table directories:\n  " << e.what() << "\n";
-    return 3;
-  }
-
-  // build the nucleus ID used by Pythia & the PDF (the isospin effect)
-  const int inuclei = 100000000 + Z * 10000 + A * 10;
-
-  // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
-  // Shadowing effect:
-  int nPDFset = 0; // (A>2)?3:0;
-
-  // Initialize the hadronizer instance:
-  hadronizer HZ;
-
-  // Initialize the eHIJING-pythia for high-Q parton shower in medium
-  Pythia pythia;
-  Event& event = pythia.event;
-
-  // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
-  // Make Pythia deterministic
-  pythia.readString("Random:setSeed = on");
-  pythia.readString("Random:seed = " + std::to_string(seed));
-
-  // ALSO seed your own RNGs deterministically (important!)
-  // Replace your global std::mt19937 gen(rrd()) behavior with a fixed seed:
-  gen.seed(seed);
-  // And stop using srand(time(0)); later in Output(): use srand(seed) or remove rand() entirely
-  std::srand(seed);
-
-  // read settings
-  pythia.readFile(configfile);
-
-  add_arg<int>(pythia, "eHIJING:Mode", mode);
-  add_arg<int>(pythia, "PDF:nPDFSetA", nPDFset);
-  add_arg<int>(pythia, "PDF:nPDFBeamA", inuclei);
-  add_arg<int>(pythia, "eHIJING:AtomicNumber", A);
-  add_arg<int>(pythia, "eHIJING:ChargeNumber", Z);
-  add_arg<double>(pythia, "eHIJING:Kfactor", K);
-  add_arg<std::string>(pythia, "eHIJING:TablePath", TableDir);
-
-  pythia.init();
-
-  Modified_FF MFF(mode, Z, A, K, pythia.settings.parm("eHIJING:xG-n"),
-                  pythia.settings.parm("eHIJING:xG-lambda"), TableDir);
-    // Read commandline arguments
-    // number of events, atomic Z and A
-    // int nEvent = atoi(argv[1]);
-    // int Z = atoi(argv[2]);
-    // int A = atoi(argv[3]);
-    // build the nucleus ID used by Pythia & the PDF (the isospin effect)
-    // int inuclei = 100000000 + Z * 10000 + A * 10;
+    // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
     // Shadowing effect:
     //   nPDFset=0: only isospin
     //   nPDFset = 1: EPS09 LO
@@ -1023,132 +994,137 @@ int main(int argc, char* argv[])
     //   nPDFset = 2: EPPS16 NLO
     // We will use only isospin for deuteron,
     // and EPPS16 NLO for heavier nucleus
-    // int nPDFset = 0; //(A>2)?3:0;
+    int nPDFset = 0; // (A>2)?3:0;
 
-    // mode=0: higher-twist, in the soft-gluon-emission limit
-    // mode=1: generalized higher-twist, in the soft-gluon-emission limit
-    // int mode = atof(argv[4]);
+    // Initialize the Pythia instance for hadronization
+    Hadronizer hadronizer;
 
-    // // K-factor of the gluon distribution.
-    // double K = atof(argv[5]);
+    // Initialize the eHIJING-Pythia for high-Q parton shower in medium
+    Pythia pythia;
 
-    // // eHIJING table path
-    // std::string TablePath(argv[6]);
+    // Read settings from the config file and apply them to the Pythia instance
+    pythia.readFile(configFile);
+    
+    // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
+    // Make Pythia deterministic
+    pythia.readString("Random:setSeed = on");
+    pythia.readString("Random:seed = " + std::to_string(seed));
 
-    // // Pythia8+other eHijing params configurations
-    // auto configfile = std::string(argv[8]);
+    // ALSO seed your own RNGs deterministically (important!)
+    gen.seed(seed);
+    std::srand(seed);
 
-    // // header/folder of the output
-    // // use CPU process id used to name the output file
-    // auto outdir = std::string(argv[7]);
+    // Set Pythia and eHIJING settings from command line arguments
+    // Note: Command line arguments will override settings in the config file if there are conflicts
+    add_arg<int>(pythia, "PDF:nPDFSetA", nPDFset);
+    add_arg<int>(pythia, "PDF:nPDFBeamA", iNuclei);
+    add_arg<int>(pythia, "eHIJING:Mode", mode);
+    add_arg<int>(pythia, "eHIJING:AtomicNumber", A);
+    add_arg<int>(pythia, "eHIJING:ChargeNumber", Z);
+    add_arg<double>(pythia, "eHIJING:Kfactor", K);
+    add_arg<std::string>(pythia, "eHIJING:TablePath", tableDir);
 
-    // // initialize the hadronizer instance:
-    // hadronizer HZ;
+    // Prepare Pythia for event generation
+    pythia.init();
 
-    // // Initialize the eHIJING-pythia for high-Q parton shower in medium
-    // Pythia pythia;               // Generator
-    // Event& event = pythia.event; // Event record
-    // pythia.readFile(configfile); // read settings
-    // add_arg<int>(pythia, "eHIJING:Mode", mode);
-    // add_arg<int>(pythia, "PDF:nPDFSetA", nPDFset);
-    // add_arg<int>(pythia, "PDF:nPDFBeamA", inuclei);
-    // add_arg<int>(pythia, "eHIJING:AtomicNumber", A);
-    // add_arg<int>(pythia, "eHIJING:ChargeNumber", Z);
-    // add_arg<double>(pythia, "eHIJING:Kfactor", K);
-    // add_arg<std::string>(pythia, "eHIJING:TablePath", TablePath);
-    // pythia.init();
-    // // pythia.particleData.list(); // Remove this line when we don't need particle list
+    // Initialize the modified FF module for medium corrections to the parton shower
+    Modified_FF MFF(mode, Z, A, K, pythia.settings.parm("eHIJING:xG-n"),
+                    pythia.settings.parm("eHIJING:xG-lambda"), tableDir);
 
-    // // initialize the modified FF class
-    // Modified_FF MFF(mode, Z, A, K, pythia.settings.parm("eHIJING:xG-n"),
-    //                 pythia.settings.parm("eHIJING:xG-lambda"), TablePath);
+    // Define counter for triggered events
+    int nTriggered = 0;
 
-    // Begin event loop.
-    int Ntriggered = 0;
-    int Ntotal = 0, Nfailed = 0;
+    // Define counter for failed events
+    int nFailed = 0;
 
-    while (Ntriggered < nEvent)
+    // Define counter for total events
+    int nTotal = 0;
+    
+    // Begin event loop
+    while (nTriggered < nEvents)
     {
-        Ntotal++;
+
+        // Add to total event count
+        nTotal++;
+
+        // Skip event if it fails to generate
         if (!pythia.next())
         {
-            Nfailed++;
+            // Add to failed event count
+            nFailed++;
             continue;
-            // count failed events
         };
 
+        // Skip event if it doesn't satisfy the trigger conditions
         if (!trigger(pythia))
-            continue; // only study triggered events
-        Ntriggered++;
-        if (Ntriggered % 1000 == 0)
-            std::cout << "# of trigged events: " << Ntriggered << std::endl;
+            continue;
 
-        for (int i = 0; i < event.size(); ++i)
-        {
-            Particle& particle = event[i];
-        }
+        // Event passed the trigger, add to triggered event count
+        nTriggered++;
 
+        // Initialize the (x, y, z) size
         double Rx, Ry, Rz;
-        // Modify the final shower with low-Q2 medium corrections
-        MFF.sample_FF_partons(event, Rx, Ry, Rz);
 
-        // put the parton level event into a separate hadronizer
-        auto event2 = HZ.hadronize(pythia, Z, A, Rx, Ry, Rz);
+        // Modify the final shower with low-Q^2 medium corrections
+        MFF.sample_FF_partons(pythia.event, Rx, Ry, Rz);
 
-        // output: one file triplet per triggered event, grouped in shard directories
+        // Put the parton-level event into the separate hadronizer
+        auto hadronizerEvent = hadronizer.hadronize(pythia, Z, A, Rx, Ry, Rz);
+
+        // Set event ID
+        const int64_t event_id = first_event_id + (nTriggered - 1);
+
+        // Set output paths for this event, organized by shard directories
+        const fs::path base_events_dir(outDir);
+        const fs::path shard_dir = shard_dir_for_event(base_events_dir, event_id, chunk_size);
+
+        // Create the shard directory if it does not exist
+        try 
         {
-            const int64_t event_id = first_event_id + (Ntriggered - 1);
-
-            const fs::path base_events_dir(outdir);
-            const fs::path shard_dir = shard_dir_for_event(base_events_dir, event_id, chunk_size);
-
-            try {
-                fs::create_directories(shard_dir);
-            } catch (const fs::filesystem_error& e) {
-                std::cerr << "ERROR: cannot create shard directory:\n  "
-                          << shard_dir << "\n  " << e.what() << std::endl;
-                return 3;
-            }
-
-            const std::string event_str = zero_pad_int(event_id);
-
-            const fs::path event_path = shard_dir / ("event_" + event_str + ".oscar");
-            const fs::path meta_path  = shard_dir / ("event_" + event_str + ".meta.json");
-            const fs::path done_path  = shard_dir / ("event_" + event_str + ".done");
-
-            std::ofstream fout_event(event_path);
-            if (!fout_event) {
-                std::cerr << "ERROR: cannot open output file: " << event_path << std::endl;
-                return 1;
-            }
-
-            std::ofstream fout_meta(meta_path);
-            if (!fout_meta) {
-                std::cerr << "ERROR: cannot open metadata file: " << meta_path << std::endl;
-                return 1;
-            }
-
-            fout_event << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge\n";
-            fout_event << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none\n";
-
-            Output(event_id, Z, A, pythia, event2, fout_event, fout_meta);
-
-            fout_event.close();
-            fout_meta.close();
-
-            std::ofstream fout_done(done_path);
-            if (!fout_done) {
-                std::cerr << "ERROR: cannot create done file: " << done_path << std::endl;
-                return 1;
-            }
-            fout_done << "ok\n";
+            fs::create_directories(shard_dir);
+        } catch (const fs::filesystem_error& e) 
+        {
+            std::cerr << "ERROR: cannot create shard directory:\n  " << shard_dir << "\n  " << e.what() << std::endl;
+            return 3;
         }
+
+        // Set the zero-padded event ID string for file naming
+        const std::string event_str = zero_pad_int(event_id);
+
+        // Set output file paths for this event
+        const fs::path event_path = shard_dir / ("event_" + event_str + ".oscar");
+        const fs::path meta_path  = shard_dir / ("event_" + event_str + ".meta.json");
+
+        // Open OSCAR output file
+        std::ofstream fout_event(event_path);
+        if (!fout_event) 
+        {
+            std::cerr << "ERROR: cannot open output file: " << event_path << std::endl;
+            return 1;
+        }
+
+        // Open metadata output file
+        std::ofstream fout_meta(meta_path);
+        if (!fout_meta) 
+        {
+            std::cerr << "ERROR: cannot open metadata file: " << meta_path << std::endl;
+            return 1;
+        }
+
+        // Write headers for the OSCAR event file
+        fout_event << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge\n";
+        fout_event << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none\n";
+
+        // Write the event data and metadata to the respective files
+        Output(event_id, Z, A, pythia, hadronizerEvent, fout_event, fout_meta);
+
+        // Close the output files
+        fout_event.close();
+        fout_meta.close();
+
     }
-    // Check the trigger rate
-    std::cout << "Trigger Rate = " << Ntriggered * 100. / Ntotal << "%" << std::endl;
-    // Check the rate of failed events
-    std::cout << "Failed Rate = " << Nfailed * 100. / Ntotal << "%" << std::endl;
-    // Done.
+
+    // Done
     return 0;
 }
 
@@ -1183,7 +1159,7 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
     std::vector<double> y_arr;
     std::vector<double> z_arr;
     std::vector<double> t_arr;
-    for (int i = 0; i < event.size(); i++)
+    for (int i = 0; i < event.size(); ++i)
     {
 
         // only find final-state quarks and gluons with energy above
@@ -1215,7 +1191,7 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
         Rz = event.Rz();
 
         double sumq2 = 0.; // useful quantity for H-T approach
-        for (int i=0; i<Ncolls; i++) sumq2 += qt2s[i];
+        for (int i=0; i < Ncolls; ++i) sumq2 += qt2s[i];
         if (sumq2 < 1e-9)
             continue; // negelect too soft momentum kicks
 
