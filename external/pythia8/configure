@@ -270,19 +270,25 @@ for IDX in ${!PKG_LIST[@]}; do PKG=${PKG_LIST[$IDX]}
 		echo "WARNING: Disabling $PKG - requires $DEP.";
 	    fi; done; IFS=" "; fi; done
 
-# Write the configuation to screen and file, update the pythia8-config script.
-sed 's|^CFG_FILE=.*|CFG_FILE='"$PREFIX_SHARE"'/examples/Makefile.inc|;n' \
-    bin/pythia8-config > bin/tmp
-chmod a+x bin/tmp; mv bin/tmp bin/pythia8-config
+# Write the configuration to screen and file, update the pythia8-config script.
+mkdir -p bin;
+sed 's|^CFG_FILE=.*|CFG_FILE='"$PREFIX_SHARE"'/examples/Makefile.inc|' \
+    pythia8-config.inc > bin/pythia8-config
+chmod a+x bin/pythia8-config
 echo "---------------------------------------------------------------------"
 echo "|                    PYTHIA Configuration Summary                   |"
 echo "---------------------------------------------------------------------"
-echo "Configured for $ARCH with the following options:"
+echo "  Architecture                = "$ARCH 
+echo "  C++ compiler     CXX        = "$CXX
+echo "  C++ flags        CXX_COMMON = "$CXX_COMMON
+echo "  C++ shared flag  CXX_SHARED = "$CXX_SHARED
+echo -n "  Further options             = "
 if [ "$ENABLE_DEBUG_SET" = true ];  then echo "--enable-debug"; fi
 if [ "$ENABLE_OPTDEBUG_SET" = true ];  then echo "--enable-optdebug"; fi
 if [ "$ENABLE_64BIT_SET" = true ];  then echo "--enable-64bit"; fi
 if [ "$ENABLE_SHARED_SET" = true ]; then echo "--enable-shared"; fi
 if [ "$LCG_SET" = true ];           then echo "--lcg=$LCG"; fi
+echo ""
 cat >> $CFG_FILE << BLOCKTEXT
 
 # Install directory prefixes.
