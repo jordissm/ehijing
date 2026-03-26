@@ -162,11 +162,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                 {
                     // Produce (uu)_1 : 2203
                     particle.id(2203);
-                    std::cerr << "Hadronizer: remnant diquark (uu)_1 produced from a proton\n" << std::endl;
                 }
                 else if (hardid == 2)
                 {
-                    std::cerr << "Hadronizer: remnant diquark (ud) produced from a proton, with 75% (ud)_0 and 25% (ud)_1\n" << std::endl;
                     // Produce (ud)_0 : 2101 and (ud)_1 : 2103 with ratio 3:1
                     if (dist(gen) < 0.75)
                         particle.id(2101);
@@ -178,7 +176,6 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
             {
                 if (hardid == 1)
                 {
-                    std::cerr << "Hadronizer: remnant diquark (ud) produced from a neutron\n" << std::endl;
                     // Produce (ud)_0 : 2101 and (ud)_1 : 2103 with ratio 3:1
                     if (dist(gen) < 0.75)
                         particle.id(2101);
@@ -187,7 +184,6 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                 }
                 else if (hardid == 2)
                 {
-                    std::cerr << "Hadronizer: remnant diquark (dd)_1 produced from a neutron\n" << std::endl;
                     // Produce (dd)_1 : 1103
                     particle.id(1103);
                 }
