@@ -106,7 +106,7 @@ void ParticleDecays::init(Info* infoPtrIn, Settings& settings,
 
   // Allow showers in decays to qqbar/gg/ggg/gammagg.
   doFSRinDecays = settings.flag("ParticleDecays:FSRinDecays");
-  doGammaRad    = settings.flag("ParticleDecays:allowPhotonRadiation");
+  doGammaRad    = settings.flag("HadronLevel:QED");
 
   // Use standard decays or dedicated tau decay package
   tauMode       = settings.mode("TauDecays:mode");
