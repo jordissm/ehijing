@@ -17,5 +17,5 @@ struct DISKinematics {
 };
 
 DISKinematics compute_dis_kinematics(const Pythia8::Pythia& pythia);
-bool is_valid_dis_event(const DISKinematics& kin)
+bool is_valid_dis_event(const DISKinematics& kin);
 bool trigger(const Pythia8::Pythia& pythia);
