@@ -1,5 +1,8 @@
 #include "Pythia8/Pythia.h"
 #include "cli.hpp"
+#include "filesystem_utils.hpp"
+#include "dis_kinematics.hpp"
+#include "event_output.hpp"
 
 using namespace Pythia8;
 #include <algorithm>
@@ -22,25 +25,6 @@ std::mt19937 gen(rrd()); // Mersenne Twister engine
 
 // Define a distribution (range 0.0 to 1.0)
 std::uniform_real_distribution<> Ran_gen(0.0, 1.0);
-
-
-namespace fs = std::filesystem;
-
-
-static std::string zero_pad_int(int64_t value, int width = 8) {
-    std::ostringstream os;
-    os << std::setw(width) << std::setfill('0') << value;
-    return os.str();
-}
-
-static fs::path shard_dir_for_event(const fs::path& base_events_dir, int64_t event_id, int64_t chunk_size) {
-    const int64_t shard_begin = (event_id / chunk_size) * chunk_size;
-    const int64_t shard_end   = shard_begin + chunk_size - 1;
-
-    std::ostringstream name;
-    name << "events_" << zero_pad_int(shard_begin) << "-" << zero_pad_int(shard_end);
-    return base_events_dir / name.str();
-}
 
 
 void rotate(double px, double py, double pz, double pr[4], int icc)
@@ -122,12 +106,6 @@ double sample_r_from_woods_saxon(double R_WS, double a_WS)
     return (r);
 }
 
-double samplePointInSphere(double R)
-{
-    double u = Ran_gen(gen);
-    double r = R * cbrt(u);
-    return (r);
-}
 
 // ==============================================================
 
@@ -732,227 +710,27 @@ template <class T> void add_arg(Pythia& pythia, std::string name, T value)
     pythia.readString(ss.str());
 }
 
-// You can put whatever triggers of Pythia events here for e-p.
-bool trigger(Pythia& pythia)
-{
-    Vec4 pProton = pythia.event[1].p(); // four-momentum of proton
-    Vec4 peIn = pythia.event[4].p();    // incoming electron
-    Vec4 peOut = pythia.event[6].p();   // outgoing electron
-    Vec4 pGamma = peIn - peOut;         // virtual boson photon/Z^0/W^+-
-
-    // Q2, W2, Bjorken x, y.
-    double ymin = 0.10;
-    double ymax = 0.85;
-    double xBmin = 0.023;
-    double xBmax = 0.6;
-    double Q2min = 1.0; // GeV^2
-    // double Q2max = 6.0; // GeV^2
-    double Wmin = std::sqrt(10.0); // GeV
-    // double nuMin = 6.0; // GeV
-
-    double nu = (pProton * pGamma) / std::sqrt(pProton * pProton);  // photon energy in target rest frame
-    double Q2 = -pGamma.m2Calc();                                   // hard scale square
-    double W2 = (pProton + pGamma).m2Calc();                        // invariant mass square of hadronic final state
-    double W = std::sqrt(W2);
-    double xBj = Q2 / (2. * pProton * pGamma);                       // Bjorken x
-    double y = (pProton * pGamma) / (pProton * peIn);               // inelasticity
-
-    // Apply trigger conditions
-    return (ymin < y) && (y < ymax) && (xBmin < xBj) && (xBj < xBmax) && (Wmin < std::sqrt(W2)) && (Q2min < Q2);
-}
-
-// Output function, we need the final-particle list and kinematics of the original event
-// to compute Q, x, etc.
-void Output(int32_t eventNumber, int Z, int A, Pythia& pythia,
-            std::vector<Particle>& plist,
-            std::ofstream& F,
-            std::ofstream& M)
-{
-    // int32_t eventNumber = Ntriggered - 1; // Start event numbering from 0
-    // Four-momenta of proton, electron, virtual photon/Z^0/W^+-.
-    Vec4 pProton = pythia.event[1].p();
-    Vec4 peIn = pythia.event[4].p();
-    Vec4 peOut = pythia.event[6].p();
-    Vec4 pGamma = peIn - peOut;
-    // Q2, W2, Bjorken x, y.
-    double nu = (pProton * pGamma) / std::sqrt(pProton * pProton);  // photon energy in target rest frame
-    double Q2 = -pGamma.m2Calc();                                   // hard scale square
-    double W2 = (pProton + pGamma).m2Calc();                        // invariant mass square of hadronic final state
-    double W = std::sqrt(W2);
-    double xB = Q2 / (2. * pProton * pGamma);                       // Bjorken x
-    double y = (pProton * pGamma) / (pProton * peIn);               // inelasticity
-
-    // ===============================
-    // Write per-event DIS metadata
-    // ===============================
-    M << std::setprecision(16);
-    M << "{\n";
-    M << "  \"event\": " << eventNumber << ",\n";
-    M << "  \"Z\": " << Z << ", \"A\": " << A << ",\n";
-    M << "  \"xB\": " << xB << ",\n";
-    M << "  \"Q2\": " << Q2 << ",\n";
-    M << "  \"y\": "  << y  << ",\n";
-    M << "  \"nu\": " << nu << ",\n";
-    M << "  \"P4\": [" << pProton.px() << ", " << pProton.py() << ", "
-                    << pProton.pz() << ", " << pProton.e() << "],\n";
-    M << "  \"q4\": [" << pGamma.px() << ", " << pGamma.py() << ", "
-                    << pGamma.pz() << ", " << pGamma.e() << "]\n";
-    M << "}\n";
-
-
-    double theta = -pGamma.theta();
-    double phi = -pGamma.phi();
-
-    Vec4 pProtonB = pProton;
-    pProtonB.rot(0, phi);
-    pProtonB.rot(theta + M_PI, 0);
-    Vec4 pGamma_test = pGamma;
-    pGamma_test.rot(0, phi);
-    pGamma_test.rot(theta + M_PI, 0);
-    double beta = -pGamma_test.e() / pGamma_test.pz();
-    double gamma = 1. / (std::sqrt(1. - beta * beta));
-    double P0B = gamma * pProtonB.e() + gamma * beta * pProtonB.pz();
-
-    Vec4 pCoM = pGamma + pProton;
-    Vec4 pPhoton_in_com = pGamma;
-
-    pPhoton_in_com.bstback(pCoM);
-
-    // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
-    double gamma_com_theta = pPhoton_in_com.theta();
-    double gamma_com_phi = pPhoton_in_com.phi();
-    double vz = pPhoton_in_com.e() / std::sqrt(pPhoton_in_com.e() * pPhoton_in_com.e() + Q2);
-
-    // Count number of hadrons in the shower
-    int Count = 0;
-    for (auto& p : plist)
-    {
-        if (p.isFinal())
-            Count++;
-    }
-
-    // Output the event header (OSCAR-style)
-    F << "# event " << eventNumber << " out " << Count << "\n";
-
-    int32_t particleIndex = 0; // Internal ID for particles
-    for (auto& p : plist)
-    {
-        // assign 1fm for hadronization process
-        Vec4 local_pos = {p.xProd(), p.yProd(), p.zProd(), p.tProd()};
-        Vec4 pCoM = p.p();
-        Vec4 phadron = p.p();
-        phadron.bstback(pCoM); // JORDI, try this off
-        local_pos.bstback(pCoM);
-        // Asign the formation time 1 fm in its local rest frame
-        Vec4 formation_4 = {0.00001 * phadron.px() / phadron.e() + local_pos.px(),
-                            0.00001 * phadron.py() / phadron.e() + local_pos.py(),
-                            0.00001 * phadron.pz() / phadron.e() + local_pos.pz(),
-                            0.00001 + local_pos.e()}; // this is time
-        formation_4.bst(pCoM);
-        double t_hadron = formation_4.e();
-        double x_hadron = formation_4.px();
-        double y_hadron = formation_4.py();
-        double z_hadron = formation_4.pz();
-        // Particle properties
-        double MASS = p.m();     // Mass of the hadron in GeV
-        double p0 = p.e();       // Energy of the hadron in GeV
-        int PDGID = p.id();      // PDGID of the hadron
-        int PID = particleIndex; // Internal ID
-        int CHARGE = p.charge(); // Charge of the hadron
-        if (p.isFinal())
-        {
-            F << std::fixed << std::setprecision(2) << t_hadron << " " << std::fixed
-              << std::setprecision(5) << x_hadron << " " << y_hadron << " " << z_hadron << " "
-              << MASS << " " << p0 << " " << p.px() << " " << p.py() << " " << p.pz() << " "
-              << PDGID << " " << PID << " " << CHARGE << std::endl;
-            particleIndex++;
-        }
-    }
-
-    // Output nucleons
-    double RA = 1.2 * pow(A, 1. / 3.);                   // fm
-    // std::srand(static_cast<unsigned int>(std::time(0))); // Seed the random number generator
-    int randomBinary = std::rand() % 2;                  // Generate 0 or 1
-
-    // Output proton data
-    int totalProtons = Z - randomBinary;
-    for (auto i = 0; i < totalProtons; ++i)
-    {
-        double rr = samplePointInSphere(RA);
-        double phi = 2. * M_PI * Ran_gen(gen);
-        double costheta = 1. - 2. * Ran_gen(gen);
-        double sintheta = std::sqrt(1. - costheta * costheta);
-        double rx = rr * sintheta * std::cos(phi);
-        double ry = rr * sintheta * std::sin(phi);
-        double rz = rr * costheta;
-        double t = 0.0;  // Formation time
-        double px = 0.0; // Momentum in x   // TODO: JORDI ASK WENBIN !!! (FERMI MOMENTUM)
-        double py = 0.0; // Momentum in y
-        double pz = 0.0; // Momentum in z
-        // Particle properties
-        double MASS = 0.938272;                                           // Proton mass in GeV
-        double p0 = std::sqrt(MASS * MASS + px * px + py * py + pz * pz); // Energy of proton in GeV
-        int PDGID = 2212;                                                 // Proton PDGID
-        int PID = particleIndex;                                          // Internal ID
-        int CHARGE = 1;                                                   // Charge of proton
-        F << std::fixed << std::setprecision(2) << t << " " << std::fixed << std::setprecision(5)
-          << rx << " " << ry << " " << rz << " " << MASS << " " << p0 << " " << px << " " << py
-          << " " << pz << " " << PDGID << " " << PID << " " << CHARGE << std::endl;
-        particleIndex++;
-    }
-
-    // Output neutron data
-    int totalNeutrons = A - Z + randomBinary;
-    for (auto i = 0; i < totalNeutrons; ++i)
-    {
-        // for (auto i =0; i<A-Z-1 + randomBinary; ++i) {
-        double rr = samplePointInSphere(RA);
-        double phi = 2. * M_PI * Ran_gen(gen);
-        double costheta = 1. - 2. * Ran_gen(gen);
-        double sintheta = std::sqrt(1. - costheta * costheta);
-        double rx = rr * sintheta * std::cos(phi);
-        double ry = rr * sintheta * std::sin(phi);
-        double rz = rr * costheta;
-        double t = 0.0;  // Formation time
-        double px = 0.0; // Momentum in x
-        double py = 0.0; // Momentum in y
-        double pz = 0.0; // Momentum in z
-        // Particle properties
-        double MASS = 0.939565; // Neutron mass in GeV
-        double p0 =
-            std::sqrt(MASS * MASS + px * px + py * py + pz * pz); // Energy of neutron in GeV
-        int PDGID = 2112;                                         // Neutron PDGID
-        int PID = particleIndex;                                  // Internal ID
-        int CHARGE = 0;                                           // Charge of neutron
-        F << std::fixed << std::setprecision(2) << t << " " << std::fixed << std::setprecision(5)
-          << rx << " " << ry << " " << rz << " " << MASS << " " << p0 << " " << px << " " << py
-          << " " << pz << " " << PDGID << " " << PID << " " << CHARGE << std::endl;
-        particleIndex++;
-    }
-
-    F << "# event " << eventNumber << " end 0" << std::endl;
-}
 
 // low-Q2 medium correction (a Monte Carlo version of the the modified FF model)
 class Modified_FF
 {
-  public:
-    Modified_FF(int mode_, int Z_, int A_, double K, double n, double lambda, std::string TablePath)
-        : mode(mode_), Z(Z_), A(A_), ZoverA(Z * 1. / A), Coll(K, n, lambda), eHIJING_Geometry(A, Z),
-          rd(), gen(rd()), dist(0., 1.)
-    {
-        Coll.Tabulate(TablePath);
-    };
-    void sample_FF_partons(Event& event, double& Rx, double& Ry, double& R);
+    public:
+        Modified_FF(int mode_, int Z_, int A_, double K, double n, double lambda, std::string TablePath)
+            : mode(mode_), Z(Z_), A(A_), ZoverA(Z * 1. / A), Coll(K, n, lambda), eHIJING_Geometry(A, Z),
+            rd(), gen(rd()), dist(0., 1.)
+        {
+            Coll.Tabulate(TablePath);
+        };
+        void sample_FF_partons(Event& event, double& Rx, double& Ry, double& R);
 
-  private:
-    int mode, Z, A;
-    double ZoverA;
-    EHIJING::MultipleCollision Coll;
-    EHIJING::NuclearGeometry eHIJING_Geometry;
-    std::random_device rd; // Will be used to obtain a seed for the random number engine
-    std::mt19937 gen;      // Standard mersenne_twister_engine seeded with rd()
-    std::uniform_real_distribution<double> dist;
+    private:
+        int mode, Z, A;
+        double ZoverA;
+        EHIJING::MultipleCollision Coll;
+        EHIJING::NuclearGeometry eHIJING_Geometry;
+        std::random_device rd; // Will be used to obtain a seed for the random number engine
+        std::mt19937 gen;      // Standard mersenne_twister_engine seeded with rd()
+        std::uniform_real_distribution<double> dist;
 };
 
 int main(int argc, char* argv[])
@@ -975,9 +753,9 @@ int main(int argc, char* argv[])
     // Ensure output directories exist
     try // Attempt to create the directories if they do not exist
     {
-        fs::create_directories(fs::path(outDir));
-        fs::create_directories(fs::path(tableDir));
-    } catch (const fs::filesystem_error& e) // Handle any errors that occur during directory creation
+        std::filesystem::create_directories(std::filesystem::path(outDir));
+        std::filesystem::create_directories(std::filesystem::path(tableDir));
+    } catch (const std::filesystem::filesystem_error& e) // Handle any errors that occur during directory creation
     {
         std::cerr << "ERROR: cannot create output/table directories:\n  " << e.what() << "\n";
         return 3;
@@ -1055,68 +833,48 @@ int main(int argc, char* argv[])
             continue;
         };
 
-        // Skip event if it doesn't satisfy the trigger conditions
-        if (!trigger(pythia))
+        // Skip event if its kinematics do not satisfy the DIS trigger conditions
+        const DISKinematics kinematics = compute_dis_kinematics(pythia);
+        if (!is_valid_dis_event(kinematics))
             continue;
 
         // Event passed the trigger, add to triggered event count
         nTriggered++;
 
-        // Initialize the (x, y, z) size
-        double Rx, Ry, Rz;
-
-        // Modify the final shower with low-Q^2 medium corrections
-        MFF.sample_FF_partons(pythia.event, Rx, Ry, Rz);
-
-        // Put the parton-level event into the separate hadronizer
-        auto hadronizerEvent = hadronizer.hadronize(pythia, Z, A, Rx, Ry, Rz);
-
         // Set event ID
         const int64_t event_id = first_event_id + (nTriggered - 1);
-
-        // Set output paths for this event, organized by shard directories
-        const fs::path base_events_dir(outDir);
-        const fs::path shard_dir = shard_dir_for_event(base_events_dir, event_id, chunk_size);
-
-        // Create the shard directory if it does not exist
-        try 
-        {
-            fs::create_directories(shard_dir);
-        } catch (const fs::filesystem_error& e) 
-        {
-            std::cerr << "ERROR: cannot create shard directory:\n  " << shard_dir << "\n  " << e.what() << std::endl;
-            return 3;
-        }
-
-        // Set the zero-padded event ID string for file naming
-        const std::string event_str = zero_pad_int(event_id);
-
-        // Set output file paths for this event
-        const fs::path event_path = shard_dir / ("event_" + event_str + ".oscar");
-        const fs::path meta_path  = shard_dir / ("event_" + event_str + ".meta.json");
-
+        
+        // Define output paths for the OSCAR event file and the metadata file based on the event ID and chunk size
+        const EventPaths paths = make_event_paths(std::filesystem::path(outDir), event_id, chunk_size);
+        
+        // Initialize the (x, y, z) size
+        double Rx, Ry, Rz;
+        
+        // Modify the final shower with low-Q^2 medium corrections
+        MFF.sample_FF_partons(pythia.event, Rx, Ry, Rz);
+        
+        // Put the parton-level event into the separate hadronizer
+        auto hadronizerEvent = hadronizer.hadronize(pythia, Z, A, Rx, Ry, Rz);
+        
         // Open OSCAR output file
-        std::ofstream fout_event(event_path);
+        std::ofstream fout_event(paths.eventPath);
         if (!fout_event) 
         {
-            std::cerr << "ERROR: cannot open output file: " << event_path << std::endl;
+            std::cerr << "ERROR: cannot open output file: " << paths.eventPath << std::endl;
             return 1;
         }
-
+        
         // Open metadata output file
-        std::ofstream fout_meta(meta_path);
+        std::ofstream fout_meta(paths.metaPath);
         if (!fout_meta) 
         {
-            std::cerr << "ERROR: cannot open metadata file: " << meta_path << std::endl;
+            std::cerr << "ERROR: cannot open metadata file: " << paths.metaPath << std::endl;
             return 1;
         }
 
-        // Write headers for the OSCAR event file
-        fout_event << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge\n";
-        fout_event << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none\n";
-
         // Write the event data and metadata to the respective files
-        Output(event_id, Z, A, pythia, hadronizerEvent, fout_event, fout_meta);
+        write_event_headers(fout_event);
+        write_event_output(event_id, Z, A, kinematics, hadronizerEvent, fout_event, fout_meta);
 
         // Close the output files
         fout_event.close();

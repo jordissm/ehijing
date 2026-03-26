@@ -13,6 +13,9 @@ find_package(GSL REQUIRED)
 add_executable(ehijing
   src/main.cpp
   src/cli.cpp
+  src/filesystem_utils.cpp
+  src/dis_kinematics.cpp
+  src/event_output.cpp
 )
 
 # ---- C++ standard (target-based) ----
