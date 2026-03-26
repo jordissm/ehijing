@@ -32,7 +32,7 @@ const double Pythia::VERSIONNUMBERCODE = 8.235;
 // These are of technical nature, as described for each.
 
 // Maximum number of tries to produce parton level from given input.
-const int Pythia::NTRY          = 10;
+const int Pythia::NTRY          = 20;
 
 // Negative integer to denote that no subrun has been set.
 const int Pythia::SUBRUNDEFAULT = -999;
