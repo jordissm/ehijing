@@ -116,6 +116,8 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                                             double Ry,
                                             double Rz)
 {
+    std::cout << "Rx: " << Rx << ", Ry: " << Ry << ", Rz: " << Rz << std::endl;
+
     // Define charge fraction
     double ZoverA = Z * 1.0 / A;
 
