@@ -11,8 +11,8 @@ using namespace Pythia8;
 namespace {
 
 constexpr double kFormationEpsilon = 1.0e-5;
-constexpr double kProtonMass = 0.938272;
-constexpr double kNeutronMass = 0.939565;
+constexpr double kProtonMass = 0.938;
+constexpr double kNeutronMass = 0.939;
 
 double sample_point_in_sphere(double R, std::mt19937& gen) {
     std::uniform_real_distribution<double> uniform(0.0, 1.0);
