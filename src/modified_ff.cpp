@@ -522,8 +522,11 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
     for (auto& p : new_particles)
     {
         event.append(p.id(), 201, p.col(), p.acol(), p.px(), p.py(), p.pz(), p.e(), p.m());
-        p.vProd(p.vProd() + Vec4(x_arr[ixyz] + Rx * HBARC, y_arr[ixyz] + Ry * HBARC,
-                                 z_arr[ixyz] + Rz * HBARC, t_arr[ixyz]));
+        auto& appended = event[event.size() - 1];
+        appended.vProd(Vec4(300.0 + x_arr[ixyz] + Rx * HBARC,
+                            300.0 + y_arr[ixyz] + Ry * HBARC,
+                            300.0 + z_arr[ixyz] + Rz * HBARC,
+                            t_arr[ixyz]));
         ixyz++;
     }
 }
