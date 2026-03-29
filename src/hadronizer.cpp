@@ -215,7 +215,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
         if (particle.isParton())
         {
             // Initialize the (x, y, z) position of the parton
-            double position[3] = {0.0};
+            double position[3] = {100.0};
 
             // Initialize the four-momentum of the parton
             double p0[4] = {0.0};
