@@ -215,7 +215,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
         if (particle.isParton())
         {
             // Initialize the (x, y, z) position of the parton
-            double position[3] = {100.0};
+            double position[3] = {100.0, 100.0, 100.0};
 
             // Initialize the four-momentum of the parton
             double p0[4] = {0.0};
@@ -619,6 +619,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                                                    position[1] + Ry * HBARC,
                                                    position[2] + Rz * HBARC,
                                                    timeplus));
+        } else {
+            // For non-partons, just put it at the origin of the collision
+            particle.vProd(Vec4(200.0 + Rx * HBARC, 200.0 + Ry * HBARC, 200.0 + Rz * HBARC, 0.0));
         }
     }
 
