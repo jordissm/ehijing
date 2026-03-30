@@ -5,77 +5,75 @@
 
 using namespace Pythia8;
 
-namespace
-{
-void rotate(double px, double py, double pz, double pr[4], int icc)
-{
+namespace {
+    void rotate(double px, double py, double pz, double pr[4], int icc) {
 
-    //     input:  (px,py,pz), (wx,wy,wz), argument (i)
-    //     output: new (wx,wy,wz)
-    //     if i=1, turn (wx,wy,wz) in the direction (px,py,pz)=>(0,0,E)
-    //     if i=-1, turn (wx,wy,wz) in the direction (0,0,E)=>(px,py,pz)
+        //     input:  (px,py,pz), (wx,wy,wz), argument (i)
+        //     output: new (wx,wy,wz)
+        //     if i=1, turn (wx,wy,wz) in the direction (px,py,pz)=>(0,0,E)
+        //     if i=-1, turn (wx,wy,wz) in the direction (0,0,E)=>(px,py,pz)
 
-    double E;
-    double pt;
-    double cosa, sina, cosb, sinb;
-    double wx, wy, wz;
-    double wx1, wy1, wz1;
+        double E;
+        double pt;
+        double cosa, sina, cosb, sinb;
+        double wx, wy, wz;
+        double wx1, wy1, wz1;
 
-    wx = pr[1];
-    wy = pr[2];
-    wz = pr[3];
+        wx = pr[1];
+        wy = pr[2];
+        wz = pr[3];
 
-    E = std::sqrt(px * px + py * py + pz * pz);
-    pt = std::sqrt(px * px + py * py);
+        E = std::sqrt(px * px + py * py + pz * pz);
+        pt = std::sqrt(px * px + py * py);
 
-    // w = sqrt(wx*wx+wy*wy+wz*wz);
+        // w = sqrt(wx*wx+wy*wy+wz*wz);
 
-    //  if(pt==0)
+        //  if(pt==0)
 
-    if (pt < 1e-6)
-    {
-        cosa = 1;
-        sina = 0;
-    }
-    else
-    {
-        cosa = px / pt;
-        sina = py / pt;
-    }
-
-    if (E > 1e-6)
-    {
-        cosb = pz / E;
-        sinb = pt / E;
-        if (icc == 1)
+        if (pt < 1e-6)
         {
-            wx1 = wx * cosb * cosa + wy * cosb * sina - wz * sinb;
-            wy1 = -wx * sina + wy * cosa;
-            wz1 = wx * sinb * cosa + wy * sinb * sina + wz * cosb;
+            cosa = 1;
+            sina = 0;
         }
         else
         {
-            wx1 = wx * cosa * cosb - wy * sina + wz * cosa * sinb;
-            wy1 = wx * sina * cosb + wy * cosa + wz * sina * sinb;
-            wz1 = -wx * sinb + wz * cosb;
+            cosa = px / pt;
+            sina = py / pt;
         }
-        wx = wx1;
-        wy = wy1;
-        wz = wz1;
-    }
-    else
-    {
-        std::cout << "warning: small E in rotation" << std::endl;
-    }
 
-    pr[1] = wx;
-    pr[2] = wy;
-    pr[3] = wz;
-}
+        if (E > 1e-6)
+        {
+            cosb = pz / E;
+            sinb = pt / E;
+            if (icc == 1)
+            {
+                wx1 = wx * cosb * cosa + wy * cosb * sina - wz * sinb;
+                wy1 = -wx * sina + wy * cosa;
+                wz1 = wx * sinb * cosa + wy * sinb * sina + wz * cosb;
+            }
+            else
+            {
+                wx1 = wx * cosa * cosb - wy * sina + wz * cosa * sinb;
+                wy1 = wx * sina * cosb + wy * cosa + wz * sina * sinb;
+                wz1 = -wx * sinb + wz * cosb;
+            }
+            wx = wx1;
+            wy = wy1;
+            wz = wz1;
+        }
+        else
+        {
+            std::cout << "warning: small E in rotation" << std::endl;
+        }
+
+        pr[1] = wx;
+        pr[2] = wy;
+        pr[3] = wz;
+    }
 } // namespace
 
-Hadronizer::Hadronizer() : pythia(), rd(), gen(rd()), dist(0., 1.)
-{
+Hadronizer::Hadronizer() : pythia(), rd(), gen(rd()), dist(0., 1.) {
+
     pythia.readString("ProcessLevel:all = off");
     pythia.readString("Print:quiet = on");
     pythia.readString("Next:numberShowInfo = 0");
@@ -114,8 +112,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                                             int A,
                                             double Rx,
                                             double Ry,
-                                            double Rz)
-{
+                                            double Rz) {
 
     // Define charge fraction
     double ZoverA = Z * 1.0 / A;
@@ -131,8 +128,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
     pythia.event.reset();
 
     // Loop over the partons in the shower PythiaIn, and put them in the hadronizer
-    for (int i = 0; i < pythiaIn.event.size(); ++i)
-    {
+    for (int i = 0; i < pythiaIn.event.size(); ++i) {
 
         auto& particle = pythiaIn.event[i];
 
@@ -157,28 +153,28 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
 
         // Only consider final state partons
         // Drop intermediate partons and non-partons
-        if (!(particle.isFinal() && particle.isParton()))
-
+        if (!(particle.isFinal() && particle.isParton())) {
             std::cout << "HADRONIZER.CPP: "
-                      << "Dropping particle from shower PythiaIn: "
-                      << "id=" << particle.id() 
-                      << ", col=" << particle.col() 
-                      << ", acol=" << particle.acol()
-                      << ", x=" << particle.xProd() 
-                      << ", y=" << particle.yProd() 
-                      << ", z=" << particle.zProd() 
-                      << ", t=" << particle.tProd()
-                      << ", px=" << particle.px() 
-                      << ", py=" << particle.py() 
-                      << ", pz=" << particle.pz() 
-                      << ", e=" << particle.e()
-                      << ", m=" << particle.m() 
-                      << ", isFinal=" << particle.isFinal() 
-                      << ", isParton=" << particle.isParton() 
-                      << ", status=" << particle.status()
-                      << std::endl;
-
+            << "Dropping particle from shower PythiaIn: "
+            << "id=" << particle.id() 
+            << ", col=" << particle.col() 
+            << ", acol=" << particle.acol()
+            << ", x=" << particle.xProd() 
+            << ", y=" << particle.yProd() 
+            << ", z=" << particle.zProd() 
+            << ", t=" << particle.tProd()
+            << ", px=" << particle.px() 
+            << ", py=" << particle.py() 
+            << ", pz=" << particle.pz() 
+            << ", e=" << particle.e()
+            << ", m=" << particle.m() 
+            << ", isFinal=" << particle.isFinal() 
+            << ", isParton=" << particle.isParton() 
+            << ", status=" << particle.status()
+            << std::endl;
+            
             continue;
+        }
 
         // Di-quark remnants
         // status() == 63 : outgoing beam remnant from particles produced by beam-remnant treatment
@@ -187,8 +183,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
         //   (ud)_0 : 2101
         //   (ud)_1 : 2103
         //   (uu)_1 : 2203
-        if (particle.status() == 63 && 1000 < particle.idAbs() && particle.idAbs() < 3000)
-        {
+        if (particle.status() == 63 && 1000 < particle.idAbs() && particle.idAbs() < 3000) {
 
             std::cout << "HADRONIZER.CPP: "
                       << "Processing di-quark remnant from shower PythiaIn: "
@@ -212,34 +207,32 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
             // from a proton. Therefore, we need to resample it according to the Z/A
             // ratio this nuclei
             // 1) Decide whether it is from a neutron or proton
-            if (dist(gen) < ZoverA) // From a proton 2212
-            {
-                if (hardid == 1)
-                {
+            if (dist(gen) < ZoverA) { // From a proton 2212
+                if (hardid == 1) {
                     // Produce (uu)_1 : 2203
                     particle.id(2203);
                 }
-                else if (hardid == 2)
-                {
+                else if (hardid == 2) {
                     // Produce (ud)_0 : 2101 and (ud)_1 : 2103 with ratio 3:1
-                    if (dist(gen) < 0.75)
+                    if (dist(gen) < 0.75) {
                         particle.id(2101);
-                    else
+                    }
+                    else {
                         particle.id(2103);
+                    }
                 }
             }
-            else // From a neutron 2112
-            {
-                if (hardid == 1)
-                {
+            else { // From a neutron 2112
+                if (hardid == 1) {
                     // Produce (ud)_0 : 2101 and (ud)_1 : 2103 with ratio 3:1
-                    if (dist(gen) < 0.75)
+                    if (dist(gen) < 0.75) {
                         particle.id(2101);
-                    else
+                    }
+                    else {
                         particle.id(2103);
+                    }
                 }
-                else if (hardid == 2)
-                {
+                else if (hardid == 2) {
                     // Produce (dd)_1 : 1103
                     particle.id(1103);
                 }
@@ -277,8 +270,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
 
     // Assign the space-time to partons
     // Loop over the partons in the hadronizer
-    for (int i = 0; i < pythia.event.size(); ++i)
-    {
+    for (int i = 0; i < pythia.event.size(); ++i) {
         auto& particle = pythia.event[i];
 
         std::cout << "HADRONIZER.CPP: "
@@ -298,8 +290,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                   << std::endl;
 
         // Only consider partons
-        if (particle.isParton())
-        {
+        if (particle.isParton()) {
 
             std::cout << "HADRONIZER.CPP: "
                   << "Considering parton: "
@@ -334,21 +325,22 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
             int IDmom0 = j;
 
             // Compute the formation and spatial information of partons
-            while (timebreaker == 0)
-            {
+            while (timebreaker == 0) {
                 int IDiii = IDmom0;
                 if (std::abs(pythia.event[IDiii].status()) == 23 ||
                     std::abs(pythia.event[IDiii].status()) == 21 ||
-                    std::abs(pythia.event[IDiii].status()) == 12)
+                    std::abs(pythia.event[IDiii].status()) == 12) {
                     timebreaker = 1;
+                }
 
                 // Find the mothers of the parton
                 IDmom1 = pythia.event[IDiii].mother1();
                 IDmom2 = pythia.event[IDiii].mother2();
 
                 // 1) Parton with no mother
-                if (IDmom1 == IDmom2 && IDmom1 == 0)
+                if (IDmom1 == IDmom2 && IDmom1 == 0) {
                     timebreaker = 1;
+                }
 
                 // 2) Parton is a "carbon copy" of its mother, but with changed momentum as a "recoil" effect, e.g. in a shower
                 if (IDmom1 == IDmom2 && IDmom1 > 0) {
@@ -364,8 +356,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[2] = pythia.event[IDdaughter1].py() + pythia.event[IDdaughter2].py();
                         p4[3] = pythia.event[IDdaughter1].pz() + pythia.event[IDdaughter2].pz();
                         double x_split = pythia.event[IDiii].e() / p4[0];
-                        if (x_split > 1)
+                        if (x_split > 1) {
                             x_split = 1.0 / x_split; // revise the mother and daughter
+                        }
                         p0[0] = pythia.event[IDiii].e();
                         p0[1] = pythia.event[IDiii].px();
                         p0[2] = pythia.event[IDiii].py();
@@ -404,8 +397,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[2] = pythia.event[IDdaughter1].py();
                         p4[3] = pythia.event[IDdaughter1].pz();
                         double x_split = pythia.event[IDiii].e() / p4[0];
-                        if (x_split > 1)
+                        if (x_split > 1) {
                             x_split = 1.0 / x_split; // revise the mother and daughter
+                        }
                         p0[0] = pythia.event[IDiii].e();
                         p0[1] = pythia.event[IDiii].px();
                         p0[2] = pythia.event[IDiii].py();
@@ -457,8 +451,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
 
                         //
                         double x_split = pythia.event[IDiii].e() / p4[0];
-                        if (x_split > 1)
+                        if (x_split > 1) {
                             x_split = 1.0 / x_split;
+                        }
 
                         // Compute the four-momentum of the parton itself
                         p0[0] = pythia.event[IDiii].e();
@@ -511,11 +506,13 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                 // particular the particles emerging from a hard 2 → n interaction.
                 if (IDmom1 < IDmom2 && IDmom1 > 0 && IDmom2 > 0) {
 
-                    if (pythia.event[IDmom1].e() > pythia.event[IDmom2].e())
+                    if (pythia.event[IDmom1].e() > pythia.event[IDmom2].e()) {
                         IDmom0 = IDmom1;
+                    }
 
-                    if (pythia.event[IDmom1].e() <= pythia.event[IDmom2].e())
+                    if (pythia.event[IDmom1].e() <= pythia.event[IDmom2].e()) {
                         IDmom0 = IDmom2;
+                    }
 
                     int IDdaughter1 = pythia.event[IDmom0].daughter1();
                     int IDdaughter2 = pythia.event[IDmom0].daughter2();
@@ -527,8 +524,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[2] = pythia.event[IDdaughter1].py() + pythia.event[IDdaughter2].py();
                         p4[3] = pythia.event[IDdaughter1].pz() + pythia.event[IDdaughter2].pz();
                         double x_split = pythia.event[IDiii].e() / p4[0];
-                        if (x_split > 1)
+                        if (x_split > 1) {
                             x_split = 1.0 / x_split;
+                        }
 
                         p0[0] = pythia.event[IDiii].e();
                         p0[1] = pythia.event[IDiii].px();
@@ -572,8 +570,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[2] = pythia.event[IDdaughter1].py();
                         p4[3] = pythia.event[IDdaughter1].pz();
                         double x_split = pythia.event[IDiii].e() / p4[0];
-                        if (x_split > 1)
+                        if (x_split > 1) {
                             x_split = 1.0 / x_split; // revise the mother and daughter
+                        }
                         p0[0] = pythia.event[IDiii].e();
                         p0[1] = pythia.event[IDiii].px();
                         p0[2] = pythia.event[IDiii].py();
@@ -583,10 +582,8 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         rotate(p4[1], p4[2], p4[3], p0, -1);
                         double kt_daughter = qt;
 
-                        if (x_split < 0.5)
-                        {
-                            if (kt_daughter > 1.e-10)
-                            {
+                        if (x_split < 0.5) {
+                            if (kt_daughter > 1.e-10) {
                                 time_step = 2.0 * p4[0] * x_split * (1 - x_split) /
                                             pow(kt_daughter, 2) * HBARC;
                                 timeplus = timeplus + time_step;
@@ -594,11 +591,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                                 position[1] = position[1] + time_step * p4[2] / p4[0];
                                 position[2] = position[2] + time_step * p4[3] / p4[0];
                             }
-                        } else
-                        {
+                        } else {
                             x_split = 1. - x_split;
-                            if (kt_daughter > 1.e-10)
-                            {
+                            if (kt_daughter > 1.e-10) {
                                 time_step = 2.0 * p4[0] * x_split * (1 - x_split) /
                                             pow(kt_daughter, 2) * HBARC;
                                 timeplus = timeplus + time_step;
@@ -616,11 +611,13 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                 // simplify flavour tracing.
                 if (IDmom1 > IDmom2 && IDmom1 > 0 && IDmom2 > 0) {
 
-                    if (pythia.event[IDmom1].e() > pythia.event[IDmom2].e())
+                    if (pythia.event[IDmom1].e() > pythia.event[IDmom2].e()) {
                         IDmom0 = IDmom1;
+                    }
 
-                    if (pythia.event[IDmom1].e() <= pythia.event[IDmom2].e())
+                    if (pythia.event[IDmom1].e() <= pythia.event[IDmom2].e()) {
                         IDmom0 = IDmom2;
+                    }
 
                     int IDdaughter1 = pythia.event[IDmom0].daughter1();
                     int IDdaughter2 = pythia.event[IDmom0].daughter2();
@@ -632,8 +629,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[2] = pythia.event[IDdaughter1].py() + pythia.event[IDdaughter2].py();
                         p4[3] = pythia.event[IDdaughter1].pz() + pythia.event[IDdaughter2].pz();
                         double x_split = pythia.event[IDiii].e() / p4[0];
-                        if (x_split > 1)
+                        if (x_split > 1) {
                             x_split = 1.0 / x_split;
+                        }
                         p0[0] = pythia.event[IDiii].e();
                         p0[1] = pythia.event[IDiii].px();
                         p0[2] = pythia.event[IDiii].py();
@@ -643,10 +641,8 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         rotate(p4[1], p4[2], p4[3], p0, -1);
 
                         double kt_daughter = qt;
-                        if (x_split < 0.5)
-                        {
-                            if (kt_daughter > 1.e-10)
-                            {
+                        if (x_split < 0.5) {
+                            if (kt_daughter > 1.e-10) {
                                 time_step = 2.0 * p4[0] * x_split * (1 - x_split) /
                                             pow(kt_daughter, 2) * HBARC;
                                 timeplus = timeplus + time_step;
@@ -654,11 +650,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                                 position[1] = position[1] + time_step * p4[2] / p4[0];
                                 position[2] = position[2] + time_step * p4[3] / p4[0];
                             }
-                        } else
-                        {
+                        } else {
                             x_split = 1. - x_split;
-                            if (kt_daughter > 1.e-10)
-                            {
+                            if (kt_daughter > 1.e-10) {
                                 time_step = 2.0 * p4[0] * x_split * (1 - x_split) /
                                             pow(kt_daughter, 2) * HBARC;
                                 timeplus = timeplus + time_step;
@@ -677,8 +671,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[2] = pythia.event[IDdaughter1].py();
                         p4[3] = pythia.event[IDdaughter1].pz();
                         double x_split = pythia.event[IDiii].e() / p4[0];
-                        if (x_split > 1)
+                        if (x_split > 1) {
                             x_split = 1.0 / x_split; // revise the mother and daughter
+                        }
                         p0[0] = pythia.event[IDiii].e();
                         p0[1] = pythia.event[IDiii].px();
                         p0[2] = pythia.event[IDiii].py();
@@ -690,10 +685,8 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         rotate(p4[1], p4[2], p4[3], p0, -1);
                         double kt_daughter = qt;
                         // double Q2 = 1.0/(x_split*(1-x_split)/pow(kt_daughter,2));
-                        if (x_split < 0.5)
-                        {
-                            if (kt_daughter > 1.e-10)
-                            {
+                        if (x_split < 0.5) {
+                            if (kt_daughter > 1.e-10) {
                                 time_step = 2.0 * p4[0] * x_split * (1 - x_split) /
                                             pow(kt_daughter, 2) * HBARC;
                                 timeplus = timeplus + time_step;
@@ -701,11 +694,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                                 position[1] = position[1] + time_step * p4[2] / p4[0];
                                 position[2] = position[2] + time_step * p4[3] / p4[0];
                             }
-                        } else
-                        {
+                        } else {
                             x_split = 1. - x_split;
-                            if (kt_daughter > 1.e-10)
-                            {
+                            if (kt_daughter > 1.e-10) {
                                 time_step = 2.0 * p4[0] * x_split * (1 - x_split) /
                                             pow(kt_daughter, 2) * HBARC;
                                 timeplus = timeplus + time_step;
@@ -730,15 +721,14 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
 
     // Perform hadronization
     const bool ok = pythia.next();
-    if (!ok)
-    {
+    if (!ok) {
         std::cerr << "Hadronizer: pythia.next() failed\n";
         return {};
     }
 
     // Return the final state hadrons after hadronization
-    for (int i = 0; i < pythia.event.size(); ++i)
-    {
+    for (int i = 0; i < pythia.event.size(); ++i) {
+
         auto& particle = pythia.event[i];
 
         std::cout << "HADRONIZER.CPP: "
@@ -757,7 +747,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                   << ", m=" << particle.m() 
                   << std::endl;
 
-        if (particle.isFinal())
+        if (particle.isFinal()) {
             FinalStateParticles.push_back(particle);
 
             std::cout << "HADRONIZER.CPP: "
@@ -775,6 +765,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                   << ", e=" << particle.e()
                   << ", m=" << particle.m() 
                   << std::endl;
+        }
     }
 
     return FinalStateParticles;

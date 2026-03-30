@@ -65,22 +65,26 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
         // 2*emin in the nuclear rest frame
         auto& p = event[i];
         auto abspid = p.idAbs();
-        if (!p.isFinal())
+        if (!p.isFinal()) {
             continue;
-        if (p.e() < 2 * emin)
+        }
+        if (p.e() < 2 * emin) {
             continue;
+        }
 
         // we are skipping modifications of heavy quarks right now!!!
         bool isLightParton = (abspid == 1) || (abspid == 2) || (abspid == 3) || (abspid == 21);
-        if (!isLightParton)
+        if (!isLightParton) {
             continue;
+        }
 
         // Get its collision history
         std::vector<double> qt2s = p.coll_qt2s(), ts = p.coll_ts(), phis = p.coll_phis();
         // if no collision, nothing to do
         int Ncolls = ts.size();
-        if (Ncolls == 0)
+        if (Ncolls == 0) {
             continue;
+        }
 
         double vx = p.px() / p.e(), vy = p.py() / p.e(), vz = p.pz() / p.e();
         double L = eHIJING_Geometry.compute_L(event.Rx(), event.Ry(), event.Rz(), vx, vy, vz);
@@ -91,8 +95,9 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
 
         double sumq2 = 0.; // useful quantity for H-T approach
         for (int i=0; i < Ncolls; ++i) sumq2 += qt2s[i];
-        if (sumq2 < 1e-9)
+        if (sumq2 < 1e-9) {
             continue; // negelect too soft momentum kicks
+        }
 
         // tauf ordered fragmentation gluon
         // A very large cut off, since the LPM effect will effective regulate the tauf divergence
@@ -112,77 +117,73 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
 
         // Formation time loop
         // Commnent out this loop to turn off the radiation Wenbin // begin of the loop
-        while (tauf < taufmax && p.e() > 2 * emin)
-        {
+        while (tauf < taufmax && p.e() > 2 * emin) {
             double zmin = std::min(emin / p.e(), .4);
             double zmax = 1. - zmin;
-            if (zmax < zmin)
+            if (zmax < zmin) {
                 break;
+            }
             double maxlogz = std::log(zmax / zmin);
             double maxdiffz = 1. / zmin - 1. / zmax + 2. * maxlogz;
             // step1: find the next tauf
             double r = dist(gen);
-            if (mode == 1)
-            {
+            if (mode == 1) {
                 double invrpower = alphabar * maxlogz * 4. * Ncolls;
                 double step_factor = std::pow(1. / r, 1. / invrpower);
                 tauf = tauf * step_factor;
-            } else
-            {
+            } else {
                 double coeff = alphabar * maxdiffz * 4. * sumq2 / 2. / p.e();
                 tauf = tauf + std::log(1. / r) / coeff;
             }
-            if (tauf > taufmax || tauf < taufmin)
+            if (tauf > taufmax || tauf < taufmin) {
                 break;
+            }
             acceptance = 0.;
-            if (mode == 1)
-            {
-                for (int j = 0; j < Ncolls; j++)
-                {
+            if (mode == 1) {
+                for (int j = 0; j < Ncolls; j++) {
                     double phase = (1. - std::cos(ts[j] / tauf));
                     double z1mz = tauf * qt2s[j] / 2. / p.e();
-                    if (z1mz > .25)
+                    if (z1mz > .25) {
                         acceptance += phase * maxlogz;
-                    else
-                    {
+                    }
+                    else {
                         double dz = std::sqrt(.25 - z1mz);
                         double z1 = .5 - dz;
                         double z2 = .5 + dz;
-                        if (z1 > zmin)
+                        if (z1 > zmin) {
                             acceptance += phase * std::log(z1 / zmin);
-                        if (z2 < zmax)
+                        }
+                        if (z2 < zmax) {
                             acceptance += phase * std::log(zmax / z2);
+                        }
                     }
                 }
                 acceptance /= (maxlogz * 2. * Ncolls);
-            } else
-            {
-                for (int j = 0; j < Ncolls; j++)
+            } else {
+                for (int j = 0; j < Ncolls; j++) {
                     acceptance += qt2s[j] * (1. - std::cos(ts[j] / tauf));
+                }
                 acceptance /= (2. * sumq2);
             }
-            if (acceptance < dist(gen))
+            if (acceptance < dist(gen)) {
                 continue;
+            }
 
             // step 2: sample z, which also determines kt2
             acceptance = 0.;
-            if (mode == 0)
-            {
+            if (mode == 0) {
                 double N1 = 2 * (1. / zmin - 2.);
                 double N2 = -4 * std::log(2. * (1. - zmax));
                 double Ntot = N1 + N2;
                 double r0 = N1 / Ntot;
 
                 double acceptance = 0.;
-                while (acceptance < dist(gen))
-                {
+                while (acceptance < dist(gen)) {
                     double r = dist(gen);
-                    if (r < r0)
-                    {
+                    if (r < r0) {
                         z = zmin / (1. - zmin * r * Ntot / 2.);
                         acceptance = .5 / (1. - z);
-                    } else
-                    {
+                    } else {
                         z = 1. - std::exp(-(r * Ntot - N1) / 4.) / 2.;
                         acceptance = .25 / z / z;
                     }
@@ -190,73 +191,76 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
                 kt2 = 2 * (1. - z) * z * p.e() / tauf;
                 // reject cases where qt2>kt2 for mode=0
                 double Num = 0., Den = 0.;
-                for (int j = 0; j < Ncolls; j++)
-                {
-                    if (ts[j] < 0)
+                for (int j = 0; j < Ncolls; j++) {
+                    if (ts[j] < 0) {
                         continue;
+                    }
 
                     double q2 = qt2s[j], t = ts[j];
-                    if (kt2 > q2)
+                    if (kt2 > q2) {
                         Num += q2 * (1. - std::cos(t / tauf));
+                    }
+
                     Den += q2 * (1. - std::cos(t / tauf));
                 }
-                if (Num / Den < dist(gen))
+                if (Num / Den < dist(gen)) {
                     continue;
-            } else
-            {
+                }
+            } else {
                 bool ok = false;
                 double minimum_q2 = 2 * emin / tauf;
-                for (int j = 0; j < Ncolls; j++)
-                {
-                    if (qt2s[j] > minimum_q2 && ts[j] > 0)
+                for (int j = 0; j < Ncolls; j++) {
+                    if (qt2s[j] > minimum_q2 && ts[j] > 0) {
                         ok = true;
+                    }
                 }
-                if (!ok)
+                if (!ok) {
                     continue;
-                while (acceptance < dist(gen))
-                {
+                }
+                while (acceptance < dist(gen)) {
                     z = zmin * std::pow(zmax / zmin, dist(gen));
                     kt2 = 2 * (1. - z) * z * p.e() / tauf;
                     double num = 0.;
-                    for (int j = 0; j < Ncolls; j++)
-                        if (kt2 < qt2s[j] && ts[j] > 0)
+                    for (int j = 0; j < Ncolls; j++) {
+                        if (kt2 < qt2s[j] && ts[j] > 0) {
                             num += 1.;
+                        }
+                    }
                     acceptance = num / Ncolls;
                 }
             }
 
             // step 3 correct for the splitting function
             // correct for splitting function
-            if (p.id() == 21 && (1 + std::pow(1. - z, 3)) / 2. < dist(gen))
+            if (p.id() == 21 && (1 + std::pow(1. - z, 3)) / 2. < dist(gen)) {
                 continue;
-            if (p.id() != 21 && (1 + std::pow(1. - z, 2)) / 2. < dist(gen))
+            }
+            if (p.id() != 21 && (1 + std::pow(1. - z, 2)) / 2. < dist(gen)) {
                 continue;
+            }
 
             // finally, sample phikT2 and compute the deflection of the hard parton lt2
-            if (mode == 0)
-            {
+            if (mode == 0) {
                 // no particular angular structure in the H-T expansion
                 phik = 2 * M_PI * dist(gen);
                 lt2 = kt2;
-            } else
-            {
+            } else {
                 double Psum = 0.;
                 std::vector<double> dP;
                 dP.resize(Ncolls);
-                for (int j = 0; j < Ncolls; j++)
-                {
-                    if (kt2 < qt2s[j])
+                for (int j = 0; j < Ncolls; j++) {
+                    if (kt2 < qt2s[j]) {
                         Psum += (1. - std::cos(ts[j] / tauf));
+                    }
                     dP[j] = Psum;
                 }
-                for (int j = 0; j < Ncolls; j++)
+                for (int j = 0; j < Ncolls; j++) {
                     dP[j] /= Psum;
+                }
                 double rc = dist(gen);
                 int choice = -1;
-                for (int j = 0; j < Ncolls; j++)
-                {
-                    if (rc < dP[j])
-                    {
+                for (int j = 0; j < Ncolls; j++) {
+                    if (rc < dP[j]) {
                         choice = j;
                         break;
                     }
@@ -264,8 +268,7 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
                 // sample phik ~ (1+delta cos) / (1+delta^2 + 2 delta cos)
                 double delta = std::sqrt(kt2 / qt2s[choice]);
                 acceptance = 0.;
-                while (acceptance < dist(gen))
-                {
+                while (acceptance < dist(gen)) {
                     r = dist(gen);
                     dphiqk = 2. * std::atan(std::tan(M_PI / 2. * r) * (delta + 1) / (delta - 1));
                     acceptance = (1 + delta * std::cos(dphiqk)) / 2.;
@@ -275,14 +278,16 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
                 lt2 = kt2 + qt2s[choice] + 2. * std::sqrt(kt2 * qt2s[choice]) * std::cos(dphiqk);
             }
             // The virtuality was not allowed to be overlap with the high-Q shower
-            if (lt2 > kt2max_now)
+            if (lt2 > kt2max_now) {
                 continue;
+            }
 
             // Now, there is a radiation,
             // Hard parton splits into p -> p-k & k
             double kt = std::sqrt(kt2), k0 = z * p.e();
-            if (kt > k0)
+            if (kt > k0) {
                 continue;
+            }
             double kz = std::sqrt(k0 * k0 - kt2);
             Vec4 kmu{kt * std::cos(phik), kt * std::sin(phik), kz, k0};
             kmu.rot(p.theta(), 0.);
@@ -297,8 +302,7 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
             Coll.sample_all_qt2(21, kmu.e(), L, TA, xB, Q20, g_qt2s, g_ts, g_phis);
             Vec4 Qtot{0., 0., 0., 0.};
             double e0 = kmu.e();
-            for (int ig = 0; ig < g_ts.size(); ig++)
-            {
+            for (int ig = 0; ig < g_ts.size(); ig++) {
                 double qt = std::sqrt(g_qt2s[ig]);
                 double phi = g_phis[ig];
                 Vec4 qmu{qt * std::cos(phi), qt * std::sin(phi), -qt * qt / 4. / e0, 0.0};
@@ -322,41 +326,38 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
                                           event.nextColTag(), kmu, 0.0, 0);
                 int qid, diqid;
                 double mq, mdiq, mn;
-                if (dist(gen) < ZoverA)
-                { // diquark from a proton
+                if (dist(gen) < ZoverA) { // diquark from a proton
                     diqid = 2101;
                     mdiq = 0.57933;
                     qid = 2;
                     mq = 0.33;
                     mn = 0.93847;
-                    if (dist(gen) < 2. / 3.)
-                    { // take away a u
+                    if (dist(gen) < 2. / 3.) { // take away a u
                         qid = 2;
-                        if (dist(gen) < .75)
+                        if (dist(gen) < .75) {
                             diqid = 2101;
-                        else
+                        } else {
                             diqid = 2103;
-                    } else
-                    { // take away the d
+                        }
+                    } else { // take away the d
                         qid = 1;
                         diqid = 2203;
                     }
-                } else
-                { // diquark from a neutron
+                } else { // diquark from a neutron
                     diqid = 2101;
                     mdiq = 0.57933;
                     qid = 1;
                     mq = 0.33;
                     mn = 0.93957;
-                    if (dist(gen) < 2. / 3.)
-                    { // take away a d
+                    if (dist(gen) < 2. / 3.) { // take away a d
                         qid = 1;
-                        if (dist(gen) < .75)
+                        if (dist(gen) < .75) {
                             diqid = 2101;
-                        else
+                        } else {
                             diqid = 2103;
-                    } else
-                    { // take away the u
+                        }
+                    } else {
+                        // take away the u
                         qid = 2;
                         diqid = 1103;
                     }
@@ -399,8 +400,7 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
         // if there are radiations, recoil goes to radiations
         // else: goes to the hard quark
         int Nrad = frag_gluons.size();
-        for (int j = 0; j < Ncolls; j++)
-        {
+        for (int j = 0; j < Ncolls; j++) {
             double qT = std::sqrt(qt2s[j]), phiq = phis[j];
             double qx = qT * std::cos(phiq);
             double qy = qT * std::sin(phiq);
@@ -413,67 +413,58 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
             p.e(std::sqrt(p.pAbs2() + p.m2()));
             int q_col, q_acol;
             // update color
-            if (p.id() == 21)
-            {
-                if (std::rand() % 2 == 0)
-                {
+            if (p.id() == 21) {
+                if (std::rand() % 2 == 0) {
                     q_acol = p.acol();
                     p.acol(event.nextColTag());
                     q_col = p.acol();
-                } else
-                {
+                } else {
                     q_col = p.col();
                     p.col(event.nextColTag());
                     q_acol = p.col();
                 }
-            } else if (p.id() > 0)
-            {
+            } else if (p.id() > 0) {
                 q_col = p.col();
                 p.col(event.nextColTag());
                 q_acol = p.col();
-            } else
-            {
+            } else {
                 q_acol = p.acol();
                 p.acol(event.nextColTag());
                 q_col = p.acol();
             }
             int qid, diqid;
             double mq, mdiq, mn;
-            if (dist(gen) < ZoverA)
-            { // diquark from a proton
+            if (dist(gen) < ZoverA) { // diquark from a proton
                 diqid = 2101;
                 mdiq = 0.57933;
                 qid = 2;
                 mq = 0.33;
                 mn = 0.93847;
-                if (dist(gen) < 2. / 3.)
-                { // take away a u
+                if (dist(gen) < 2. / 3.) { // take away a u
                     qid = 2;
-                    if (dist(gen) < .75)
+                    if (dist(gen) < .75) {
                         diqid = 2101;
-                    else
+                    } else {
                         diqid = 2103;
-                } else
-                { // take away the d
+                    }
+                } else { // take away the d
                     qid = 1;
                     diqid = 2203;
                 }
-            } else
-            { // diquark from a neutron
+            } else{ // diquark from a neutron
                 diqid = 2101;
                 mdiq = 0.57933;
                 qid = 1;
                 mq = 0.33;
                 mn = 0.93957;
-                if (dist(gen) < 2. / 3.)
-                { // take away a d
+                if (dist(gen) < 2. / 3.) { // take away a d
                     qid = 1;
-                    if (dist(gen) < .75)
+                    if (dist(gen) < .75) {
                         diqid = 2101;
-                    else
+                    } else {
                         diqid = 2103;
-                } else
-                { // take away the u
+                    }
+                } else { // take away the u
                     qid = 2;
                     diqid = 1103;
                 }
@@ -488,11 +479,9 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
                    Nqy = pabs * sintheta * std::sin(rphi);
             Vec4 pq{Nqx, Nqy, Nqz, 0}, pdiq{-Nqx, -Nqy, -Nqz, 0};
             // decide which object takes the recoil
-            if (std::rand() % 2 == 0)
-            {
+            if (std::rand() % 2 == 0) {
                 pq = pq - qmu;
-            } else
-            {
+            } else {
                 pdiq = pdiq - qmu;
             }
             pq.e(std::sqrt(pq.pAbs2() + mq * mq));
@@ -512,15 +501,18 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
             z_arr.push_back(ts[j] * HBARC * pdiq.pz() / pdiq.e());
             t_arr.push_back(ts[j] * HBARC);
         }
-        for (auto& p : frag_gluons)
+
+        for (auto& p : frag_gluons) {
             new_particles.push_back(p);
-        for (auto& p : recoil_remnants)
+        }
+
+        for (auto& p : recoil_remnants) {
             new_particles.push_back(p);
+        }
     }
 
     int ixyz = 0;
-    for (auto& p : new_particles)
-    {
+    for (auto& p : new_particles) {
         std::cout << "MODIFIED_FF.CPP: "
                   << "Looping over new particles: "
                   << "id=" << p.id() 

@@ -29,15 +29,13 @@ std::mt19937 gen(rrd()); // Mersenne Twister engine
 std::uniform_real_distribution<> Ran_gen(0.0, 1.0);
 
 
-double fermi_distribution(double r, double R_WS, double a_WS)
-{
+double fermi_distribution(double r, double R_WS, double a_WS) {
     double f = 1. / (1. + exp((r - R_WS) / a_WS));
     return (f);
 }
 
 // S. Chakraborty et al., Physical Review C 107, 064318 (2023)
-double sample_r_from_woods_saxon(double R_WS, double a_WS)
-{
+double sample_r_from_woods_saxon(double R_WS, double a_WS) {
     double rmaxCut = R_WS + 10. * a_WS;
     double r = 0.;
     do
@@ -49,8 +47,7 @@ double sample_r_from_woods_saxon(double R_WS, double a_WS)
 
 
 // Helper function to set Pythia settings
-template <class T> void add_arg(Pythia& pythia, std::string name, T value)
-{
+template <class T> void add_arg(Pythia& pythia, std::string name, T value) {
     std::stringstream ss;
     ss << name << " = " << value;
     std::cout << ss.str() << std::endl;
@@ -58,8 +55,7 @@ template <class T> void add_arg(Pythia& pythia, std::string name, T value)
 }
 
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 
     const RunConfig cfg = parse_args(argc, argv);
 
@@ -76,12 +72,10 @@ int main(int argc, char* argv[])
     const uint32_t seed = cfg.seed;
 
     // Ensure output directories exist
-    try // Attempt to create the directories if they do not exist
-    {
+    try { // Attempt to create the directories if they do not exist
         std::filesystem::create_directories(std::filesystem::path(outDir));
         std::filesystem::create_directories(std::filesystem::path(tableDir));
-    } catch (const std::filesystem::filesystem_error& e) // Handle any errors that occur during directory creation
-    {
+    } catch (const std::filesystem::filesystem_error& e) { // Handle any errors that occur during directory creation
         std::cerr << "ERROR: cannot create output/table directories:\n  " << e.what() << "\n";
         return 3;
     }
@@ -144,15 +138,13 @@ int main(int argc, char* argv[])
     int nTotal = 0;
     
     // Begin event loop
-    while (nTriggered < nEvents)
-    {
+    while (nTriggered < nEvents) {
 
         // Add to total event count
         nTotal++;
 
         // Skip event if it fails to generate
-        if (!pythia.next())
-        {
+        if (!pythia.next()) {
             // Add to failed event count
             nFailed++;
             continue;
@@ -160,8 +152,9 @@ int main(int argc, char* argv[])
 
         // Skip event if its kinematics do not satisfy the DIS trigger conditions
         const DISKinematics kinematics = compute_dis_kinematics(pythia);
-        if (!is_valid_dis_event(kinematics))
+        if (!is_valid_dis_event(kinematics)) {
             continue;
+        }
 
         // Event passed the trigger, add to triggered event count
         nTriggered++;
@@ -178,8 +171,7 @@ int main(int argc, char* argv[])
         // Modify the final shower with low-Q^2 medium corrections
         MFF.sample_FF_partons(pythia.event, Rx, Ry, Rz);
 
-        for (int i = 0; i < pythia.event.size(); ++i)
-        {
+        for (int i = 0; i < pythia.event.size(); ++i) {
             auto& particle = pythia.event[i];
 
             std::cout << "MAIN.CPP: "
@@ -204,16 +196,14 @@ int main(int argc, char* argv[])
         
         // Open OSCAR output file
         std::ofstream fout_event(paths.eventPath);
-        if (!fout_event) 
-        {
+        if (!fout_event) {
             std::cerr << "ERROR: cannot open output file: " << paths.eventPath << std::endl;
             return 1;
         }
         
         // Open metadata output file
         std::ofstream fout_meta(paths.metaPath);
-        if (!fout_meta) 
-        {
+        if (!fout_meta) {
             std::cerr << "ERROR: cannot open metadata file: " << paths.metaPath << std::endl;
             return 1;
         }
