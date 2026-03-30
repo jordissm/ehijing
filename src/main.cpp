@@ -182,7 +182,7 @@ int main(int argc, char* argv[])
         {
             auto& p = pythia.event[i];
             {
-                std::cout << "Particle: id=" << p.id() << ", col=" << p.col() << ", acol=" << p.acol()
+                std::cout << "MAIN.CPP Particle: id=" << p.id() << ", col=" << p.col() << ", acol=" << p.acol()
                           << ", x=" << p.xProd() << ", y=" << p.yProd() << ", z=" << p.zProd() << ", t=" << p.tProd()
                           << ", px=" << p.px() << ", py=" << p.py() << ", pz=" << p.pz() << ", e=" << p.e()
                           << ", m=" << p.m() << std::endl;

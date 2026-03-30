@@ -211,6 +211,11 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
     {
         auto& particle = pythia.event[i];
 
+        std::cout << "HADRONIZER.CPP A Particle: id=" << particle.id() << ", col=" << particle.col() << ", acol=" << particle.acol()
+                  << ", x=" << particle.xProd() << ", y=" << particle.yProd() << ", z=" << particle.zProd() << ", t=" << particle.tProd()
+                  << ", px=" << particle.px() << ", py=" << particle.py() << ", pz=" << particle.pz() << ", e=" << particle.e()
+                  << ", m=" << particle.m() << std::endl;
+
         // Only consider partons
         if (particle.isParton())
         {
@@ -639,6 +644,11 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
         auto& particle = pythia.event[i];
         if (particle.isFinal())
             FinalStateParticles.push_back(particle);
+
+            std::cout << "HADRONIZER.CPP B Particle: id=" << particle.id() << ", col=" << particle.col() << ", acol=" << particle.acol()
+                  << ", x=" << particle.xProd() << ", y=" << particle.yProd() << ", z=" << particle.zProd() << ", t=" << particle.tProd()
+                  << ", px=" << particle.px() << ", py=" << particle.py() << ", pz=" << particle.pz() << ", e=" << particle.e()
+                  << ", m=" << particle.m() << std::endl;
     }
 
     return FinalStateParticles;
