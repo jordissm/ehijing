@@ -521,6 +521,21 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
     int ixyz = 0;
     for (auto& p : new_particles)
     {
+        std::cout << "MODIFIED_FF.CPP: "
+                  << "Looping over new particles: "
+                  << "id=" << p.id() 
+                  << ", col=" << p.col() 
+                  << ", acol=" << p.acol()
+                  << ", x=" << p.xProd() 
+                  << ", y=" << p.yProd() 
+                  << ", z=" << p.zProd() 
+                  << ", t=" << p.tProd()
+                  << ", px=" << p.px() 
+                  << ", py=" << p.py() 
+                  << ", pz=" << p.pz() 
+                  << ", e=" << p.e()
+                  << ", m=" << p.m() 
+                  << std::endl;
         p.vProd(Vec4(x_arr[ixyz] + Rx * HBARC, y_arr[ixyz] + Ry * HBARC, z_arr[ixyz] + Rz * HBARC, t_arr[ixyz]));
         event.append(p.id(), 201, p.col(), p.acol(), p.px(), p.py(), p.pz(), p.e(), p.m());
         ixyz++;

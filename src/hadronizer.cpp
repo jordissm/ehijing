@@ -136,15 +136,48 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
 
         auto& particle = pythiaIn.event[i];
 
-
-            std::cout << "HADRONIZER.CPP A Particle: id=" << particle.id() << ", col=" << particle.col() << ", acol=" << particle.acol()
-                  << ", x=" << particle.xProd() << ", y=" << particle.yProd() << ", z=" << particle.zProd() << ", t=" << particle.tProd()
-                  << ", px=" << particle.px() << ", py=" << particle.py() << ", pz=" << particle.pz() << ", e=" << particle.e()
-                  << ", m=" << particle.m() << std::endl;
+        std::cout << "HADRONIZER.CPP: "
+                  << "Reading particle from shower PythiaIn: "
+                  << "id=" << particle.id() 
+                  << ", col=" << particle.col() 
+                  << ", acol=" << particle.acol()
+                  << ", x=" << particle.xProd() 
+                  << ", y=" << particle.yProd() 
+                  << ", z=" << particle.zProd() 
+                  << ", t=" << particle.tProd()
+                  << ", px=" << particle.px() 
+                  << ", py=" << particle.py() 
+                  << ", pz=" << particle.pz() 
+                  << ", e=" << particle.e()
+                  << ", m=" << particle.m() 
+                  << ", isFinal=" << particle.isFinal() 
+                  << ", isParton=" << particle.isParton() 
+                  << ", status=" << particle.status()
+                  << std::endl;
 
         // Only consider final state partons
         // Drop intermediate partons and non-partons
         if (!(particle.isFinal() && particle.isParton()))
+
+            std::cout << "HADRONIZER.CPP: "
+                      << "Dropping particle from shower PythiaIn: "
+                      << "id=" << particle.id() 
+                      << ", col=" << particle.col() 
+                      << ", acol=" << particle.acol()
+                      << ", x=" << particle.xProd() 
+                      << ", y=" << particle.yProd() 
+                      << ", z=" << particle.zProd() 
+                      << ", t=" << particle.tProd()
+                      << ", px=" << particle.px() 
+                      << ", py=" << particle.py() 
+                      << ", pz=" << particle.pz() 
+                      << ", e=" << particle.e()
+                      << ", m=" << particle.m() 
+                      << ", isFinal=" << particle.isFinal() 
+                      << ", isParton=" << particle.isParton() 
+                      << ", status=" << particle.status()
+                      << std::endl;
+
             continue;
 
         // Di-quark remnants
@@ -156,6 +189,22 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
         //   (uu)_1 : 2203
         if (particle.status() == 63 && 1000 < particle.idAbs() && particle.idAbs() < 3000)
         {
+
+            std::cout << "HADRONIZER.CPP: "
+                      << "Processing di-quark remnant from shower PythiaIn: "
+                      << "id=" << particle.id() 
+                      << ", col=" << particle.col() 
+                      << ", acol=" << particle.acol()
+                      << ", x=" << particle.xProd() 
+                      << ", y=" << particle.yProd() 
+                      << ", z=" << particle.zProd() 
+                      << ", t=" << particle.tProd()
+                      << ", px=" << particle.px() 
+                      << ", py=" << particle.py() 
+                      << ", pz=" << particle.pz() 
+                      << ", e=" << particle.e()
+                      << ", m=" << particle.m() 
+                      << std::endl;
             // valence stuff, the remnants will contain the rest flavor component
             // note that the hard quark has already been sampled according to the
             // the isospin content of the nuclear PDF;
@@ -197,6 +246,22 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
             }
         }
 
+        std::cout << "HADRONIZER.CPP: "
+                  << "Adding particle to hadronizer event record: "
+                  << "id=" << particle.id() 
+                  << ", col=" << particle.col() 
+                  << ", acol=" << particle.acol()
+                  << ", x=" << particle.xProd() 
+                  << ", y=" << particle.yProd() 
+                  << ", z=" << particle.zProd() 
+                  << ", t=" << particle.tProd()
+                  << ", px=" << particle.px() 
+                  << ", py=" << particle.py() 
+                  << ", pz=" << particle.pz() 
+                  << ", e=" << particle.e()
+                  << ", m=" << particle.m() 
+                  << std::endl;
+
         // For other partons, just put it in the shower
         // status() == 23 : outgoing particles of the hardest subprocess
         pythia.event.append(particle.id(),
@@ -216,14 +281,42 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
     {
         auto& particle = pythia.event[i];
 
-        std::cout << "HADRONIZER.CPP B Particle: id=" << particle.id() << ", col=" << particle.col() << ", acol=" << particle.acol()
-                  << ", x=" << particle.xProd() << ", y=" << particle.yProd() << ", z=" << particle.zProd() << ", t=" << particle.tProd()
-                  << ", px=" << particle.px() << ", py=" << particle.py() << ", pz=" << particle.pz() << ", e=" << particle.e()
-                  << ", m=" << particle.m() << std::endl;
+        std::cout << "HADRONIZER.CPP: "
+                  << "Looping over particles in hadronizer: "
+                  << "id=" << particle.id() 
+                  << ", col=" << particle.col() 
+                  << ", acol=" << particle.acol()
+                  << ", x=" << particle.xProd() 
+                  << ", y=" << particle.yProd() 
+                  << ", z=" << particle.zProd() 
+                  << ", t=" << particle.tProd()
+                  << ", px=" << particle.px() 
+                  << ", py=" << particle.py() 
+                  << ", pz=" << particle.pz() 
+                  << ", e=" << particle.e()
+                  << ", m=" << particle.m() 
+                  << std::endl;
 
         // Only consider partons
         if (particle.isParton())
         {
+
+            std::cout << "HADRONIZER.CPP: "
+                  << "Considering parton: "
+                  << "id=" << particle.id() 
+                  << ", col=" << particle.col() 
+                  << ", acol=" << particle.acol()
+                  << ", x=" << particle.xProd() 
+                  << ", y=" << particle.yProd() 
+                  << ", z=" << particle.zProd() 
+                  << ", t=" << particle.tProd()
+                  << ", px=" << particle.px() 
+                  << ", py=" << particle.py() 
+                  << ", pz=" << particle.pz() 
+                  << ", e=" << particle.e()
+                  << ", m=" << particle.m() 
+                  << std::endl;
+
             // Initialize the (x, y, z) position of the parton
             double position[3] = {100.0, 100.0, 100.0};
 
@@ -647,13 +740,41 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
     for (int i = 0; i < pythia.event.size(); ++i)
     {
         auto& particle = pythia.event[i];
+
+        std::cout << "HADRONIZER.CPP: "
+                  << "Reading particle list after hadronization: "
+                  << "id=" << particle.id() 
+                  << ", col=" << particle.col() 
+                  << ", acol=" << particle.acol()
+                  << ", x=" << particle.xProd() 
+                  << ", y=" << particle.yProd() 
+                  << ", z=" << particle.zProd() 
+                  << ", t=" << particle.tProd()
+                  << ", px=" << particle.px() 
+                  << ", py=" << particle.py() 
+                  << ", pz=" << particle.pz() 
+                  << ", e=" << particle.e()
+                  << ", m=" << particle.m() 
+                  << std::endl;
+
         if (particle.isFinal())
             FinalStateParticles.push_back(particle);
 
-            std::cout << "HADRONIZER.CPP C Particle: id=" << particle.id() << ", col=" << particle.col() << ", acol=" << particle.acol()
-                  << ", x=" << particle.xProd() << ", y=" << particle.yProd() << ", z=" << particle.zProd() << ", t=" << particle.tProd()
-                  << ", px=" << particle.px() << ", py=" << particle.py() << ", pz=" << particle.pz() << ", e=" << particle.e()
-                  << ", m=" << particle.m() << std::endl;
+            std::cout << "HADRONIZER.CPP: "
+                  << "Appending particle to FinalStateParticles: "
+                  << "id=" << particle.id() 
+                  << ", col=" << particle.col() 
+                  << ", acol=" << particle.acol()
+                  << ", x=" << particle.xProd() 
+                  << ", y=" << particle.yProd() 
+                  << ", z=" << particle.zProd() 
+                  << ", t=" << particle.tProd()
+                  << ", px=" << particle.px() 
+                  << ", py=" << particle.py() 
+                  << ", pz=" << particle.pz() 
+                  << ", e=" << particle.e()
+                  << ", m=" << particle.m() 
+                  << std::endl;
     }
 
     return FinalStateParticles;
