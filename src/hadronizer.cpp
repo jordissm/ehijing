@@ -199,6 +199,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                       << ", pz=" << particle.pz() 
                       << ", e=" << particle.e()
                       << ", m=" << particle.m() 
+                      << ", isFinal=" << particle.isFinal() 
+                      << ", isParton=" << particle.isParton() 
+                      << ", status=" << particle.status()
                       << std::endl;
             // valence stuff, the remnants will contain the rest flavor component
             // note that the hard quark has already been sampled according to the
@@ -253,6 +256,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                   << ", pz=" << particle.pz() 
                   << ", e=" << particle.e()
                   << ", m=" << particle.m() 
+                  << ", isFinal=" << particle.isFinal() 
+                  << ", isParton=" << particle.isParton() 
+                  << ", status=" << particle.status()
                   << std::endl;
 
         // For other partons, just put it in the shower
@@ -287,6 +293,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                   << ", pz=" << particle.pz() 
                   << ", e=" << particle.e()
                   << ", m=" << particle.m() 
+                  << ", isFinal=" << particle.isFinal() 
+                  << ", isParton=" << particle.isParton() 
+                  << ", status=" << particle.status()
                   << std::endl;
 
         // Only consider partons
@@ -306,6 +315,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                   << ", pz=" << particle.pz() 
                   << ", e=" << particle.e()
                   << ", m=" << particle.m() 
+                  << ", isFinal=" << particle.isFinal() 
+                  << ", isParton=" << particle.isParton() 
+                  << ", status=" << particle.status()
                   << std::endl;
 
             // Initialize the (x, y, z) position of the parton
@@ -745,6 +757,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                   << ", pz=" << particle.pz() 
                   << ", e=" << particle.e()
                   << ", m=" << particle.m() 
+                  << ", isFinal=" << particle.isFinal() 
+                  << ", isParton=" << particle.isParton() 
+                  << ", status=" << particle.status()
                   << std::endl;
 
         if (particle.isFinal()) {
@@ -764,6 +779,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                   << ", pz=" << particle.pz() 
                   << ", e=" << particle.e()
                   << ", m=" << particle.m() 
+                  << ", isFinal=" << particle.isFinal() 
+                  << ", isParton=" << particle.isParton() 
+                  << ", status=" << particle.status()
                   << std::endl;
         }
     }
