@@ -180,7 +180,7 @@ int main(int argc, char* argv[])
 
         for (int i = 0; i < pythia.event.size(); ++i)
         {
-            auto& p = pythia.event[i];
+            auto& particle = pythia.event[i];
 
             std::cout << "MAIN.CPP: "
                   << "Considering parton: "
