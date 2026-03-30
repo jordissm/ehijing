@@ -116,7 +116,6 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                                             double Ry,
                                             double Rz)
 {
-    std::cout << "Rx: " << Rx << ", Ry: " << Ry << ", Rz: " << Rz << std::endl;
 
     // Define charge fraction
     double ZoverA = Z * 1.0 / A;
@@ -136,6 +135,12 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
     {
 
         auto& particle = pythiaIn.event[i];
+
+
+            std::cout << "HADRONIZER.CPP A Particle: id=" << particle.id() << ", col=" << particle.col() << ", acol=" << particle.acol()
+                  << ", x=" << particle.xProd() << ", y=" << particle.yProd() << ", z=" << particle.zProd() << ", t=" << particle.tProd()
+                  << ", px=" << particle.px() << ", py=" << particle.py() << ", pz=" << particle.pz() << ", e=" << particle.e()
+                  << ", m=" << particle.m() << std::endl;
 
         // Only consider final state partons
         // Drop intermediate partons and non-partons
@@ -211,7 +216,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
     {
         auto& particle = pythia.event[i];
 
-        std::cout << "HADRONIZER.CPP A Particle: id=" << particle.id() << ", col=" << particle.col() << ", acol=" << particle.acol()
+        std::cout << "HADRONIZER.CPP B Particle: id=" << particle.id() << ", col=" << particle.col() << ", acol=" << particle.acol()
                   << ", x=" << particle.xProd() << ", y=" << particle.yProd() << ", z=" << particle.zProd() << ", t=" << particle.tProd()
                   << ", px=" << particle.px() << ", py=" << particle.py() << ", pz=" << particle.pz() << ", e=" << particle.e()
                   << ", m=" << particle.m() << std::endl;
@@ -645,7 +650,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
         if (particle.isFinal())
             FinalStateParticles.push_back(particle);
 
-            std::cout << "HADRONIZER.CPP B Particle: id=" << particle.id() << ", col=" << particle.col() << ", acol=" << particle.acol()
+            std::cout << "HADRONIZER.CPP C Particle: id=" << particle.id() << ", col=" << particle.col() << ", acol=" << particle.acol()
                   << ", x=" << particle.xProd() << ", y=" << particle.yProd() << ", z=" << particle.zProd() << ", t=" << particle.tProd()
                   << ", px=" << particle.px() << ", py=" << particle.py() << ", pz=" << particle.pz() << ", e=" << particle.e()
                   << ", m=" << particle.m() << std::endl;
