@@ -615,9 +615,9 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                 }
             }
 
-            particle.vProd(particle.vProd() + Vec4(position[0] + Rx * HBARC,
-                                                   position[1] + Ry * HBARC,
-                                                   position[2] + Rz * HBARC,
+            particle.vProd(particle.vProd() + Vec4(400.0 + position[0] + Rx * HBARC,
+                                                   400.0 + position[1] + Ry * HBARC,
+                                                   400.0 + position[2] + Rz * HBARC,
                                                    timeplus));
         } else {
             // For non-partons, just put it at the origin of the collision
