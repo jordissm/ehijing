@@ -98,7 +98,7 @@ Hadronizer::Hadronizer() : pythia(), rd(), gen(rd()), dist(0., 1.) {
     pythia.readString("PDF:nPDFSetB=0");
     // Enabling setting of vertex information.
     pythia.readString("PartonVertex:setVertex = on");
-    pythia.readString("PartonVertex:modeVertex = 2")
+    pythia.readString("PartonVertex:modeVertex = 2");
     pythia.readString("PartonVertex:ProtonRadius = 0.85");
     pythia.readString("PartonVertex:EmissionWidth = 0.1");
     pythia.readString("Fragmentation:setVertices = on");
