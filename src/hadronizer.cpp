@@ -215,13 +215,11 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                 if (hardid == 1) {
                     // Produce (uu)_1 : 2203
                     particle.id(2203);
-                }
-                else if (hardid == 2) {
+                } else if (hardid == 2) {
                     // Produce (ud)_0 : 2101 and (ud)_1 : 2103 with ratio 3:1
                     if (dist(gen) < 0.75) {
                         particle.id(2101);
-                    }
-                    else {
+                    } else {
                         particle.id(2103);
                     }
                 }
@@ -231,8 +229,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                     // Produce (ud)_0 : 2101 and (ud)_1 : 2103 with ratio 3:1
                     if (dist(gen) < 0.75) {
                         particle.id(2101);
-                    }
-                    else {
+                    } else {
                         particle.id(2103);
                     }
                 }

@@ -231,6 +231,11 @@ bool MiniStringFragmentation::ministring2two( int nTry, Event& event) {
     if (event[ iParton.front() ].statusAbs() == 74 ||
         event[ iParton.back() ].statusAbs() == 74) statusHadNeg = 89;
   }
+
+  // Save parton vertices.
+  Vec4 vProdF = event[iFront].vProd();
+  Vec4 vProdL = event[iBack ].vProd();
+
   // Add produced particles to the event record.
   int iFirst = event.append( idHad1, statusHadPos, iParton.front(),
     iParton.back(), 0, 0, 0, 0, pHad1, mHad1);
@@ -239,9 +244,9 @@ bool MiniStringFragmentation::ministring2two( int nTry, Event& event) {
 
   // Set decay vertex when this is displaced.
   if (event[iParton.front()].hasVertex()) {
-    Vec4 vDec = event[iParton.front()].vDec();
-    event[iFirst].vProd( vDec );
-    event[iLast].vProd( vDec );
+    // Vec4 vDec = event[iParton.front()].vDec();
+    event[iFirst].vProd( vProdF );
+    event[iLast].vProd( vProdL );
   }
 
   // Set lifetime of hadrons.
