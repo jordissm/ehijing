@@ -170,29 +170,6 @@ int main(int argc, char* argv[]) {
         
         // Modify the final shower with low-Q^2 medium corrections
         MFF.sample_FF_partons(pythia.event, Rx, Ry, Rz);
-
-        for (int i = 0; i < pythia.event.size(); ++i) {
-            auto& particle = pythia.event[i];
-
-            std::cout << "MAIN.CPP: "
-                  << "Considering parton: "
-                  << "id=" << particle.id() 
-                  << ", col=" << particle.col() 
-                  << ", acol=" << particle.acol()
-                  << ", x=" << particle.xProd() 
-                  << ", y=" << particle.yProd() 
-                  << ", z=" << particle.zProd() 
-                  << ", t=" << particle.tProd()
-                  << ", px=" << particle.px() 
-                  << ", py=" << particle.py() 
-                  << ", pz=" << particle.pz() 
-                  << ", e=" << particle.e()
-                  << ", m=" << particle.m() 
-                  << ", isFinal=" << particle.isFinal() 
-                  << ", isParton=" << particle.isParton() 
-                  << ", status=" << particle.status()
-                  << std::endl;
-        }
         
         // Put the parton-level event into the separate hadronizer
         auto hadronizerEvent = hadronizer.hadronize(pythia, Z, A, Rx, Ry, Rz);

@@ -531,8 +531,17 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
                   << ", isParton=" << p.isParton() 
                   << ", status=" << p.status()
                   << std::endl;
-        p.vProd(Vec4(x_arr[ixyz] + Rx * HBARC, y_arr[ixyz] + Ry * HBARC, z_arr[ixyz] + Rz * HBARC, t_arr[ixyz]));
+
         event.append(p.id(), 201, p.col(), p.acol(), p.px(), p.py(), p.pz(), p.e(), p.m());
+        
+        auto& appended = event.back();
+        appended.vProd(Vec4(
+            x_arr[ixyz] + Rx * HBARC,
+            y_arr[ixyz] + Ry * HBARC,
+            z_arr[ixyz] + Rz * HBARC,
+            t_arr[ixyz]
+        ));
+
         ixyz++;
     }
 }

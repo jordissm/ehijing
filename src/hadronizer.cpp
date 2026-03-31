@@ -319,7 +319,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                   << std::endl;
 
             // Initialize the (x, y, z) position of the parton
-            double position[3] = {100.0, 100.0, 100.0};
+            double position[3] = {0.0};
 
             // Initialize the four-momentum of the parton
             double p0[4] = {0.0};
@@ -725,9 +725,28 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                                                    timeplus));
         } else {
             // For non-partons, just put it at the origin of the collision
-            particle.vProd(Vec4(200.0 + Rx * HBARC, 200.0 + Ry * HBARC, 200.0 + Rz * HBARC, 0.0));
+            particle.vProd(Vec4(Rx * HBARC, Ry * HBARC, Rz * HBARC, 0.0));
         }
     }
+
+    std::cout << "HADRONIZER.CPP: "
+                << "Partons just before hadronization and after vProd assignment: "
+                << "id=" << particle.id() 
+                << ", col=" << particle.col() 
+                << ", acol=" << particle.acol()
+                << ", x=" << particle.xProd() 
+                << ", y=" << particle.yProd() 
+                << ", z=" << particle.zProd() 
+                << ", t=" << particle.tProd()
+                << ", px=" << particle.px() 
+                << ", py=" << particle.py() 
+                << ", pz=" << particle.pz() 
+                << ", e=" << particle.e()
+                << ", m=" << particle.m() 
+                << ", isFinal=" << particle.isFinal() 
+                << ", isParton=" << particle.isParton() 
+                << ", status=" << particle.status()
+                << std::endl;
 
     // Perform hadronization
     const bool ok = pythia.next();
