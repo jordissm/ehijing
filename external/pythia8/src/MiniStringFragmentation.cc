@@ -233,8 +233,8 @@ bool MiniStringFragmentation::ministring2two( int nTry, Event& event) {
   }
 
   // Save parton vertices.
-  Vec4 vProdF = event[iFront].vProd();
-  Vec4 vProdL = event[iBack ].vProd();
+  Vec4 vProdF = event[ iParton.front() ].vProd();
+  Vec4 vProdL = event[ iParton.back() ].vProd();
 
   // Add produced particles to the event record.
   int iFirst = event.append( idHad1, statusHadPos, iParton.front(),
