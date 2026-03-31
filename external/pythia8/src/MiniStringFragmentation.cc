@@ -244,7 +244,6 @@ bool MiniStringFragmentation::ministring2two( int nTry, Event& event) {
 
   // Set decay vertex when this is displaced.
   if (event[iParton.front()].hasVertex()) {
-    // Vec4 vDec = event[iParton.front()].vDec();
     event[iFirst].vProd( vProdF );
     event[iLast].vProd( vProdL );
   }
@@ -349,8 +348,9 @@ bool MiniStringFragmentation::ministring2one( int iSub,
 
   // Set decay vertex when this is displaced.
   if (event[iParton.front()].hasVertex()) {
-    Vec4 vDec = event[iParton.front()].vDec();
-    event[iHad].vProd( vDec );
+    Vec4 vProd = 0.5 * (event[iParton.front()].vProd()
+      + event[iParton.back()].vProd());
+    event[iHad].vProd( vProd );
   }
 
   // Set lifetime of hadron.
@@ -417,7 +417,7 @@ bool MiniStringFragmentation::ministring2one( int iSub,
     // Find hadron production points according to chosen definition.
     if (hadronVertex == 0) prodPoint += 0.5 * redOsc * pHadron / kappaVtx;
     else if (hadronVertex == 1) prodPoint += redOsc * pHadron / kappaVtx;
-    event[iHad].vProd( prodPoint * FM2MM );
+    event[iHad].vProd( event[iHad].vProd() + prodPoint * FM2MM );
   }
 
   // Successfully done.
@@ -558,7 +558,7 @@ void MiniStringFragmentation::setHadronVertices(Event& event,
         prodPoints[i] = middlePoint - 0.5 * tau0fac * redOsc * pHad / kappaVtx;
       }
     }
-    event[iHad].vProd( prodPoints[i] * FM2MM );
+    event[iHad].vProd( event[iHad].vProd() + prodPoints[i] * FM2MM );
   }
 
 }
