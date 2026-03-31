@@ -102,9 +102,10 @@ Hadronizer::Hadronizer() : pythia(), rd(), gen(rd()), dist(0., 1.) {
     pythia.readString("PartonVertex:ProtonRadius = 0.85");
     pythia.readString("PartonVertex:EmissionWidth = 0.1");
     pythia.readString("Fragmentation:setVertices = on");
-    pythia.readString("HadronVertex:mode = -1");
+    pythia.readString("HadronVertex:mode = 0");
     pythia.readString("HadronVertex:smearOn = on");
-    pythia.readString("HadronVertex:xySmear = 2.0");
+    pythia.readString("HadronVertex:xySmear = 0.7");
+    pythia.readString("HadronVertex:constantTau = off");
 
     pythia.init();
 }
