@@ -729,24 +729,29 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
         }
     }
 
-    std::cout << "HADRONIZER.CPP: "
-                << "Partons just before hadronization and after vProd assignment: "
-                << "id=" << particle.id() 
-                << ", col=" << particle.col() 
-                << ", acol=" << particle.acol()
-                << ", x=" << particle.xProd() 
-                << ", y=" << particle.yProd() 
-                << ", z=" << particle.zProd() 
-                << ", t=" << particle.tProd()
-                << ", px=" << particle.px() 
-                << ", py=" << particle.py() 
-                << ", pz=" << particle.pz() 
-                << ", e=" << particle.e()
-                << ", m=" << particle.m() 
-                << ", isFinal=" << particle.isFinal() 
-                << ", isParton=" << particle.isParton() 
-                << ", status=" << particle.status()
-                << std::endl;
+    for (int i = 0; i < pythia.event.size(); ++i) {
+
+        auto& particle = pythia.event[i];
+
+        std::cout << "HADRONIZER.CPP: "
+                    << "Partons just before hadronization and after vProd assignment: "
+                    << "id=" << particle.id() 
+                    << ", col=" << particle.col() 
+                    << ", acol=" << particle.acol()
+                    << ", x=" << particle.xProd() 
+                    << ", y=" << particle.yProd() 
+                    << ", z=" << particle.zProd() 
+                    << ", t=" << particle.tProd()
+                    << ", px=" << particle.px() 
+                    << ", py=" << particle.py() 
+                    << ", pz=" << particle.pz() 
+                    << ", e=" << particle.e()
+                    << ", m=" << particle.m() 
+                    << ", isFinal=" << particle.isFinal() 
+                    << ", isParton=" << particle.isParton() 
+                    << ", status=" << particle.status()
+                    << std::endl;
+    }
 
     // Perform hadronization
     const bool ok = pythia.next();
