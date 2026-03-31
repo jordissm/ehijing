@@ -188,6 +188,9 @@ int main(int argc, char* argv[]) {
                   << ", pz=" << particle.pz() 
                   << ", e=" << particle.e()
                   << ", m=" << particle.m() 
+                  << ", isFinal=" << particle.isFinal() 
+                  << ", isParton=" << particle.isParton() 
+                  << ", status=" << particle.status()
                   << std::endl;
         }
         
