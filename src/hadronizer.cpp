@@ -218,7 +218,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                             particle.e(),
                             particle.m());
 
-        auto& appended = event.back();
+        auto& appended = pythia.event.back();
         appended.vProd( particle.vProd() );
     }
 
