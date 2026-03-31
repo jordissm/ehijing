@@ -513,25 +513,7 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
 
     int ixyz = 0;
     for (auto& p : new_particles) {
-        std::cout << "MODIFIED_FF.CPP: "
-                  << "Looping over new particles: "
-                  << "id=" << p.id() 
-                  << ", col=" << p.col() 
-                  << ", acol=" << p.acol()
-                  << ", x=" << p.xProd() 
-                  << ", y=" << p.yProd() 
-                  << ", z=" << p.zProd() 
-                  << ", t=" << p.tProd()
-                  << ", px=" << p.px() 
-                  << ", py=" << p.py() 
-                  << ", pz=" << p.pz() 
-                  << ", e=" << p.e()
-                  << ", m=" << p.m() 
-                  << ", isFinal=" << p.isFinal() 
-                  << ", isParton=" << p.isParton() 
-                  << ", status=" << p.status()
-                  << std::endl;
-
+        
         event.append(p.id(), 201, p.col(), p.acol(), p.px(), p.py(), p.pz(), p.e(), p.m());
         
         auto& appended = event.back();
@@ -543,5 +525,29 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
         ));
 
         ixyz++;
+    }
+
+    for (int i = 0; i < event.size(); ++i) {
+
+        auto& particle = event[i];
+
+        std::cout << "MODIFIED_FF.CPP: "
+                << "Looping over new particles: "
+                << "id=" << particle.id() 
+                << ", col=" << particle.col() 
+                << ", acol=" << particle.acol()
+                << ", x=" << particle.xProd() 
+                << ", y=" << particle.yProd() 
+                << ", z=" << particle.zProd() 
+                << ", t=" << particle.tProd()
+                << ", px=" << particle.px() 
+                << ", py=" << particle.py() 
+                << ", pz=" << particle.pz() 
+                << ", e=" << particle.e()
+                << ", m=" << particle.m() 
+                << ", isFinal=" << particle.isFinal() 
+                << ", isParton=" << particle.isParton() 
+                << ", status=" << particle.status()
+                << std::endl;
     }
 }
