@@ -228,6 +228,8 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
 
                 int IDiii = IDmother0;
                 int IDdaughter1, IDdaughter2;
+                bool have_parent_kinematics = false;
+                p4[0] = p4[1] = p4[2] = p4[3] = 0.0;
 
                 // 
                 if (std::abs(pythia.event[IDiii].status()) == 23 ||
@@ -265,6 +267,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[1] = pythia.event[IDdaughter1].px() + pythia.event[IDdaughter2].px();
                         p4[2] = pythia.event[IDdaughter1].py() + pythia.event[IDdaughter2].py();
                         p4[3] = pythia.event[IDdaughter1].pz() + pythia.event[IDdaughter2].pz();
+                        have_parent_kinematics = true;
 
                     }
 
@@ -275,6 +278,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[1] = pythia.event[IDdaughter1].px();
                         p4[2] = pythia.event[IDdaughter1].py();
                         p4[3] = pythia.event[IDdaughter1].pz();
+                        have_parent_kinematics = true;
 
                     }
                 }
@@ -299,6 +303,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[1] = pythia.event[IDdaughter1].px() + pythia.event[IDdaughter2].px();
                         p4[2] = pythia.event[IDdaughter1].py() + pythia.event[IDdaughter2].py();
                         p4[3] = pythia.event[IDdaughter1].pz() + pythia.event[IDdaughter2].pz();
+                        have_parent_kinematics = true;
 
                     }
                 }
@@ -330,6 +335,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[1] = pythia.event[IDdaughter1].px() + pythia.event[IDdaughter2].px();
                         p4[2] = pythia.event[IDdaughter1].py() + pythia.event[IDdaughter2].py();
                         p4[3] = pythia.event[IDdaughter1].pz() + pythia.event[IDdaughter2].pz();
+                        have_parent_kinematics = true;
 
                     }
 
@@ -340,6 +346,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[1] = pythia.event[IDdaughter1].px();
                         p4[2] = pythia.event[IDdaughter1].py();
                         p4[3] = pythia.event[IDdaughter1].pz();
+                        have_parent_kinematics = true;
 
                     }
                 }
@@ -369,6 +376,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[1] = pythia.event[IDdaughter1].px() + pythia.event[IDdaughter2].px();
                         p4[2] = pythia.event[IDdaughter1].py() + pythia.event[IDdaughter2].py();
                         p4[3] = pythia.event[IDdaughter1].pz() + pythia.event[IDdaughter2].pz();
+                        have_parent_kinematics = true;
 
                     }
 
@@ -379,8 +387,13 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
                         p4[1] = pythia.event[IDdaughter1].px();
                         p4[2] = pythia.event[IDdaughter1].py();
                         p4[3] = pythia.event[IDdaughter1].pz();
+                        have_parent_kinematics = true;
 
                     }
+                }
+
+                if (!have_parent_kinematics || p4[0] <= 0.0) {
+                    continue;
                 }
 
                 double x_split = pythia.event[IDiii].e() / p4[0];
