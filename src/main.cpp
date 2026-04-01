@@ -60,15 +60,15 @@ int main(int argc, char* argv[]) {
     const RunConfig cfg = parse_args(argc, argv);
 
     const int n_events = cfg.n_events;
-    const int atomic_number = cfg.Z;
-    const int mass_number = cfg.A;
+    const int atomic_number = cfg.atomic_number;
+    const int mass_number = cfg.mass_number;
     const int mode = cfg.mode;
-    const double k_factor = cfg.K;
-    const std::string& table_path = cfg.tableDir;
+    const double k_factor = cfg.k_factor;
+    const std::string& table_path = cfg.table_path;
     const std::string& outDir = cfg.runDir;
     const std::string& configFile = cfg.configFile;
     const int64_t first_event_id = cfg.firstEventId;
-    const int64_t chunk_size = cfg.chunkSize;
+    const int64_t chunk_size = cfg.chunk_size;
     const uint32_t seed = cfg.seed;
 
     // Ensure output directories exist
