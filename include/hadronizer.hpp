@@ -9,11 +9,9 @@
 class Hadronizer
 {
 public:
-    using HadronizedEvent = std::vector<Pythia8::Particle>;
-
     Hadronizer();
 
-    std::optional<HadronizedEvent> hadronize(Pythia8::Pythia& pythiaIn,
+    std::optional<std::vector<Pythia8::Particle>> hadronize(Pythia8::Pythia& pythiaIn,
                                              int atomic_number,
                                              int mass_number,
                                              double Rx,

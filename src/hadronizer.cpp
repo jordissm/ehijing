@@ -105,7 +105,7 @@ Hadronizer::Hadronizer() : pythia(), rd(), gen(rd()), dist(0., 1.) {
 This function takes the shower PythiaIn (ep-shower with recoil particles)
 and assume it fragments in a nuclear medium with atomic number Z and mass number A
 */
-std::optional<HadronizedEvent> Hadronizer::hadronize(Pythia8::Pythia& pythiaIn,
+std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
                                                       int atomic_number,
                                                       int mass_number,
                                                       double Rx,
