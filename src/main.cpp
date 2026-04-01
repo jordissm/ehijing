@@ -189,7 +189,7 @@ int main(int argc, char* argv[]) {
             const auto& hadronized_event = *hadronized_event_opt;
             
             // Set event ID
-            const int64_t event_id = first_event_id + (n_written - 1);
+            const int64_t event_id = first_event_id + n_written;
             
             // Define output paths for the OSCAR event file and the metadata file based on the event ID and chunk size
             const EventPaths paths = make_event_paths(std::filesystem::path(outDir), event_id, chunk_size);
