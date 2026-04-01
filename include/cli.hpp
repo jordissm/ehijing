@@ -12,7 +12,7 @@ struct RunConfig {
     std::string table_path;
     std::string runDir;
     std::string configFile;
-    int64_t firstEventId;
+    int64_t first_event_id;
     int64_t chunk_size;
     uint32_t seed;
 };

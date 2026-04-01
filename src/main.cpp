@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
     const std::string& table_path = cfg.table_path;
     const std::string& outDir = cfg.runDir;
     const std::string& configFile = cfg.configFile;
-    const int64_t first_event_id = cfg.firstEventId;
+    const int64_t first_event_id = cfg.first_event_id;
     const int64_t chunk_size = cfg.chunk_size;
     const uint32_t seed = cfg.seed;
 
