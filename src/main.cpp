@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
         double Rx, Ry, Rz;
         
         // Modify the final shower with low-Q^2 medium corrections
-        modified_ff.sample_FF_partons(pythia, Rx, Ry, Rz);
+        modified_ff.sample_ff_partons(pythia, Rx, Ry, Rz);
         
         // Put the parton-level event into the separate hadronizer
         auto hadronized_event = hadronizer.hadronize(pythia, atomic_number, mass_number, Rx, Ry, Rz);
