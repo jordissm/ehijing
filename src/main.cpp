@@ -59,12 +59,12 @@ int main(int argc, char* argv[]) {
 
     const RunConfig cfg = parse_args(argc, argv);
 
-    const int nEvents = cfg.nEvents;
-    const int Z = cfg.Z;
-    const int A = cfg.A;
+    const int n_events = cfg.n_events;
+    const int atomic_number = cfg.Z;
+    const int mass_number = cfg.A;
     const int mode = cfg.mode;
-    const double K = cfg.K;
-    const std::string& tableDir = cfg.tableDir;
+    const double k_factor = cfg.K;
+    const std::string& table_path = cfg.tableDir;
     const std::string& outDir = cfg.runDir;
     const std::string& configFile = cfg.configFile;
     const int64_t first_event_id = cfg.firstEventId;
@@ -74,29 +74,29 @@ int main(int argc, char* argv[]) {
     // Ensure output directories exist
     try { // Attempt to create the directories if they do not exist
         std::filesystem::create_directories(std::filesystem::path(outDir));
-        std::filesystem::create_directories(std::filesystem::path(tableDir));
+        std::filesystem::create_directories(std::filesystem::path(table_path));
     } catch (const std::filesystem::filesystem_error& e) { // Handle any errors that occur during directory creation
         std::cerr << "ERROR: cannot create output/table directories:\n  " << e.what() << "\n";
         return 3;
     }
 
-    // Build the nucleus ID used by Pythia & the PDF (the isospin effect)
-    const int iNuclei = 100000000 + Z * 10000 + A * 10;
+    // Build the nucleus ID used by Pythia
+    const int nucleus_PDG_id = 100000000 + atomic_number * 10000 + mass_number * 10;
 
-    // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
-    // Shadowing effect:
-    //   nPDFset=0: only isospin
-    //   nPDFset = 1: EPS09 LO
-    //   nPDFset = 2: EPS09 NLO
-    //   nPDFset = 2: EPPS16 NLO
-    // We will use only isospin for deuteron,
-    // and EPPS16 NLO for heavier nucleus
-    int nPDFset = 0; // (A>2)?3:0;
+    /*
+    The nuclear modication to be used for beam A
+        nuclear_modification = 0: Only Isospin effect.
+        nuclear_modification = 1: EPS09, LO
+        nuclear_modification = 2: EPS09, NLO
+        nuclear_modification = 2: EPPS16, NLO
+    */
+    // We will use only isospin for deuteron, and EPPS16 NLO for heavier nucleus
+    int nuclear_modification = 0; // (A>2)?3:0;
 
     // Initialize the Pythia instance for hadronization
     Hadronizer hadronizer;
 
-    // Initialize the eHIJING-Pythia for high-Q parton shower in medium
+    // Create generator object for the eHIJING-Pythia high-Q parton shower in a medium
     Pythia pythia;
 
     // Read settings from the config file and apply them to the Pythia instance
@@ -107,46 +107,52 @@ int main(int argc, char* argv[]) {
     pythia.readString("Random:setSeed = on");
     pythia.readString("Random:seed = " + std::to_string(seed));
 
-    // ALSO seed your own RNGs deterministically (important!)
     gen.seed(seed);
     std::srand(seed);
 
     // Set Pythia and eHIJING settings from command line arguments
     // Note: Command line arguments will override settings in the config file if there are conflicts
-    add_arg<int>(pythia, "PDF:nPDFSetA", nPDFset);
-    add_arg<int>(pythia, "PDF:nPDFBeamA", iNuclei);
+    add_arg<int>(pythia, "PDF:nPDFSetA", nuclear_modification);
+    add_arg<int>(pythia, "PDF:nPDFBeamA", nucleus_PDG_id);
     add_arg<int>(pythia, "eHIJING:Mode", mode);
-    add_arg<int>(pythia, "eHIJING:AtomicNumber", A);
-    add_arg<int>(pythia, "eHIJING:ChargeNumber", Z);
-    add_arg<double>(pythia, "eHIJING:Kfactor", K);
-    add_arg<std::string>(pythia, "eHIJING:TablePath", tableDir);
+    add_arg<int>(pythia, "eHIJING:AtomicNumber", mass_number);
+    add_arg<int>(pythia, "eHIJING:ChargeNumber", atomic_number);
+    add_arg<double>(pythia, "eHIJING:Kfactor", k_factor);
+    add_arg<std::string>(pythia, "eHIJING:TablePath", table_path);
 
-    // Prepare Pythia for event generation
+    // Initialize Pythia
     pythia.init();
 
     // Initialize the modified FF module for medium corrections to the parton shower
-    Modified_FF MFF(mode, Z, A, K, pythia.settings.parm("eHIJING:xG-n"),
-                    pythia.settings.parm("eHIJING:xG-lambda"), tableDir);
+    double xg_n = pythia.settings.parm("eHIJING:xG-n");
+    double xg_lambda = pythia.settings.parm("eHIJING:xG-lambda");
+    Modified_FF modified_ff(mode, 
+                            atomic_number, 
+                            mass_number, 
+                            k_factor, 
+                            xg_n,
+                            xg_lambda, 
+                            table_path);
 
     // Define counter for triggered events
-    int nTriggered = 0;
+    int n_triggered = 0;
 
     // Define counter for failed events
-    int nFailed = 0;
+    int n_failed = 0;
 
     // Define counter for total events
-    int nTotal = 0;
+    int n_total = 0;
     
     // Begin event loop
-    while (nTriggered < nEvents) {
+    while (n_triggered < n_events) {
 
         // Add to total event count
-        nTotal++;
+        n_total++;
 
         // Skip event if it fails to generate
         if (!pythia.next()) {
             // Add to failed event count
-            nFailed++;
+            n_failed++;
             continue;
         };
 
@@ -157,10 +163,10 @@ int main(int argc, char* argv[]) {
         }
 
         // Event passed the trigger, add to triggered event count
-        nTriggered++;
+        n_triggered++;
 
         // Set event ID
-        const int64_t event_id = first_event_id + (nTriggered - 1);
+        const int64_t event_id = first_event_id + (n_triggered - 1);
         
         // Define output paths for the OSCAR event file and the metadata file based on the event ID and chunk size
         const EventPaths paths = make_event_paths(std::filesystem::path(outDir), event_id, chunk_size);
@@ -169,32 +175,32 @@ int main(int argc, char* argv[]) {
         double Rx, Ry, Rz;
         
         // Modify the final shower with low-Q^2 medium corrections
-        MFF.sample_FF_partons(pythia.event, Rx, Ry, Rz);
+        modified_ff.sample_FF_partons(pythia, Rx, Ry, Rz);
         
         // Put the parton-level event into the separate hadronizer
-        auto hadronizerEvent = hadronizer.hadronize(pythia, Z, A, Rx, Ry, Rz);
+        auto hadronized_event = hadronizer.hadronize(pythia, atomic_number, mass_number, Rx, Ry, Rz);
         
         // Open OSCAR output file
-        std::ofstream fout_event(paths.eventPath);
-        if (!fout_event) {
+        std::ofstream event_out(paths.eventPath);
+        if (!event_out) {
             std::cerr << "ERROR: cannot open output file: " << paths.eventPath << std::endl;
             return 1;
         }
         
         // Open metadata output file
-        std::ofstream fout_meta(paths.metaPath);
-        if (!fout_meta) {
+        std::ofstream meta_out(paths.metaPath);
+        if (!meta_out) {
             std::cerr << "ERROR: cannot open metadata file: " << paths.metaPath << std::endl;
             return 1;
         }
 
         // Write the event data and metadata to the respective files
-        write_event_headers(fout_event);
-        write_event_output(event_id, Z, A, kinematics, hadronizerEvent, fout_event, fout_meta);
+        write_event_headers(event_out);
+        write_event_output(event_id, atomic_number, mass_number, kinematics, hadronized_event, event_out, meta_out);
 
         // Close the output files
-        fout_event.close();
-        fout_meta.close();
+        event_out.close();
+        meta_out.close();
 
     }
 
