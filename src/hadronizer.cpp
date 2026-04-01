@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <optional>
 
 using namespace Pythia8;
 
@@ -102,17 +103,17 @@ Hadronizer::Hadronizer() : pythia(), rd(), gen(rd()), dist(0., 1.) {
 
 /*
 This function takes the shower PythiaIn (ep-shower with recoil particles)
-and assume it fragments in a nuclear medium with charge Z and atomic mass A
+and assume it fragments in a nuclear medium with atomic number Z and mass number A
 */
-std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
-                                            int Z,
-                                            int A,
-                                            double Rx,
-                                            double Ry,
-                                            double Rz) {
+std::optional<HadronizedEvent> Hadronizer::hadronize(Pythia8::Pythia& pythiaIn,
+                                                      int atomic_number,
+                                                      int mass_number,
+                                                      double Rx,
+                                                      double Ry,
+                                                      double Rz) {
 
     // Define charge fraction
-    double ZoverA = Z * 1.0 / A;
+    double charge_fraction = atomic_number * 1.0 / mass_number;
 
     // This vector will store the final hadrons after hadronization, and will be
     // returned to the main function
@@ -153,7 +154,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
             // from a proton. Therefore, we need to resample it according to the Z/A
             // ratio this nuclei
             // 1) Decide whether it is from a neutron or proton
-            if (dist(gen) < ZoverA) { // From a proton 2212
+            if (dist(gen) < charge_fraction) { // From a proton 2212
                 if (hardid == 1) {
                     // Produce (uu)_1 : 2203
                     particle.id(2203);
@@ -208,13 +209,13 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
         if (particle.isParton()) {
 
             // Initialize the (x, y, z) position of the parton
-            double position[3] = {0.0};
+            double position[3] = {0.0, 0.0, 0.0};
 
             // Initialize the four-momentum of the parton
-            double p0[4] = {0.0};
+            double p0[4] = {0.0, 0.0, 0.0, 0.0};
 
             // Initialize the four-momentum of the mother
-            double p4[4] = {0.0};
+            double p4[4] = {0.0, 0.0, 0.0, 0.0};
 
             double qt, time_step;
             double timeplus = 0.0;
@@ -434,7 +435,7 @@ std::vector<Particle> Hadronizer::hadronize(Pythia& pythiaIn,
     const bool ok = pythia.next();
     if (!ok) {
         std::cerr << "Hadronizer: pythia.next() failed\n";
-        return {};
+        return std::nullopt;
     }
 
     // Return the final state hadrons after hadronization

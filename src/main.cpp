@@ -134,73 +134,89 @@ int main(int argc, char* argv[]) {
                             xg_lambda, 
                             table_path);
 
-    // Define counter for triggered events
-    int n_triggered = 0;
+    // Define counter for events written to output
+    int n_written = 0;
 
-    // Define counter for failed events
-    int n_failed = 0;
+    // Define counter for events that failed to generate
+    int n_generation_failed = 0;
+
+    // Define counter for events that failed the DIS trigger
+    int n_trigger_failed = 0;
+
+    // Define counter for events that failed hadronization
+    const int hadronization_retries_max = 10; // Maximum number of hadronization failures before giving up
+    int n_hadronization_failed = 0;
 
     // Define counter for total events
-    int n_total = 0;
+    int n_total_attempts = 0;
     
     // Begin event loop
-    while (n_triggered < n_events) {
+    while (n_written < n_events) {
 
-        // Add to total event count
-        n_total++;
+        // Flag to indicate whether the event was successfully generated, passed the trigger, and hadronized
+        bool success = false;
 
-        // Skip event if it fails to generate
-        if (!pythia.next()) {
-            // Add to failed event count
-            n_failed++;
-            continue;
-        };
+        for (int attempt = 0; attempt < hadronization_retries_max; ++attempt) { // Try up to 10 times to generate a valid event
 
-        // Skip event if its kinematics do not satisfy the DIS trigger conditions
-        const DISKinematics kinematics = compute_dis_kinematics(pythia);
-        if (!is_valid_dis_event(kinematics)) {
-            continue;
+            // Add to total event attempt count
+            n_total_attempts++;
+
+            // Skip event if it fails to generate
+            if (!pythia.next()) {
+                // Add to failed event generation count
+                n_generation_failed++;
+                continue;
+            };
+
+            // Skip event if its kinematics do not satisfy the DIS trigger conditions
+            const DISKinematics kinematics = compute_dis_kinematics(pythia);
+            if (!is_valid_dis_event(kinematics)) {
+                // Add to failed DIS trigger count
+                n_trigger_failed++;
+                continue;
+            }
+            
+            // Modify the final shower with low-Q^2 medium corrections
+            double Rx, Ry, Rz;
+            modified_ff.sample_ff_partons(pythia, Rx, Ry, Rz);
+            
+            // Put the parton-level event into the separate hadronizer
+            auto hadronized_event_opt = hadronizer.hadronize(pythia, atomic_number, mass_number, Rx, Ry, Rz);
+            if (!hadronized_event_opt) {
+                n_hadronization_failed++;
+                continue;
+            }
+            const auto& hadronized_event = *hadronized_event_opt;
+            
+            // Set event ID
+            const int64_t event_id = first_event_id + (n_written - 1);
+            
+            // Define output paths for the OSCAR event file and the metadata file based on the event ID and chunk size
+            const EventPaths paths = make_event_paths(std::filesystem::path(outDir), event_id, chunk_size);
+
+            // Open OSCAR output file
+            std::ofstream event_out(paths.eventPath);
+            if (!event_out) {
+                std::cerr << "ERROR: cannot open output file: " << paths.eventPath << std::endl;
+                return 1;
+            }
+            
+            // Open metadata output file
+            std::ofstream meta_out(paths.metaPath);
+            if (!meta_out) {
+                std::cerr << "ERROR: cannot open metadata file: " << paths.metaPath << std::endl;
+                return 1;
+            }
+
+            // Write the event data and metadata to the respective files
+            write_event_headers(event_out);
+            write_event_output(event_id, atomic_number, mass_number, kinematics, hadronized_event, event_out, meta_out);
+
+            // Mark event as successfully generated, passed trigger, and hadronized
+            success = true;
+            n_written++;
+            break; // Exit the retry loop if the event was successful
         }
-
-        // Event passed the trigger, add to triggered event count
-        n_triggered++;
-
-        // Set event ID
-        const int64_t event_id = first_event_id + (n_triggered - 1);
-        
-        // Define output paths for the OSCAR event file and the metadata file based on the event ID and chunk size
-        const EventPaths paths = make_event_paths(std::filesystem::path(outDir), event_id, chunk_size);
-        
-        // Initialize the (x, y, z) size
-        double Rx, Ry, Rz;
-        
-        // Modify the final shower with low-Q^2 medium corrections
-        modified_ff.sample_ff_partons(pythia, Rx, Ry, Rz);
-        
-        // Put the parton-level event into the separate hadronizer
-        auto hadronized_event = hadronizer.hadronize(pythia, atomic_number, mass_number, Rx, Ry, Rz);
-        
-        // Open OSCAR output file
-        std::ofstream event_out(paths.eventPath);
-        if (!event_out) {
-            std::cerr << "ERROR: cannot open output file: " << paths.eventPath << std::endl;
-            return 1;
-        }
-        
-        // Open metadata output file
-        std::ofstream meta_out(paths.metaPath);
-        if (!meta_out) {
-            std::cerr << "ERROR: cannot open metadata file: " << paths.metaPath << std::endl;
-            return 1;
-        }
-
-        // Write the event data and metadata to the respective files
-        write_event_headers(event_out);
-        write_event_output(event_id, atomic_number, mass_number, kinematics, hadronized_event, event_out, meta_out);
-
-        // Close the output files
-        event_out.close();
-        meta_out.close();
 
     }
 
