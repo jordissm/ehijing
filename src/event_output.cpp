@@ -32,16 +32,16 @@ int count_final_particles(const std::vector<Particle>& particles) {
 
 void write_metadata_json(
     int32_t event_number,
-    int Z,
-    int A,
+    int atomic_number,
+    int mass_number,
     const DISKinematics& kin,
     std::ostream& out) {
 
     out << std::setprecision(16);
     out << "{\n";
     out << "  \"event\": " << event_number << ",\n";
-    out << "  \"Z\": " << Z << ", \"A\": " << A << ",\n";
-    out << "  \"xB\": " << kin.xBj << ",\n";
+    out << "  \"Z\": " << atomic_number << ", \"A\": " << mass_number << ",\n";
+    out << "  \"xB\": " << kin.bjorken_x << ",\n";
     out << "  \"Q2\": " << kin.Q2 << ",\n";
     out << "  \"y\": "  << kin.y  << ",\n";
     out << "  \"nu\": " << kin.nu << ",\n";
@@ -117,8 +117,8 @@ void write_final_hadrons(
 }
 
 void write_spectator_nucleons(
-    int Z,
-    int A,
+    int atomic_number,
+    int mass_number,
     std::ostream& out,
     int32_t& particle_index) {
 
@@ -126,10 +126,10 @@ void write_spectator_nucleons(
     std::uniform_real_distribution<double> uniform(0.0, 1.0);
     std::uniform_int_distribution<int> binary(0, 1);
 
-    const double RA = 1.2 * std::pow(static_cast<double>(A), 1.0 / 3.0);
+    const double RA = 1.2 * std::pow(static_cast<double>(mass_number), 1.0 / 3.0);
     const int random_binary = binary(gen);
 
-    const int total_protons = Z - random_binary;
+    const int total_protons = atomic_number - random_binary;
     for (int i = 0; i < total_protons; ++i) {
         const double rr = sample_point_in_sphere(RA, gen);
         const double phi = 2.0 * M_PI * uniform(gen);
@@ -163,7 +163,7 @@ void write_spectator_nucleons(
         ++particle_index;
     }
 
-    const int total_neutrons = A - Z + random_binary;
+    const int total_neutrons = mass_number - atomic_number + random_binary;
     for (int i = 0; i < total_neutrons; ++i) {
         const double rr = sample_point_in_sphere(RA, gen);
         const double phi = 2.0 * M_PI * uniform(gen);
@@ -207,14 +207,14 @@ void write_event_headers(std::ostream& out) {
 
 void write_event_output(
     int32_t event_number,
-    int Z,
-    int A,
+    int atomic_number,
+    int mass_number,
     const DISKinematics& kin,
     const std::vector<Particle>& particles,
     std::ostream& event_out,
     std::ostream& meta_out) {
 
-    write_metadata_json(event_number, Z, A, kin, meta_out);
+    write_metadata_json(event_number, atomic_number, mass_number, kin, meta_out);
 
     // Count number of hadrons in the shower
     const int count = count_final_particles(particles);
@@ -223,7 +223,7 @@ void write_event_output(
 
     int32_t particle_index = 0;
     write_final_hadrons(particles, event_out, particle_index);
-    write_spectator_nucleons(Z, A, event_out, particle_index);
+    write_spectator_nucleons(atomic_number, mass_number, event_out, particle_index);
 
     // Write event footer
     event_out << "# event " << event_number << " end 0\n";

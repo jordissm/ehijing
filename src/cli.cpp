@@ -73,10 +73,10 @@ RunConfig parse_args(int argc, char* argv[]) {
     cfg.configFile      = require_arg(args, "--config-file", argv[0]);
 
     // Parse optional first global event ID for this chunk
-    cfg.firstEventId = 0;
+    cfg.first_event_id = 0;
     if (auto it = args.find("--first-event-id"); it != args.end()) {
-        cfg.firstEventId = std::stoll(it->second);
-        if (cfg.firstEventId < 0) {
+        cfg.first_event_id = std::stoll(it->second);
+        if (cfg.first_event_id < 0) {
             std::cerr << "ERROR: --first-event-id must be >= 0\n";
             std::exit(2);
         }

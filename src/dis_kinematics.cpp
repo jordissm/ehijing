@@ -14,7 +14,7 @@ DISKinematics compute_dis_kinematics(const Pythia8::Pythia& pythia) {
     k.Q  = std::sqrt(k.Q2);
     k.W2 = (k.pProton + k.pGamma).m2Calc();
     k.W  = std::sqrt(k.W2);
-    k.xBj = k.Q2 / (2.0 * (k.pProton * k.pGamma));
+    k.bjorken_x = k.Q2 / (2.0 * (k.pProton * k.pGamma));
     k.y  = (k.pProton * k.pGamma) / (k.pProton * k.peIn);
 
     return k;
@@ -23,15 +23,15 @@ DISKinematics compute_dis_kinematics(const Pythia8::Pythia& pythia) {
 bool is_valid_dis_event(const DISKinematics& kin) {
     constexpr double ymin  = 0.10;
     constexpr double ymax  = 0.85;
-    constexpr double xBjmin = 0.023;
-    constexpr double xBjmax = 0.6;
+    constexpr double bjorken_x_min = 0.023;
+    constexpr double bjorken_x_max = 0.6;
     constexpr double Q2min = 1.0; // GeV^2
     constexpr double Wmin  = std::sqrt(10.0); // GeV
     
     return (ymin < kin.y) && 
            (kin.y < ymax) &&
-           (xBjmin < kin.xBj) && 
-           (kin.xBj < xBjmax) &&
+           (bjorken_x_min < kin.bjorken_x) && 
+           (kin.bjorken_x < bjorken_x_max) &&
            (Wmin < kin.W) &&
            (Q2min < kin.Q2);
 }

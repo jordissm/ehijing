@@ -12,7 +12,7 @@ struct DISKinematics {
     double Q = 0.0;
     double W2 = 0.0;
     double W = 0.0;
-    double xBj = 0.0;
+    double bjorken_x = 0.0;
     double y = 0.0;
 };
 

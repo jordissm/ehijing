@@ -12,8 +12,8 @@ public:
     Hadronizer();
 
     std::vector<Particle> hadronize(Pythia& pythiaIn,
-                                    int Z,
-                                    int A,
+                                    int atomic_number,
+                                    int mass_number,
                                     double Rx,
                                     double Ry,
                                     double Rz);

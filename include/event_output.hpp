@@ -11,8 +11,8 @@ void write_event_headers(std::ostream& out);
 
 void write_event_output(
     int32_t event_number,
-    int Z,
-    int A,
+    int atomic_number,
+    int mass_number,
     const DISKinematics& kin,
     const std::vector<Pythia8::Particle>& particles,
     std::ostream& event_out,
