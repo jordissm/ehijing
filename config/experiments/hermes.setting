@@ -5,12 +5,14 @@ Beams:frameType = 2
 Beams:eA = 0.938 # proton beam energy (+,0,0,+) [GeV], E=max(M, eA)
 Beams:eB = 27.6 #27.6 #5.014 # electron beam energy (+,0,0,-) [GeV]
 
-# Phasespace cut:
+# Phasespace cuts:
 # Minimum hard scale squared [GeV^2]
 PhaseSpace:Q2Min = 1.0
 PhaseSpace:mHatMin = 0
 PhaseSpace:pTHatMinDiverge = 0.5
-# >>>>>> Do not change the following without a good reason...
+
+# >>>>>> Do not change the following without a good reason.
+
 PDF:lepton = off
 
 WeakBosonExchange:ff2ff(t:gmZ) = on
@@ -35,7 +37,8 @@ Tune:pp = 19
 PDF:pset = 12
 PDF:useHard = on
 PDF:useHardNPDFA = on
-# <<<<<< Do not change aboves without a good reason...
+
+# <<<<<< Do not change the above without a good reason.
 
 # eHIJING Switch
 eHIJING:all = on
