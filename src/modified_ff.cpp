@@ -7,45 +7,45 @@
 
 using namespace Pythia8;
 
-Modified_FF::Modified_FF(int mode_,
-                         int Z_,
-                         int A_,
-                         double K,
-                         double n,
-                         double lambda,
-                         std::string TablePath)
-    : mode(mode_),
-      Z(Z_),
-      A(A_),
-      ZoverA(Z * 1.0 / A),
-      Coll(K, n, lambda),
-      eHIJING_Geometry(A, Z),
-      rd(),
-      gen(rd()),
-      dist(0.0, 1.0)
+Modified_FF::Modified_FF(int mode,
+                         int atomic_number,
+                         int mass_number,
+                         double k_factor,
+                         double xg_n,
+                         double xg_lambda,
+                         std::string table_path)
+    : mode_(mode),
+      atomic_number_(atomic_number),
+      mass_number_(mass_number),
+      z_over_a_(static_cast<double>(atomic_number) / mass_number),
+      collision_sampler_(k_factor, xg_n, xg_lambda),
+      ehijing_geometry_(mass_number, atomic_number),
+      random_device_(),
+      rng_(random_device_()),
+      uniform_dist_(0.0, 1.0)
 {
-    Coll.Tabulate(TablePath);
+    collision_sampler_.Tabulate(table_path);
 }
 
 // The realization of the modified FF
-void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double& Rz)
+void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, double& Rz)
 {
-    Vec4 pProton = event[1].p();   // four-momentum of proton
-    Vec4 peIn = event[4].p();      // incoming electron
-    Vec4 peOut = event[6].p();     // outgoing electron
+    Vec4 pProton = pythia.event[1].p();   // four-momentum of proton
+    Vec4 peIn = pythia.event[4].p();      // incoming electron
+    Vec4 peOut = pythia.event[6].p();     // outgoing electron
     Vec4 pGamma = peIn - peOut;    // virtual boson photon/Z^0/W^+-
     double Q20 = -pGamma.m2Calc(); // hard scale square
     double Q0 = std::sqrt(Q20);
-    double xB = Q20 / (2. * pProton * pGamma); // Bjorken x
+    double bjorken_x = Q20 / (2. * pProton * pGamma); // Bjorken x
     double nu = pGamma.e();
     double W2 = (pProton + pGamma).m2Calc();
-    auto& hardP = event[5];
+    auto& hardP = pythia.event[5];
 
     // Use fixed coupling at Qs of this event for anything medium-induced below Qs
-    double kt2max_now = event.SeparationScale();
+    double kt2max_now = pythia.event.SeparationScale();
     double alpha_fix = EHIJING::alphas(kt2max_now);
-    double alphabar = alpha_fix * EHIJING::CA / M_PI;
-    double emin = .2;
+    double alpha_bar = alpha_fix * EHIJING::CA / M_PI;
+    double min_energy = .2;
 
     // This will hold the gluons emitted from the medium-contrbuted FF in this stage
     // as well as recoil partons that keeps the entire system color neutral.
@@ -58,158 +58,198 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
     std::vector<double> y_arr;
     std::vector<double> z_arr;
     std::vector<double> t_arr;
-    for (int i = 0; i < event.size(); ++i)
+
+    for (int i = 0; i < pythia.event.size(); ++i)
     {
+        
+        auto& particle = pythia.event[i];
 
-        // only find final-state quarks and gluons with energy above
-        // 2*emin in the nuclear rest frame
-        auto& p = event[i];
-        auto abspid = p.idAbs();
-        if (!p.isFinal()) {
-            continue;
-        }
-        if (p.e() < 2 * emin) {
+        // Only consider final state partons
+        if (!particle.isFinal()) {
             continue;
         }
 
-        // we are skipping modifications of heavy quarks right now!!!
-        bool isLightParton = (abspid == 1) || (abspid == 2) || (abspid == 3) || (abspid == 21);
-        if (!isLightParton) {
+        // Only consider partons with energy above 2*min_energy in the nuclear rest frame
+        // to avoid non-perturbative region and ensure the validity of the soft gluon approximation
+        if (particle.e() < 2 * min_energy) {
+            continue;
+        }
+
+        // Skip modification of heavy quarks
+        /*
+        Parton PIDs:
+            d: 1    c: 4
+            u: 2    b: 5
+            s: 3    t: 6
+            g: 21
+        */
+        auto abs_particle_id = particle.idAbs();
+        bool is_light_parton = (abs_particle_id == 1) || (abs_particle_id == 2) || (abs_particle_id == 3) || (abs_particle_id == 21);
+        if (!is_light_parton) {
             continue;
         }
 
         // Get its collision history
-        std::vector<double> qt2s = p.coll_qt2s(), ts = p.coll_ts(), phis = p.coll_phis();
-        // if no collision, nothing to do
-        int Ncolls = ts.size();
-        if (Ncolls == 0) {
+        std::vector<double> qt2s = particle.coll_qt2s(), ts = particle.coll_ts(), phis = particle.coll_phis();
+        int n_collisions = ts.size();
+        // If no collision, nothing to do
+        if (n_collisions == 0) {
             continue;
         }
 
-        double vx = p.px() / p.e(), vy = p.py() / p.e(), vz = p.pz() / p.e();
-        double L = eHIJING_Geometry.compute_L(event.Rx(), event.Ry(), event.Rz(), vx, vy, vz);
-        double TA = eHIJING_Geometry.compute_TA(event.Rx(), event.Ry(), event.Rz(), vx, vy, vz);
-        Rx = event.Rx();
-        Ry = event.Ry();
-        Rz = event.Rz();
+        // Compute particle velocity
+        double vx = particle.px() / particle.e();
+        double vy = particle.py() / particle.e();
+        double vz = particle.pz() / particle.e();
 
-        double sumq2 = 0.; // useful quantity for H-T approach
-        for (int i=0; i < Ncolls; ++i) sumq2 += qt2s[i];
+        // 
+        double path_length = ehijing_geometry_.compute_L(pythia.event.Rx(), pythia.event.Ry(), pythia.event.Rz(), vx, vy, vz);
+        double nuclear_thickness = ehijing_geometry_.compute_TA(pythia.event.Rx(), pythia.event.Ry(), pythia.event.Rz(), vx, vy, vz);
+
+        // 
+        Rx = pythia.event.Rx();
+        Ry = pythia.event.Ry();
+        Rz = pythia.event.Rz();
+
+        // Useful quantity for the HT approach
+        double sumq2 = 0.;
+        for (int i = 0; i < n_collisions; ++i) {
+            sumq2 += qt2s[i];
+        }
+        // Neglect too soft momentum kicks
         if (sumq2 < 1e-9) {
-            continue; // negelect too soft momentum kicks
+            continue;
         }
 
-        // tauf ordered fragmentation gluon
-        // A very large cut off, since the LPM effect will effective regulate the tauf divergence
-        double taufmax = p.e() / EHIJING::mu2;
-        // Start from the minimum tauf ~ 1/Qs, which is the separation scale;
-        double taufmin = 1.0 / std::sqrt(event.SeparationScale());
-        double tauf = taufmin;
+        // Formation time ordered fragmentation gluon
+        // A very large cut off, since the LPM effect will effective regulate the formation time divergence
+        double formation_time_max = particle.e() / EHIJING::mu2;
+        // Start from the minimum formation time ~ 1/Qs, which is the separation scale;
+        double formation_time_min = 1.0 / std::sqrt(pythia.event.SeparationScale());
+        double formation_time = formation_time_min;
 
         double acceptance = 0;
         // z, kt2, lt2, phi_k, and dphiqk = phi_q - phik
         double z, kt2, lt2, phik, dphiqk;
 
-        // holds fragmented gluons and recoiled beam remnants
-        std::vector<Particle> frag_gluons, recoil_remnants;
-        frag_gluons.clear();
-        recoil_remnants.clear();
+        // Hold fragmented gluons and recoiled beam remnants
+        std::vector<Particle> fragmented_gluons, recoiled_beam_remnants;
+        fragmented_gluons.clear();
+        recoiled_beam_remnants.clear();
 
         // Formation time loop
-        // Commnent out this loop to turn off the radiation Wenbin // begin of the loop
-        while (tauf < taufmax && p.e() > 2 * emin) {
-            double zmin = std::min(emin / p.e(), .4);
-            double zmax = 1. - zmin;
-            if (zmax < zmin) {
+        // Comment out this loop to turn off the radiation
+        while (formation_time < formation_time_max && particle.e() > 2 * min_energy) {
+            double z_min = std::min(min_energy / particle.e(), .4);
+            double z_max = 1. - z_min;
+            if (z_max < z_min) {
                 break;
             }
-            double maxlogz = std::log(zmax / zmin);
-            double maxdiffz = 1. / zmin - 1. / zmax + 2. * maxlogz;
-            // step1: find the next tauf
-            double r = dist(gen);
-            if (mode == 1) {
-                double invrpower = alphabar * maxlogz * 4. * Ncolls;
+            double log_z_max = std::log(z_max / z_min);
+            double maxdiffz = 1. / z_min - 1. / z_max + 2. * log_z_max;
+
+            // Step 1: Find the next formation_time
+            // Eq. (50) in arxiv:2304.10779
+            double r = uniform_dist_(rng_);
+
+            // If mode = 0, use HT
+            if (mode_ == 0) {
+                double coeff = alpha_bar * maxdiffz * 4. * sumq2 / 2. / particle.e();
+                formation_time = formation_time + std::log(1. / r) / coeff;
+            // If mode = 1, use GHT
+            } else if (mode_ == 1) {
+                double invrpower = alpha_bar * log_z_max * 4. * n_collisions;
                 double step_factor = std::pow(1. / r, 1. / invrpower);
-                tauf = tauf * step_factor;
-            } else {
-                double coeff = alphabar * maxdiffz * 4. * sumq2 / 2. / p.e();
-                tauf = tauf + std::log(1. / r) / coeff;
+                formation_time = formation_time * step_factor;
             }
-            if (tauf > taufmax || tauf < taufmin) {
+
+            if (formation_time > formation_time_max || formation_time < formation_time_min) {
                 break;
             }
+
             acceptance = 0.;
-            if (mode == 1) {
-                for (int j = 0; j < Ncolls; j++) {
-                    double phase = (1. - std::cos(ts[j] / tauf));
-                    double z1mz = tauf * qt2s[j] / 2. / p.e();
+            // If mode = 0, use HT
+            if (mode_ == 0) {
+                for (int j = 0; j < n_collisions; ++j) {
+                    double lpm_interference_phase_factor = (1. - std::cos(ts[j] / formation_time));
+                    acceptance += qt2s[j] * lpm_interference_phase_factor;
+                }
+                acceptance /= (2. * sumq2);
+            // If mode = 1, use GHT
+            } else if (mode_ == 1) {
+                for (int j = 0; j < n_collisions; ++j) {
+                    double lpm_interference_phase_factor = (1. - std::cos(ts[j] / formation_time));
+                    double z1mz = formation_time * qt2s[j] / 2. / particle.e();
                     if (z1mz > .25) {
-                        acceptance += phase * maxlogz;
+                        acceptance += lpm_interference_phase_factor * log_z_max;
                     }
                     else {
                         double dz = std::sqrt(.25 - z1mz);
                         double z1 = .5 - dz;
                         double z2 = .5 + dz;
-                        if (z1 > zmin) {
-                            acceptance += phase * std::log(z1 / zmin);
+                        if (z1 > z_min) {
+                            acceptance += lpm_interference_phase_factor * std::log(z1 / z_min);
                         }
-                        if (z2 < zmax) {
-                            acceptance += phase * std::log(zmax / z2);
+                        if (z2 < z_max) {
+                            acceptance += lpm_interference_phase_factor * std::log(z_max / z2);
                         }
                     }
                 }
-                acceptance /= (maxlogz * 2. * Ncolls);
-            } else {
-                for (int j = 0; j < Ncolls; j++) {
-                    acceptance += qt2s[j] * (1. - std::cos(ts[j] / tauf));
-                }
-                acceptance /= (2. * sumq2);
+                acceptance /= (log_z_max * 2. * n_collisions);
             }
-            if (acceptance < dist(gen)) {
+
+
+            if (acceptance < uniform_dist_(rng_)) {
                 continue;
             }
 
-            // step 2: sample z, which also determines kt2
+            // Step 2: sample z, which also determines kt2
             acceptance = 0.;
-            if (mode == 0) {
-                double N1 = 2 * (1. / zmin - 2.);
-                double N2 = -4 * std::log(2. * (1. - zmax));
+            // If mode = 0, use HT
+            if (mode_ == 0) {
+                double N1 = 2 * (1. / z_min - 2.);
+                double N2 = -4 * std::log(2. * (1. - z_max));
                 double Ntot = N1 + N2;
                 double r0 = N1 / Ntot;
 
                 double acceptance = 0.;
-                while (acceptance < dist(gen)) {
-                    double r = dist(gen);
+                while (acceptance < uniform_dist_(rng_)) {
+                    double r = uniform_dist_(rng_);
                     if (r < r0) {
-                        z = zmin / (1. - zmin * r * Ntot / 2.);
+                        z = z_min / (1. - z_min * r * Ntot / 2.);
                         acceptance = .5 / (1. - z);
                     } else {
                         z = 1. - std::exp(-(r * Ntot - N1) / 4.) / 2.;
                         acceptance = .25 / z / z;
                     }
                 }
-                kt2 = 2 * (1. - z) * z * p.e() / tauf;
+
+                // Inversion of the formation time formula to get k_T^2
+                // Eq. 35 in arxiv:2304.10779
+                kt2 = 2 * (1. - z) * z * particle.e() / formation_time;
+
                 // reject cases where qt2>kt2 for mode=0
                 double Num = 0., Den = 0.;
-                for (int j = 0; j < Ncolls; j++) {
+                for (int j = 0; j < n_collisions; j++) {
                     if (ts[j] < 0) {
                         continue;
                     }
 
                     double q2 = qt2s[j], t = ts[j];
                     if (kt2 > q2) {
-                        Num += q2 * (1. - std::cos(t / tauf));
+                        Num += q2 * (1. - std::cos(t / formation_time));
                     }
 
-                    Den += q2 * (1. - std::cos(t / tauf));
+                    Den += q2 * (1. - std::cos(t / formation_time));
                 }
-                if (Num / Den < dist(gen)) {
+                if (Num / Den < uniform_dist_(rng_)) {
                     continue;
                 }
-            } else {
+            // If mode = 1, use GHT
+            } else if (mode_ == 1) {
                 bool ok = false;
-                double minimum_q2 = 2 * emin / tauf;
-                for (int j = 0; j < Ncolls; j++) {
+                double minimum_q2 = 2 * min_energy / formation_time;
+                for (int j = 0; j < n_collisions; j++) {
                     if (qt2s[j] > minimum_q2 && ts[j] > 0) {
                         ok = true;
                     }
@@ -217,49 +257,50 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
                 if (!ok) {
                     continue;
                 }
-                while (acceptance < dist(gen)) {
-                    z = zmin * std::pow(zmax / zmin, dist(gen));
-                    kt2 = 2 * (1. - z) * z * p.e() / tauf;
+                while (acceptance < uniform_dist_(rng_)) {
+                    z = z_min * std::pow(z_max / z_min, uniform_dist_(rng_));
+                    kt2 = 2 * (1. - z) * z * particle.e() / formation_time;
                     double num = 0.;
-                    for (int j = 0; j < Ncolls; j++) {
+                    for (int j = 0; j < n_collisions; j++) {
                         if (kt2 < qt2s[j] && ts[j] > 0) {
                             num += 1.;
                         }
                     }
-                    acceptance = num / Ncolls;
+                    acceptance = num / n_collisions;
                 }
             }
 
-            // step 3 correct for the splitting function
-            // correct for splitting function
-            if (p.id() == 21 && (1 + std::pow(1. - z, 3)) / 2. < dist(gen)) {
+            // Step 3: correct for the splitting function
+            if (particle.id() == 21 && (1 + std::pow(1. - z, 3)) / 2. < uniform_dist_(rng_)) {
                 continue;
             }
-            if (p.id() != 21 && (1 + std::pow(1. - z, 2)) / 2. < dist(gen)) {
+            if (particle.id() != 21 && (1 + std::pow(1. - z, 2)) / 2. < uniform_dist_(rng_)) {
                 continue;
             }
 
-            // finally, sample phikT2 and compute the deflection of the hard parton lt2
-            if (mode == 0) {
+            // Finally, sample phikT2 and compute the deflection of the hard parton lt2
+            // If mode = 0, use HT
+            if (mode_ == 0) {
                 // no particular angular structure in the H-T expansion
-                phik = 2 * M_PI * dist(gen);
+                phik = 2 * M_PI * uniform_dist_(rng_);
                 lt2 = kt2;
-            } else {
+            // If mode = 1, use GHT
+            } else if (mode_ == 1) {
                 double Psum = 0.;
                 std::vector<double> dP;
-                dP.resize(Ncolls);
-                for (int j = 0; j < Ncolls; j++) {
+                dP.resize(n_collisions);
+                for (int j = 0; j < n_collisions; j++) {
                     if (kt2 < qt2s[j]) {
-                        Psum += (1. - std::cos(ts[j] / tauf));
+                        Psum += (1. - std::cos(ts[j] / formation_time));
                     }
                     dP[j] = Psum;
                 }
-                for (int j = 0; j < Ncolls; j++) {
+                for (int j = 0; j < n_collisions; j++) {
                     dP[j] /= Psum;
                 }
-                double rc = dist(gen);
+                double rc = uniform_dist_(rng_);
                 int choice = -1;
-                for (int j = 0; j < Ncolls; j++) {
+                for (int j = 0; j < n_collisions; j++) {
                     if (rc < dP[j]) {
                         choice = j;
                         break;
@@ -268,15 +309,16 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
                 // sample phik ~ (1+delta cos) / (1+delta^2 + 2 delta cos)
                 double delta = std::sqrt(kt2 / qt2s[choice]);
                 acceptance = 0.;
-                while (acceptance < dist(gen)) {
-                    r = dist(gen);
+                while (acceptance < uniform_dist_(rng_)) {
+                    r = uniform_dist_(rng_);
                     dphiqk = 2. * std::atan(std::tan(M_PI / 2. * r) * (delta + 1) / (delta - 1));
                     acceptance = (1 + delta * std::cos(dphiqk)) / 2.;
                 }
-                phik = phis[choice] + ((dist(gen) > .5) ? dphiqk : (-dphiqk));
+                phik = phis[choice] + ((uniform_dist_(rng_) > .5) ? dphiqk : (-dphiqk));
                 // lt2 = |(K-q) + q| = |k-q|^2
                 lt2 = kt2 + qt2s[choice] + 2. * std::sqrt(kt2 * qt2s[choice]) * std::cos(dphiqk);
             }
+
             // The virtuality was not allowed to be overlap with the high-Q shower
             if (lt2 > kt2max_now) {
                 continue;
@@ -284,22 +326,23 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
 
             // Now, there is a radiation,
             // Hard parton splits into p -> p-k & k
-            double kt = std::sqrt(kt2), k0 = z * p.e();
+            double kt = std::sqrt(kt2), k0 = z * particle.e();
             if (kt > k0) {
                 continue;
             }
+
             double kz = std::sqrt(k0 * k0 - kt2);
             Vec4 kmu{kt * std::cos(phik), kt * std::sin(phik), kz, k0};
-            kmu.rot(p.theta(), 0.);
-            kmu.rot(0., p.phi());
-            p.p(p.p() - kmu);
-            p.e(std::sqrt(p.pAbs2() + p.m2()));
+            kmu.rot(particle.theta(), 0.);
+            kmu.rot(0., particle.phi());
+            particle.p(particle.p() - kmu);
+            particle.e(std::sqrt(particle.pAbs2() + particle.m2()));
             kmu.e(std::sqrt(kmu.pAbs2()));
 
             // the gluon can continue to collide
 
             std::vector<double> g_qt2s, g_ts, g_phis;
-            Coll.sample_all_qt2(21, kmu.e(), L, TA, xB, Q20, g_qt2s, g_ts, g_phis);
+            collision_sampler_.sample_all_qt2(21, kmu.e(), path_length, nuclear_thickness, bjorken_x, Q20, g_qt2s, g_ts, g_phis);
             Vec4 Qtot{0., 0., 0., 0.};
             double e0 = kmu.e();
             for (int ig = 0; ig < g_ts.size(); ig++) {
@@ -321,128 +364,19 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
             // if the gluon forms inside the nuclei,
             // we consider it will lose color correlation with the original parton,
             // and form a new string with beam remnant
-            {
-                Particle gluon = Particle(21, 201, i, 0, 0, 0, event.nextColTag(),
-                                          event.nextColTag(), kmu, 0.0, 0);
-                int qid, diqid;
-                double mq, mdiq, mn;
-                if (dist(gen) < ZoverA) { // diquark from a proton
-                    diqid = 2101;
-                    mdiq = 0.57933;
-                    qid = 2;
-                    mq = 0.33;
-                    mn = 0.93847;
-                    if (dist(gen) < 2. / 3.) { // take away a u
-                        qid = 2;
-                        if (dist(gen) < .75) {
-                            diqid = 2101;
-                        } else {
-                            diqid = 2103;
-                        }
-                    } else { // take away the d
-                        qid = 1;
-                        diqid = 2203;
-                    }
-                } else { // diquark from a neutron
-                    diqid = 2101;
-                    mdiq = 0.57933;
-                    qid = 1;
-                    mq = 0.33;
-                    mn = 0.93957;
-                    if (dist(gen) < 2. / 3.) { // take away a d
-                        qid = 1;
-                        if (dist(gen) < .75) {
-                            diqid = 2101;
-                        } else {
-                            diqid = 2103;
-                        }
-                    } else {
-                        // take away the u
-                        qid = 2;
-                        diqid = 1103;
-                    }
-                }
-                double pabs = std::sqrt((mn * mn - std::pow(mq + mdiq, 2)) *
-                                        (mn * mn - std::pow(mq - mdiq, 2))) /
-                              (2. * mn);
-                double costheta = dist(gen) * 2. - 1.;
-                double sintheta = std::sqrt(std::max(1. - costheta * costheta, 1e-9));
-                double rphi = 2 * M_PI * dist(gen);
-                double Nqz = pabs * costheta, Nqx = pabs * sintheta * std::cos(rphi),
-                       Nqy = pabs * sintheta * std::sin(rphi);
-                Vec4 pq{Nqx, Nqy, Nqz, 0}, pdiq{-Nqx, -Nqy, -Nqz, 0};
-                pq.e(std::sqrt(pq.pAbs2() + mq * mq));
-                pdiq.e(std::sqrt(pdiq.pAbs2() + mdiq * mdiq));
-                Particle recolQ = Particle(qid, 201, i, 0, 0, 0, gluon.acol(), 0, pq, mq, 0);
-                Particle recoldiQ = Particle(diqid, 201, i, 0, 0, 0, 0, gluon.col(), pdiq, mdiq, 0);
-                // time tauf
-                recoil_remnants.push_back(gluon);
-                x_arr.push_back(tauf * HBARC * kmu.px() / kmu.e());
-                y_arr.push_back(tauf * HBARC * kmu.py() / kmu.e());
-                z_arr.push_back(tauf * HBARC * kmu.pz() / kmu.e());
-                t_arr.push_back(tauf * HBARC);
-
-                recoil_remnants.push_back(recolQ);
-                x_arr.push_back(tauf * HBARC * pq.px() / pq.e());
-                y_arr.push_back(tauf * HBARC * pq.py() / pq.e());
-                z_arr.push_back(tauf * HBARC * pq.pz() / pq.e());
-                t_arr.push_back(tauf * HBARC);
-
-                recoil_remnants.push_back(recoldiQ);
-                x_arr.push_back(tauf * HBARC * pdiq.px() / pdiq.e());
-                y_arr.push_back(tauf * HBARC * pdiq.py() / pdiq.e());
-                z_arr.push_back(tauf * HBARC * pdiq.pz() / pdiq.e());
-                t_arr.push_back(tauf * HBARC);
-            }
-        } // Commnent out this loop to turn off the radiation Wenbin // end of the loop
-
-        // Now handles recoil and remannts
-        // if there are radiations, recoil goes to radiations
-        // else: goes to the hard quark
-        int Nrad = frag_gluons.size();
-        for (int j = 0; j < Ncolls; j++) {
-            double qT = std::sqrt(qt2s[j]), phiq = phis[j];
-            double qx = qT * std::cos(phiq);
-            double qy = qT * std::sin(phiq);
-            double qz = -qT * qT / 4. / p.e();
-            Vec4 qmu{qx, qy, qz, 0};
-            qmu.rot(p.theta(), 0.);
-            qmu.rot(0., p.phi());
-            // turn off the elastic broading Wenbin
-            p.p(p.p() + qmu);
-            p.e(std::sqrt(p.pAbs2() + p.m2()));
-            int q_col, q_acol;
-            // update color
-            if (p.id() == 21) {
-                if (std::rand() % 2 == 0) {
-                    q_acol = p.acol();
-                    p.acol(event.nextColTag());
-                    q_col = p.acol();
-                } else {
-                    q_col = p.col();
-                    p.col(event.nextColTag());
-                    q_acol = p.col();
-                }
-            } else if (p.id() > 0) {
-                q_col = p.col();
-                p.col(event.nextColTag());
-                q_acol = p.col();
-            } else {
-                q_acol = p.acol();
-                p.acol(event.nextColTag());
-                q_col = p.acol();
-            }
+            Particle gluon = Particle(21, 201, i, 0, 0, 0, pythia.event.nextColTag(),
+                                        pythia.event.nextColTag(), kmu, 0.0, 0);
             int qid, diqid;
             double mq, mdiq, mn;
-            if (dist(gen) < ZoverA) { // diquark from a proton
+            if (uniform_dist_(rng_) < z_over_a_) { // diquark from a proton
                 diqid = 2101;
                 mdiq = 0.57933;
                 qid = 2;
                 mq = 0.33;
                 mn = 0.93847;
-                if (dist(gen) < 2. / 3.) { // take away a u
+                if (uniform_dist_(rng_) < 2. / 3.) { // take away a u
                     qid = 2;
-                    if (dist(gen) < .75) {
+                    if (uniform_dist_(rng_) < .75) {
                         diqid = 2101;
                     } else {
                         diqid = 2103;
@@ -451,15 +385,122 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
                     qid = 1;
                     diqid = 2203;
                 }
-            } else{ // diquark from a neutron
+            } else { // diquark from a neutron
                 diqid = 2101;
                 mdiq = 0.57933;
                 qid = 1;
                 mq = 0.33;
                 mn = 0.93957;
-                if (dist(gen) < 2. / 3.) { // take away a d
+                if (uniform_dist_(rng_) < 2. / 3.) { // take away a d
                     qid = 1;
-                    if (dist(gen) < .75) {
+                    if (uniform_dist_(rng_) < .75) {
+                        diqid = 2101;
+                    } else {
+                        diqid = 2103;
+                    }
+                } else {
+                    // take away the u
+                    qid = 2;
+                    diqid = 1103;
+                }
+            }
+            double pabs = std::sqrt((mn * mn - std::pow(mq + mdiq, 2)) *
+                                    (mn * mn - std::pow(mq - mdiq, 2))) /
+                            (2. * mn);
+            double costheta = uniform_dist_(rng_) * 2. - 1.;
+            double sintheta = std::sqrt(std::max(1. - costheta * costheta, 1e-9));
+            double rphi = 2 * M_PI * uniform_dist_(rng_);
+            double Nqz = pabs * costheta, Nqx = pabs * sintheta * std::cos(rphi),
+                    Nqy = pabs * sintheta * std::sin(rphi);
+            Vec4 pq{Nqx, Nqy, Nqz, 0}, pdiq{-Nqx, -Nqy, -Nqz, 0};
+            pq.e(std::sqrt(pq.pAbs2() + mq * mq));
+            pdiq.e(std::sqrt(pdiq.pAbs2() + mdiq * mdiq));
+            Particle recolQ = Particle(qid, 201, i, 0, 0, 0, gluon.acol(), 0, pq, mq, 0);
+            Particle recoldiQ = Particle(diqid, 201, i, 0, 0, 0, 0, gluon.col(), pdiq, mdiq, 0);
+            // time formation_time
+            recoiled_beam_remnants.push_back(gluon);
+            x_arr.push_back(formation_time * HBARC * kmu.px() / kmu.e());
+            y_arr.push_back(formation_time * HBARC * kmu.py() / kmu.e());
+            z_arr.push_back(formation_time * HBARC * kmu.pz() / kmu.e());
+            t_arr.push_back(formation_time * HBARC);
+
+            recoiled_beam_remnants.push_back(recolQ);
+            x_arr.push_back(formation_time * HBARC * pq.px() / pq.e());
+            y_arr.push_back(formation_time * HBARC * pq.py() / pq.e());
+            z_arr.push_back(formation_time * HBARC * pq.pz() / pq.e());
+            t_arr.push_back(formation_time * HBARC);
+
+            recoiled_beam_remnants.push_back(recoldiQ);
+            x_arr.push_back(formation_time * HBARC * pdiq.px() / pdiq.e());
+            y_arr.push_back(formation_time * HBARC * pdiq.py() / pdiq.e());
+            z_arr.push_back(formation_time * HBARC * pdiq.pz() / pdiq.e());
+            t_arr.push_back(formation_time * HBARC);
+        } // Comment out this loop to turn off radiation
+
+        // Handle recoil and remnants
+        // If there is radiation, recoil goes to radiation.
+        // If not, goes to the hard quark
+        int Nrad = fragmented_gluons.size();
+        for (int j = 0; j < n_collisions; j++) {
+            double qT = std::sqrt(qt2s[j]), phiq = phis[j];
+            double qx = qT * std::cos(phiq);
+            double qy = qT * std::sin(phiq);
+            double qz = -qT * qT / 4. / particle.e();
+            Vec4 qmu{qx, qy, qz, 0};
+            qmu.rot(particle.theta(), 0.);
+            qmu.rot(0., particle.phi());
+            // turn off the elastic broading Wenbin
+            particle.p(particle.p() + qmu);
+            particle.e(std::sqrt(particle.pAbs2() + particle.m2()));
+            int q_col, q_acol;
+            // update color
+            if (particle.id() == 21) {
+                if (std::rand() % 2 == 0) {
+                    q_acol = particle.acol();
+                    particle.acol(pythia.event.nextColTag());
+                    q_col = particle.acol();
+                } else {
+                    q_col = particle.col();
+                    particle.col(pythia.event.nextColTag());
+                    q_acol = particle.col();
+                }
+            } else if (particle.id() > 0) {
+                q_col = particle.col();
+                particle.col(pythia.event.nextColTag());
+                q_acol = particle.col();
+            } else {
+                q_acol = particle.acol();
+                particle.acol(pythia.event.nextColTag());
+                q_col = particle.acol();
+            }
+            int qid, diqid;
+            double mq, mdiq, mn;
+            if (uniform_dist_(rng_) < z_over_a_) { // diquark from a proton
+                diqid = 2101;
+                mdiq = 0.57933;
+                qid = 2;
+                mq = 0.33;
+                mn = 0.93847;
+                if (uniform_dist_(rng_) < 2. / 3.) { // take away a u
+                    qid = 2;
+                    if (uniform_dist_(rng_) < .75) {
+                        diqid = 2101;
+                    } else {
+                        diqid = 2103;
+                    }
+                } else { // take away the d
+                    qid = 1;
+                    diqid = 2203;
+                }
+            } else { // diquark from a neutron
+                diqid = 2101;
+                mdiq = 0.57933;
+                qid = 1;
+                mq = 0.33;
+                mn = 0.93957;
+                if (uniform_dist_(rng_) < 2. / 3.) { // take away a d
+                    qid = 1;
+                    if (uniform_dist_(rng_) < .75) {
                         diqid = 2101;
                     } else {
                         diqid = 2103;
@@ -472,9 +513,9 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
             double pabs =
                 std::sqrt((mn * mn - std::pow(mq + mdiq, 2)) * (mn * mn - std::pow(mq - mdiq, 2))) /
                 (2. * mn);
-            double costheta = dist(gen) * 2. - 1.;
+            double costheta = uniform_dist_(rng_) * 2. - 1.;
             double sintheta = std::sqrt(std::max(1. - costheta * costheta, 1e-9));
-            double rphi = 2 * M_PI * dist(gen);
+            double rphi = 2 * M_PI * uniform_dist_(rng_);
             double Nqz = pabs * costheta, Nqx = pabs * sintheta * std::cos(rphi),
                    Nqy = pabs * sintheta * std::sin(rphi);
             Vec4 pq{Nqx, Nqy, Nqz, 0}, pdiq{-Nqx, -Nqy, -Nqz, 0};
@@ -489,34 +530,42 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
             Particle recolQ = Particle(qid, 201, i, 0, 0, 0, q_col, 0, pq, mq, 0);
             Particle recoldiQ = Particle(diqid, 201, i, 0, 0, 0, 0, q_acol, pdiq, mdiq, 0);
 
-            recoil_remnants.push_back(recolQ);
+            recoiled_beam_remnants.push_back(recolQ);
             x_arr.push_back(ts[j] * HBARC * pq.px() / pq.e());
             y_arr.push_back(ts[j] * HBARC * pq.py() / pq.e());
             z_arr.push_back(ts[j] * HBARC * pq.pz() / pq.e());
             t_arr.push_back(ts[j] * HBARC);
 
-            recoil_remnants.push_back(recoldiQ);
+            recoiled_beam_remnants.push_back(recoldiQ);
             x_arr.push_back(ts[j] * HBARC * pdiq.px() / pdiq.e());
             y_arr.push_back(ts[j] * HBARC * pdiq.py() / pdiq.e());
             z_arr.push_back(ts[j] * HBARC * pdiq.pz() / pdiq.e());
             t_arr.push_back(ts[j] * HBARC);
         }
 
-        for (auto& p : frag_gluons) {
-            new_particles.push_back(p);
+        for (auto& fragmented_gluon : fragmented_gluons) {
+            new_particles.push_back(fragmented_gluon);
         }
 
-        for (auto& p : recoil_remnants) {
-            new_particles.push_back(p);
+        for (auto& recoiled_beam_remnant : recoiled_beam_remnants) {
+            new_particles.push_back(recoiled_beam_remnant);
         }
     }
 
     int ixyz = 0;
-    for (auto& p : new_particles) {
+    for (auto& new_particle : new_particles) {
         
-        event.append(p.id(), 201, p.col(), p.acol(), p.px(), p.py(), p.pz(), p.e(), p.m());
+        pythia.event.append(new_particle.id(),
+                            201, 
+                            new_particle.col(), 
+                            new_particle.acol(), 
+                            new_particle.px(), 
+                            new_particle.py(), 
+                            new_particle.pz(), 
+                            new_particle.e(), 
+                            new_particle.m());
         
-        auto& appended = event.back();
+        auto& appended = pythia.event.back();
         appended.vProd(Vec4(
             x_arr[ixyz] + Rx * HBARC,
             y_arr[ixyz] + Ry * HBARC,
@@ -525,29 +574,5 @@ void Modified_FF::sample_FF_partons(Event& event, double& Rx, double& Ry, double
         ));
 
         ixyz++;
-    }
-
-    for (int i = 0; i < event.size(); ++i) {
-
-        auto& particle = event[i];
-
-        std::cout << "MODIFIED_FF.CPP: "
-                << "Looping over new particles: "
-                << "id=" << particle.id() 
-                << ", col=" << particle.col() 
-                << ", acol=" << particle.acol()
-                << ", x=" << particle.xProd() 
-                << ", y=" << particle.yProd() 
-                << ", z=" << particle.zProd() 
-                << ", t=" << particle.tProd()
-                << ", px=" << particle.px() 
-                << ", py=" << particle.py() 
-                << ", pz=" << particle.pz() 
-                << ", e=" << particle.e()
-                << ", m=" << particle.m() 
-                << ", isFinal=" << particle.isFinal() 
-                << ", isParton=" << particle.isParton() 
-                << ", status=" << particle.status()
-                << std::endl;
     }
 }

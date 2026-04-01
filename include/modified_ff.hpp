@@ -11,21 +11,21 @@ class Modified_FF
 {
 public:
     Modified_FF(int mode_,
-                int Z_,
-                int A_,
-                double K,
-                double n,
-                double lambda,
-                std::string TablePath);
+                int atomic_number_,
+                int mass_number_,
+                double k_factor,
+                double xg_n,
+                double xg_lambda,
+                std::string table_path);
 
-    void sample_FF_partons(Event& event, double& Rx, double& Ry, double& Rz);
+    void sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, double& Rz);
 
 private:
-    int mode, Z, A;
-    double ZoverA;
-    EHIJING::MultipleCollision Coll;
-    EHIJING::NuclearGeometry eHIJING_Geometry;
-    std::random_device rd;
-    std::mt19937 gen;
-    std::uniform_real_distribution<double> dist;
+    int mode_, atomic_number_, mass_number_;
+    double z_over_a_;
+    EHIJING::MultipleCollision collision_sampler_;
+    EHIJING::NuclearGeometry ehijing_geometry_;
+    std::random_device random_device_;
+    std::mt19937 rng_;
+    std::uniform_real_distribution<double> uniform_dist_;
 };
