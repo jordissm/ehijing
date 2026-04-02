@@ -97,13 +97,13 @@ void MultipleCollision::Tabulate(std::filesystem::path table_path){
         }
     } else {
         try {
-            const fs::path out_path(fname);
-            const fs::path dir_path = out_path.parent_path();
+            const std::filesystem::path out_path(fname);
+            const std::filesystem::path dir_path = out_path.parent_path();
 
             // Create parent directory tree if needed
             if (!dir_path.empty()) {
                 std::error_code ec;
-                fs::create_directories(dir_path, ec);
+                std::filesystem::create_directories(dir_path, ec);
                 if (ec) {
                     throw std::runtime_error(
                         "Failed to create directory '" + dir_path.string() +
@@ -112,7 +112,7 @@ void MultipleCollision::Tabulate(std::filesystem::path table_path){
             }
 
             // Write to temporary file first
-            const fs::path tmp_path = out_path.string() + ".tmp";
+            const std::filesystem::path tmp_path = out_path.string() + ".tmp";
 
             std::ofstream f(tmp_path, std::ios::out | std::ios::trunc);
             if (!f.is_open()) {
@@ -166,12 +166,12 @@ void MultipleCollision::Tabulate(std::filesystem::path table_path){
 
             // Atomically replace final file
             std::error_code ec;
-            fs::rename(tmp_path, out_path, ec);
+            std::filesystem::rename(tmp_path, out_path, ec);
             if (ec) {
                 // On some systems rename may fail if target exists
-                fs::remove(out_path, ec);
+                std::filesystem::remove(out_path, ec);
                 ec.clear();
-                fs::rename(tmp_path, out_path, ec);
+                std::filesystem::rename(tmp_path, out_path, ec);
                 if (ec) {
                     throw std::runtime_error(
                         "Failed to move temporary file '" + tmp_path.string() +
@@ -200,40 +200,66 @@ double MultipleCollision::Qs2_self_consistent_eq(double Qs2, double TA, double x
     double res =  scaledTA * quad_1d(dfdq2, {std::log(1.+.01*mu2/Qs2), std::log(1.+Q2/xB/Qs2)}, error);
     return res - Qs2;
 }
+
 // Solver of the Qs2 self-consistent equation, using a simple bisection
 double MultipleCollision::compute_Qs2(double TA, double xB, double Q2){
-    // a naive bisection
-    // double xleft = mu2, xright = Q2*100;
     const double EPS = 1e-4;
+    const int MAX_BRACKET_ITERS = 100;
+    // double xleft = mu2, xright = Q2*100;
 
-    // Adaptive bracketing
-    double xleft = mu2;
-    double xright = mu2;
+    // Starting points for bracketing
+    double xleft  = mu2;
+    double xright = std::max(Q2, mu2) * 100.0;
 
-    while (Qs2_self_consistent_eq(xleft, TA, xB, Q2) > 0)
-        xleft *= 0.5;
+    double yleft  = Qs2_self_consistent_eq(xleft,  TA, xB, Q2);
+    double yright = Qs2_self_consistent_eq(xright, TA, xB, Q2);
 
-    while (Qs2_self_consistent_eq(xright, TA, xB, Q2) < 0)
-        xright *= 2.0;
-
-    // Check if the function has the same sign at both ends of the interval
-    if (yleft*yright>0) {
-        std::cerr << "eHIJING warning: setting Qs2 = mu2" << std::endl;
+    // If already exactly on the root
+    if (std::abs(yleft) < EPS) {
         return xleft;
-    } else {
-        do {
-            double xmid = (xright+xleft)/2.;
-            double ymid = Qs2_self_consistent_eq(xmid, TA, xB, Q2);
-            if (yleft*ymid<0) {
-                yright = ymid;
-                xright = xmid;
-            } else{
-                yleft = ymid;
-                xleft = xmid;
-            }
-        } while (xright-xleft > EPS);
-        return (xright+xleft)/2.;
     }
+
+    int iter = 0;
+    while (yleft * yright > 0.0 && iter < MAX_BRACKET_ITERS) {
+        xleft *= 0.5;
+        xright *= 2.0;
+        yleft  = Qs2_self_consistent_eq(xleft, TA, xB, Q2);
+        yright = Qs2_self_consistent_eq(xright, TA, xB, Q2);
+        ++iter;
+    }
+
+    // If still not bracketed, give up safely
+    if (yleft * yright > 0.0) {
+        std::cerr << "eHIJING warning: could not bracket Qs2 root; "
+                  << "TA=" << TA
+                  << ", xB=" << xB
+                  << ", Q2=" << Q2
+                  << ", yleft=" << yleft
+                  << ", yright=" << yright
+                  << ", using Qs2 = mu2"
+                  << std::endl;
+        return mu2;
+    }
+
+    // Standard bisection
+    while ((xright - xleft) > EPS) {
+        const double xmid = 0.5 * (xleft + xright);
+        const double ymid = Qs2_self_consistent_eq(xmid, TA, xB, Q2);
+
+        if (std::abs(ymid) < EPS) {
+            return xmid;
+        }
+
+        if (yleft * ymid < 0.0) {
+            xright = xmid;
+            yright = ymid;
+        } else {
+            xleft = xmid;
+            yleft = ymid;
+        }
+    }
+
+    return 0.5 * (xleft + xright);
 }
 
 // Sample all elastic collisio, without radiation, ordered from high scale to low
