@@ -95,22 +95,94 @@ void MultipleCollision::Tabulate(std::filesystem::path table_path){
             std::cerr << "Loading table Qs: mismatched size - 2" << std::endl;
             exit(-1);
         }
-    }
-    else {
-        if (std::filesystem::create_directory(table_path) ) std::cout << "Generating Qs^2 table" << std::endl;
-        else std::cout << "Create dir failed" << std::endl;
-        std::ofstream f(fname.c_str());
+    } else {
+        try {
+            const fs::path out_path(fname);
+            const fs::path dir_path = out_path.parent_path();
+
+            // Create parent directory tree if needed
+            if (!dir_path.empty()) {
+                std::error_code ec;
+                fs::create_directories(dir_path, ec);
+                if (ec) {
+                    throw std::runtime_error(
+                        "Failed to create directory '" + dir_path.string() +
+                        "': " + ec.message());
+                }
+            }
+
+            // Write to temporary file first
+            const fs::path tmp_path = out_path.string() + ".tmp";
+
+            std::ofstream f(tmp_path, std::ios::out | std::ios::trunc);
+            if (!f.is_open()) {
+                throw std::runtime_error(
+                    "Failed to open temporary output file '" + tmp_path.string() + "'");
+            }
+
+            std::cout << "Generating Qs^2 table: " << out_path << std::endl;
 
         // Table Qs as a function of lnx, lnQ2, TA
-        for (int c=0; c<Qs2Table.size(); c++) {
+            for (int c = 0; c < Qs2Table.size(); ++c) {
             auto index = Qs2Table.LinearIndex2ArrayIndex(c);
             auto xvals = Qs2Table.ArrayIndex2Xvalues(index);
-            double TA = xvals[0];
-            double xB = std::exp(xvals[1]);
-	    double Q2 = std::exp(xvals[2]);
-            double aQs2 = compute_Qs2(TA, xB, Q2);
+
+                const double TA = xvals[0];
+                const double xB = std::exp(xvals[1]);
+                const double Q2 = std::exp(xvals[2]);
+
+                const double aQs2 = compute_Qs2(TA, xB, Q2);
+
+                // Validate value before storing/writing
+                if (!std::isfinite(aQs2) || aQs2 < 0.0) {
+                    throw std::runtime_error(
+                        "Invalid Qs^2 value at linear index " + std::to_string(c) +
+                        " (TA=" + std::to_string(TA) +
+                        ", xB=" + std::to_string(xB) +
+                        ", Q2=" + std::to_string(Q2) +
+                        ", Qs2=" + std::to_string(aQs2) + ")");
+                }
+
             Qs2Table.set_with_linear_index(c, aQs2);
-            f << aQs2 << std::endl;
+
+                f << aQs2 << '\n';
+                if (!f) {
+                    throw std::runtime_error(
+                        "Write failure while writing temporary file '" + tmp_path.string() + "'");
+                }
+            }
+
+            f.flush();
+            if (!f) {
+                throw std::runtime_error(
+                    "Flush failure for temporary file '" + tmp_path.string() + "'");
+            }
+
+            f.close();
+            if (!f) {
+                throw std::runtime_error(
+                    "Close failure for temporary file '" + tmp_path.string() + "'");
+            }
+
+            // Atomically replace final file
+            std::error_code ec;
+            fs::rename(tmp_path, out_path, ec);
+            if (ec) {
+                // On some systems rename may fail if target exists
+                fs::remove(out_path, ec);
+                ec.clear();
+                fs::rename(tmp_path, out_path, ec);
+                if (ec) {
+                    throw std::runtime_error(
+                        "Failed to move temporary file '" + tmp_path.string() +
+                        "' to final file '" + out_path.string() +
+                        "': " + ec.message());
+                }
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Error generating Qs^2 table '" << fname
+                    << "': " << e.what() << std::endl;
+            throw;
         }
     }
 }
