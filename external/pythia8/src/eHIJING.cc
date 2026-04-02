@@ -203,12 +203,22 @@ double MultipleCollision::Qs2_self_consistent_eq(double Qs2, double TA, double x
 // Solver of the Qs2 self-consistent equation, using a simple bisection
 double MultipleCollision::compute_Qs2(double TA, double xB, double Q2){
     // a naive bisection
-    double xleft = mu2, xright = Q2*100;
+    // double xleft = mu2, xright = Q2*100;
     const double EPS = 1e-4;
-    double yleft = Qs2_self_consistent_eq(xleft, TA, xB, Q2),
-           yright = Qs2_self_consistent_eq(xright, TA, xB, Q2);
+
+    // Adaptive bracketing
+    double xleft = mu2;
+    double xright = mu2;
+
+    while (Qs2_self_consistent_eq(xleft, TA, xB, Q2) > 0)
+        xleft *= 0.5;
+
+    while (Qs2_self_consistent_eq(xright, TA, xB, Q2) < 0)
+        xright *= 2.0;
+
+    // Check if the function has the same sign at both ends of the interval
     if (yleft*yright>0) {
-        std::cout << "eHIJING warning: setting Qs2 = mu2" << std::endl;
+        std::cerr << "eHIJING warning: setting Qs2 = mu2" << std::endl;
         return xleft;
     } else {
         do {
