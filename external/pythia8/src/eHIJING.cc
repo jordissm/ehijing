@@ -122,10 +122,10 @@ void MultipleCollision::Tabulate(std::filesystem::path table_path){
 
             std::cout << "Generating Qs^2 table: " << out_path << std::endl;
 
-        // Table Qs as a function of lnx, lnQ2, TA
+            // Table Qs as a function of lnx, lnQ2, TA
             for (int c = 0; c < Qs2Table.size(); ++c) {
-            auto index = Qs2Table.LinearIndex2ArrayIndex(c);
-            auto xvals = Qs2Table.ArrayIndex2Xvalues(index);
+                auto index = Qs2Table.LinearIndex2ArrayIndex(c);
+                auto xvals = Qs2Table.ArrayIndex2Xvalues(index);
 
                 const double TA = xvals[0];
                 const double xB = std::exp(xvals[1]);
@@ -143,7 +143,7 @@ void MultipleCollision::Tabulate(std::filesystem::path table_path){
                         ", Qs2=" + std::to_string(aQs2) + ")");
                 }
 
-            Qs2Table.set_with_linear_index(c, aQs2);
+                Qs2Table.set_with_linear_index(c, aQs2);
 
                 f << aQs2 << '\n';
                 if (!f) {
