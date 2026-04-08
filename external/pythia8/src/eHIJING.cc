@@ -17,35 +17,53 @@
 
 namespace EHIJING {
 
-// color algebra constnats
-const double CA = 3;
-const double dA = 8;
-const double CF = 4./3.;
-// Lambda QCD and Lambda^2
-const double mu = 0.25; // [GeV]
-const double mu2 = std::pow(mu, 2); // GeV^2
-// minimum and maximum nuclear thickness function
-// for tabulation
-const double TAmin = 0.1/5.076/5.076;
-const double TAmax = 2.8/5.076/5.076;
-// The b parameter for 3-flavor QCD
-// b0 = 11 - 2/3*Nf
-const double b0 = 9./2.;
-const double twoPioverb0 = 2.*M_PI/b0;
+// Unit conversion constants
+// https://pdg.lbl.gov/2025/reviews/rpp2025-rev-phys-constants.pdf
+const double GeVfm = 1. / 0.197'326'980'4; // ≈ 5.068
+const double GeV2fm2 = GeVfm * GeVfm;
+const double GeV3fm3 = GeVfm * GeV2fm2;
+
+// Color algebra constants
+const double CA = 3;        // Casimir for gluon emission from a gluon
+const double CF = 4./3.;    // Casimir for gluon emission from a quark
+const double dA = 8;        // Dimension of the adjoint representation, i.e., N_c^2 - 1 for SU(N_c)
+
+// Lambda_{QCD} and Lambda_{QCD}^2
+const double mu = 0.25;             // [GeV]
+const double mu2 = std::pow(mu, 2); // [GeV]^2
+
+// Minimum and maximum values of nuclear thickness function TA
+const double TAmin = 0.1 / GeV2fm2; // [GeV]^2
+const double TAmax = 2.8 / GeV2fm2; // [GeV]^2
+
+// 1-loop QCD beta function coefficient
+// https://pdg.lbl.gov/2024/reviews/rpp2024-rev-qcd.pdf#page=2.63
+// b0 = (11 * N_c - 2 * n_f) / (6 * 2 * pi)
+//    = (9 / 2) / (2 * pi) for N_c = 3 and n_f = 3
+const double b0 = 9. / 2.;
+
+// Handy constants
+const double twoPioverb0 = 2. * M_PI / b0;
 const double piCAoverdA = M_PI * CA / dA;
-const double Mproton = 0.938;
-const double rho0 = 0.17/std::pow(5.076,3);
-const double r0 = 1.12*5.076;
-// coupling in eHIJING
-double alphas(double Q2){
-    double Q2overmu2 = Q2/mu2;
-    if (Q2overmu2<2.71828) return twoPioverb0;
-    else return twoPioverb0/std::log(Q2/mu2);
+const double Mproton = 0.938;                   // [GeV]
+const double rho0 = 0.17 / GeV3fm3;             //
+const double r0 = 1.12 * GeVfm;                 // [GeV]^{-1}
+
+// Strong coupling constant
+double alphas(double Q2) {
+    double scale_ratio_squared = Q2 / mu2;
+    if (scale_ratio_squared < 2.71828) {
+        return twoPioverb0;
+    } else {
+        return twoPioverb0 / std::log(scale_ratio_squared);
+    }
 }
 
-double alphas_PhiG(double x, double q2, double Qs2,
+// Gluon TMD that reduces to the Weizsäcker-Williams distribution at large momentum-squared k_T^2
+// Eq. (19) in https://doi.org/10.1103/PhysRevD.110.034001
+double alphas_PhiG(double x, double kT2, double Qs2,
 		   double powerG, double lambdaG, double K){
-    return K*std::pow(1.-x, powerG)*std::pow(x, lambdaG) / (Qs2+q2);
+    return K * std::pow(1. - x, powerG) * std::pow(x, lambdaG) / (kT2 + Qs2);
 }
 
 // integrate du (1-cos(1/u)) / u
@@ -84,7 +102,7 @@ void MultipleCollision::Tabulate(std::filesystem::path table_path){
         while(getline(f, line)){
             std::istringstream in(line);
             in >> entry;
-            if (count>=Qs2Table.size()){
+            if (count >= Qs2Table.size()){
                 std::cerr << "Loading table Qs: mismatched size - 1" << std::endl;
                 exit(-1);
             }
@@ -124,6 +142,8 @@ void MultipleCollision::Tabulate(std::filesystem::path table_path){
 
             // Table Qs as a function of lnx, lnQ2, TA
             for (int c = 0; c < Qs2Table.size(); ++c) {
+
+                // 
                 auto index = Qs2Table.LinearIndex2ArrayIndex(c);
                 auto xvals = Qs2Table.ArrayIndex2Xvalues(index);
 
@@ -186,22 +206,54 @@ void MultipleCollision::Tabulate(std::filesystem::path table_path){
         }
     }
 }
-// self-consisten euqation for Qs2
-double MultipleCollision::Qs2_self_consistent_eq(double Qs2, double TA, double xB, double Q2){
-    double LHS = 0.;
-    double scaledTA = piCAoverdA * TA;
-    auto dfdq2 = [this, Qs2, xB, Q2](double ln1_q2oQs2) {
-        double q2 = Qs2*(std::exp(ln1_q2oQs2)-1);
-        double Jacobian = Qs2+q2;
-        double xg = q2/Q2*xB;
-        return alphas_PhiG(xg, q2, Qs2, this->powerG_, this->lambdaG_, this->Kfactor_) * Jacobian;
+
+/*
+ * Self-consistent equation for Qs^2
+ * Eq. (20) in https://doi.org/10.1103/PhysRevD.110.034001
+ * Before solving, a change of variable is performed to obtain
+ * a more well-behaved integrand for numerical integration.
+ * The change of variable is
+ * 
+ *                  u = ln(1 + q^2 / Q_s^2),
+ * 
+ * which implies
+ * 
+ *           Q_s^2 = (pi * C_A * T_A / d_A) 
+ *                   * int du alpha_s 
+ *                   * phi_g(x_g(u), q^2(u), Q_s^2) 
+ *                   * (Q_s^2 + q^2(u)).
+ */
+double MultipleCollision::Qs2_self_consistent_eq(double Qs2, double TA, double xB, double Q2) {
+
+    // Prefactor constants
+    double prefactor = piCAoverdA * TA;
+
+    // Integrand as a function of the log variable u
+    auto integrand_in_log_variable = [this, Qs2, xB, Q2](double u) {
+        double q2 = Qs2 * (std::exp(u) - 1);
+        double jacobian = Qs2 + q2;
+        double xg = q2 * xB / Q2; // Gluon's light-cone momentum fraction
+        return alphas_PhiG(xg, q2, Qs2, this->powerG_, this->lambdaG_, this->Kfactor_) * jacobian;
     };
     double error;
-    double res =  scaledTA * quad_1d(dfdq2, {std::log(1.+.01*mu2/Qs2), std::log(1.+Q2/xB/Qs2)}, error);
+
+    // Limits of integration in the original variable q^2
+    double q2_min = 0.01 * mu2;
+    double q2_max = Q2 / xB;
+
+    // Limits of integration in the log variable u
+    double u_min = std::log(1. + q2_min / Qs2);
+    double u_max = std::log(1. + q2_max / Qs2);
+
+    // Perform the integration using the 1D quadrature integrator
+    double res =  prefactor * quad_1d(integrand_in_log_variable, {u_min, u_max}, error);
+
     return res - Qs2;
 }
 
-// Solver of the Qs2 self-consistent equation, using a simple bisection
+/*
+ * Compute Qs^2 using the bisection method to solve its self-consistent equation.
+ */
 double MultipleCollision::compute_Qs2(double TA, double xB, double Q2){
     const double EPS = 1e-4;
     const int MAX_BRACKET_ITERS = 100;
@@ -262,38 +314,36 @@ double MultipleCollision::compute_Qs2(double TA, double xB, double Q2){
     return 0.5 * (xleft + xright);
 }
 
-// Sample all elastic collisio, without radiation, ordered from high scale to low
+// Sample all elastic collisions, without radiation, ordered from high to low scales
 int MultipleCollision::sample_all_qt2(int pid, double E, double L, double Thickness, double xB, double Q2,
                              std::vector<double> & q2_list, std::vector<double> & t_list,
                              std::vector<double> & phi_list) {
     q2_list.clear();
     t_list.clear();
     phi_list.clear();
-    double TA = rho0*L;
+    double TA = rho0 * L;
     double CR = (pid==21)? CA : CF;
     double qs2 = TA / Thickness * Qs2(Thickness, xB, Q2);
-    double tildeTA = Kfactor_*M_PI*CR*TA/dA;
-    if (tildeTA<1e-6) return q2_list.size();
-    double qs2overCTA = qs2/tildeTA;
-    double q2max = Q2/xB;
-    double q2min = .01*EHIJING::mu2;
+    double tildeTA = Kfactor_ * M_PI * CR * TA / dA;
+    if (tildeTA < 1e-6) return q2_list.size();
+    double qs2overCTA = qs2 / tildeTA;
+    double q2max = Q2 / xB;
+    double q2min = 0.01 * EHIJING::mu2;
     double q2 = q2max;
-    double t0 = EHIJING::r0; // exlucde double scattering on the same nucleon
-    if (L<t0) return q2_list.size();
+    double t0 = EHIJING::r0; // exclude double scattering on the same nucleon
+    if (L < t0) return q2_list.size();
     while (q2 > q2min) {
-        // sample the next hard multiple collision
+        // Sample the next hard multiple collision
         double lnr = std::log(flat_gen(gen));
-        double xg = q2/q2max;
-	q2 = q2 * std::pow(1.0 + (lambdaG_-1.)*lnr*q2/tildeTA*std::pow(xg, -lambdaG_),
-                                   1./(lambdaG_-1.));
-        double t = t0 + flat_gen(gen)*(L-t0);
-        if ( flat_gen(gen) < std::pow(1.-xg, powerG_) * (q2/(q2+qs2)) ) {
-	    // correct for the gluon distribtuion at large xg,
-	    // and the screening effect
+        double xg = q2 / q2max;
+	    q2 = q2 * std::pow(1.0 + (lambdaG_ - 1.0) * lnr * q2 / tildeTA * std::pow(xg, -lambdaG_), 1.0 / (lambdaG_ - 1.0));
+        double t = t0 + flat_gen(gen) * (L - t0);
+        if ( flat_gen(gen) < std::pow(1.0 - xg, powerG_) * (q2 / (q2+qs2)) ) {
+            // Correct for the gluon distribtuion at large x_g and the screening effect
             q2_list.push_back(q2);
             t_list.push_back(t);
-            phi_list.push_back(2.*M_PI*flat_gen(gen));
-	}
+            phi_list.push_back(2.0 * M_PI * flat_gen(gen));
+        }
     }
     return q2_list.size();
 }
@@ -310,20 +360,22 @@ lambdaG_(lambdaG),
 rd(),
 gen(rd()),
 flat_gen(0.,1.),
-GHT_Angular_Table(2, {51, 51}, // X = delta = 2kq/(k^2+q^22),
-                               // ln(1+Y) = log(1+ (|k|-|q|)^2*t/(2*z*(1-z)*E) )
+GHT_Angular_Table(2, {51, 51}, // X = delta = 2kq/(k^2+q^2),
+                               // ln(1+Y) = ln(1+ (|k|-|q|)^2*t/(2*z*(1-z)*E) )
                                // 0.5<delta<1, ln(1)<ln(1+Y)<ln(11)
            {0.5, 1e-3},
            {0.99, std::log(11.0)}
        )
 {
 }
-// Tabulate the Qs and (if necessary) the generlized H-T / GLV table (collinear H-T do not need separate table)
-void eHIJING::Tabulate(std::filesystem::path table_path){
+
+// Tabulate the Qs and (if necessary) the GHT / GLV table (collinear H-T do not need a separate table)
+void eHIJING::Tabulate(std::filesystem::path table_path) {
     MultipleCollision::Tabulate(table_path);
-    if (mode_==1) {
-        // Generlized higher-twist able is at least 4-dimensional with each entry a 2D integral
-        // the following routine will use the max number of hard ware concurrency of your computer
+    // If mode = 1, use GHT
+    if (mode_ == 1) {
+        // GHT table is at least 4-dimensional with each entry a 2D integral
+        // the following routine will use the max number of hardware concurrency of your computer
         // to parallel the computation of the table
         std::filesystem::path fname = table_path/std::filesystem::path("GHT.dat");
         if (std::filesystem::exists(fname)) {
@@ -388,14 +440,16 @@ void eHIJING::Tabulate(std::filesystem::path table_path){
     }
 }
 
-// computation of generalized HT table
+/*
+ * Compute the GHT angular table
+ */
 double eHIJING::compute_GHT_Angular_Table(double X, double Y) {
-    double A = Y/(1.-X);
-    double B = Y*X/(1.-X);
+    double A = Y / (1.0 - X);
+    double B = Y * X /(1.0 - X);
     auto dfdphi = [X, Y, A, B](double phi) {
         double cosphi = std::cos(phi);
-        double xcphi = X*cosphi;
-        return xcphi/(1.-xcphi) * (1.-std::cos(A-B*cosphi));
+        double xcphi = X * cosphi;
+        return xcphi / (1.0 - xcphi) * (1.0 - std::cos(A - B * cosphi));
     };
     double error;
     double result = quad_1d(dfdphi, {0., M_PI}, error);
@@ -417,6 +471,7 @@ bool eHIJING::next_kt2_stochastic(double & kt2,
     double logvac = std::log(zmax/zmin);
     int Ncolls = ts.size();
     double acceptance = 0.;
+    // If mode = 0, use HT
     if (mode_ == 0){
         while (acceptance<flat_gen(gen) && kt2>kt2min) {
             double maxlogmed = 0.;
@@ -440,8 +495,8 @@ bool eHIJING::next_kt2_stochastic(double & kt2,
             logmed *= 2./kt2*CAoverCR;
             acceptance = (logvac + logmed) / (logvac + maxlogmed);
         }
+    // If mode = 1, use GHT
     } else {
-        // Genearlized formula
         double maxdiffz = 1./zmin - 1./zmax + 2.*logvac;
         while (acceptance<flat_gen(gen) && kt2>kt2min) {
             double maxmedcoeff = 0.;
@@ -479,22 +534,24 @@ double eHIJING::sample_z_stochastic(double & z, int pid,
     int Ncolls = ts.size();
     double acceptance = 0.;
     double weight = 1.0;
-    if (mode_==0){
+    // If mode = 0, use HT
+    if (mode_ == 0) {
         while (acceptance<flat_gen(gen)) {
             z = zmin*std::pow(zmax/zmin, flat_gen(gen));
             double tauf = 2.*z*(1.0-z)*E/kt2;
             double w = 1.0, wmax = 1.0;
-            for (int i=0; i<Ncolls; i++){
+            for (int i=0; i<Ncolls; i++) {
                 double q2 = qt2s[i], t = ts[i];
-                if (q2>kt2) continue;
+                if (q2 > kt2) continue;
                 w += 2.*q2/kt2 * CA / CR * (1.-cos(t/tauf));
                 wmax += 4.*q2/kt2 * CA / CR;
             }
             acceptance = w/wmax;
         }
+    // If mode = 1, use GHT
     } else {
         double a = 0.;
-        for (int i=0; i<Ncolls; i++){
+        for (int i=0; i<Ncolls; i++) {
             double q2 = qt2s[i], t = ts[i];
             a += (kt2 +q2)*t;
         }
@@ -517,14 +574,14 @@ double eHIJING::sample_z_stochastic(double & z, int pid,
         if (Ncolls==0) weight=1.;
         else {
            double wmax = CR/CA;
-           for (int i=0; i<Ncolls; i++){
+           for (int i=0; i<Ncolls; i++) {
                double q2 = qt2s[i], t = ts[i];
                wmax += (kt2+q2)*t;
            }
            wmax /= (2.*z*(1-z)*E);
 
            double w = CR/CA;
-           for (int i=0; i<Ncolls; i++){
+           for (int i=0; i<Ncolls; i++) {
                double dw;
                double q2 = qt2s[i], t = ts[i], phi = phis[i];
 	       double A = (kt2+q2)*t/(2.*z*(1-z)*E),
@@ -551,5 +608,4 @@ double eHIJING::sample_z_stochastic(double & z, int pid,
     }
     return std::min(std::max(weight,0.),1.);
 }
-
-} //End eHIJING namespace
+} // namespace EHIJING
