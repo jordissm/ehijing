@@ -102,11 +102,11 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, doub
         double vy = particle.py() / particle.e();
         double vz = particle.pz() / particle.e();
 
-        // 
+        // Path length and nuclear thickness along the particle path
         double path_length = ehijing_geometry_.compute_L(pythia.event.Rx(), pythia.event.Ry(), pythia.event.Rz(), vx, vy, vz);
         double nuclear_thickness = ehijing_geometry_.compute_TA(pythia.event.Rx(), pythia.event.Ry(), pythia.event.Rz(), vx, vy, vz);
 
-        // 
+        // Location of the hard vertex
         Rx = pythia.event.Rx();
         Ry = pythia.event.Ry();
         Rz = pythia.event.Rz();
@@ -138,7 +138,6 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, doub
         recoiled_beam_remnants.clear();
 
         // Formation time loop
-        // Comment out this loop to turn off the radiation
         while (formation_time < formation_time_max && particle.e() > 2 * min_energy) {
             double z_min = std::min(min_energy / particle.e(), .4);
             double z_max = 1. - z_min;
@@ -149,7 +148,6 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, doub
             double maxdiffz = 1. / z_min - 1. / z_max + 2. * log_z_max;
 
             // Step 1: Find the next formation_time
-            // Eq. (50) in arxiv:2304.10779
             double r = uniform_dist_(rng_);
 
             // If mode = 0, use HT
@@ -228,7 +226,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, doub
                 // Eq. 35 in arxiv:2304.10779
                 kt2 = 2 * (1. - z) * z * particle.e() / formation_time;
 
-                // reject cases where qt2>kt2 for mode=0
+                // reject cases where qt2 > kt2 for mode = 0
                 double Num = 0., Den = 0.;
                 for (int j = 0; j < n_collisions; j++) {
                     if (ts[j] < 0) {
@@ -270,10 +268,12 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, doub
                 }
             }
 
-            // Step 3: correct for the splitting function
+            // Step 3: Correct for the splitting function
+            // If particle is a gluon
             if (particle.id() == 21 && (1 + std::pow(1. - z, 3)) / 2. < uniform_dist_(rng_)) {
                 continue;
             }
+            // If particle is a quark
             if (particle.id() != 21 && (1 + std::pow(1. - z, 2)) / 2. < uniform_dist_(rng_)) {
                 continue;
             }
@@ -353,7 +353,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, doub
             }
             Qtot.rot(kmu.theta(), 0.);
             Qtot.rot(0., kmu.phi());
-            // turn off elastic broading wenbin
+            // Elastic broadening
             kmu = kmu + Qtot;
             kmu.e(std::sqrt(kmu.pAbs2()));
             kmu = kmu * e0 / kmu.e();
