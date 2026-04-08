@@ -223,7 +223,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, doub
                 }
 
                 // Inversion of the formation time formula to get k_T^2
-                // Eq. 35 in arxiv:2304.10779
+                // Eq. (35) in https://doi.org/10.1103/PhysRevD.110.034001
                 kt2 = 2 * (1. - z) * z * particle.e() / formation_time;
 
                 // reject cases where qt2 > kt2 for mode = 0
@@ -257,7 +257,11 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, doub
                 }
                 while (acceptance < uniform_dist_(rng_)) {
                     z = z_min * std::pow(z_max / z_min, uniform_dist_(rng_));
+
+                    // Inversion of the formation time formula to get k_T^2
+                    // Eq. (35) in https://doi.org/10.1103/PhysRevD.110.034001
                     kt2 = 2 * (1. - z) * z * particle.e() / formation_time;
+
                     double num = 0.;
                     for (int j = 0; j < n_collisions; j++) {
                         if (kt2 < qt2s[j] && ts[j] > 0) {
@@ -281,11 +285,14 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, doub
             // Finally, sample phikT2 and compute the deflection of the hard parton lt2
             // If mode = 0, use HT
             if (mode_ == 0) {
-                // no particular angular structure in the H-T expansion
+
+                // No particular angular structure in the HT expansion
                 phik = 2 * M_PI * uniform_dist_(rng_);
                 lt2 = kt2;
+
             // If mode = 1, use GHT
             } else if (mode_ == 1) {
+                
                 double Psum = 0.;
                 std::vector<double> dP;
                 dP.resize(n_collisions);
