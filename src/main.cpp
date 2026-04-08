@@ -25,27 +25,6 @@ using namespace Pythia8;
 std::random_device rrd;  // Non-deterministic generator
 std::mt19937 gen(rrd()); // Mersenne Twister engine
 
-// Define a distribution (range 0.0 to 1.0)
-std::uniform_real_distribution<> Ran_gen(0.0, 1.0);
-
-
-double fermi_distribution(double r, double R_WS, double a_WS) {
-    double f = 1. / (1. + exp((r - R_WS) / a_WS));
-    return (f);
-}
-
-// S. Chakraborty et al., Physical Review C 107, 064318 (2023)
-double sample_r_from_woods_saxon(double R_WS, double a_WS) {
-    double rmaxCut = R_WS + 10. * a_WS;
-    double r = 0.;
-    do
-    {
-        r = rmaxCut * pow(Ran_gen(gen), 1.0 / 3.0);
-    } while (Ran_gen(gen) > fermi_distribution(r, R_WS, a_WS));
-    return (r);
-}
-
-
 // Helper function to set Pythia settings
 template <class T> void add_arg(Pythia& pythia, std::string name, T value) {
     std::stringstream ss;
@@ -175,9 +154,10 @@ int main(int argc, char* argv[]) {
                 n_trigger_failed++;
                 continue;
             }
-            
-            // Modify the final shower with low-Q^2 medium corrections
+
+            // Find the hard vertex
             double Rx, Ry, Rz;
+            // Modify the final shower with low-Q^2 medium corrections
             modified_ff.sample_ff_partons(pythia, Rx, Ry, Rz);
             
             // Put the parton-level event into the separate hadronizer
