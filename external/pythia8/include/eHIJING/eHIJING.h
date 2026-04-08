@@ -123,29 +123,31 @@ public:
     int Z() const {return Z_; };
     int N() const {return N_; };
     double R() const {return R_; };
-    // Sample the location of the hard vertex in a nuclei A
+
+    // Sample the location of the hard vertex in a nuclei with nuclear massA
     void sample_HardVertex(double & Rx, double & Ry, double & Rz){
-        double r = R_ * std::pow(flat_gen(gen), 1./3.);
-        double costheta = flat_gen(gen)*2.0 - 1.0;
-        double sintheta = std::sqrt(1.-costheta*costheta);
-        double phi = flat_gen(gen)*2.*M_PI-M_PI; // (-pi, pi)
-        Rz = r*costheta;
-        Rx = r*sintheta*std::cos(phi);
-        Ry = r*sintheta*std::sin(phi);
+        double r = R_ * std::pow(flat_gen(gen), 1./3.);         // [GeV]^{-1}
+        double costheta = 2.0 * flat_gen(gen) - 1.0;            // [-1, 1]
+        double sintheta = std::sqrt(1. - costheta * costheta);  // [0, 1]
+        double phi = 2.0 * M_PI * flat_gen(gen) - M_PI;         // [-pi, pi]
+        Rx = r * sintheta * std::cos(phi);                      // [GeV]^{-1}
+        Ry = r * sintheta * std::sin(phi);                      // [GeV]^{-1}
+        Rz = r * costheta;                                      // [GeV]^{-1}
     };
-    // Compute the path length, the entire length in the nucleus!
+
+    // Compute the path length assuming a hard-sphere geometry
     double compute_L(double rx, double ry, double rz, double vx, double vy, double vz){
-        double r2 = rx*rx + ry*ry + rz*rz;
-        double rdotv = rx*vx + ry*vy + rz*vz;
-        return -rdotv + std::sqrt(R2_ - r2 + rdotv*rdotv);
+        double r2 = rx * rx + ry * ry + rz * rz;
+        double rdotv = rx * vx + ry * vy + rz * vz;
+        return -rdotv + std::sqrt(R2_ - r2 + rdotv * rdotv);
     };
+
+    // Compute the nuclear thickness function TA along the path assuming a hard-sphere
     double compute_TA(double rx, double ry, double rz, double vx, double vy, double vz){
-        double r2 = rx*rx + ry*ry + rz*rz;
-        double rdotv = rx*vx + ry*vy + rz*vz;
-        return EHIJING::rho0 * 2.*std::sqrt(R2_ - r2 + rdotv*rdotv);
+        double r2 = rx * rx + ry * ry + rz * rz;
+        double rdotv = rx * vx + ry * vy + rz * vz;
+        return EHIJING::rho0 * 2.*std::sqrt(R2_ - r2 + rdotv * rdotv);
     };
-
-
 };
 
 
