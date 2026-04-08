@@ -98,7 +98,13 @@ void write_final_hadrons(
         const int pid = particle_index;
         const int charge = p.charge();
 
-        out << std::fixed << std::setprecision(2) << t_hadron << " "
+        // Anti-freestream hadrons to t = 0.00 in the lab frame
+        // ...
+
+        // Smear positions of hadrons at production time to avoid numerical issues in downstream hadronic transport
+        // ...
+
+        out << std::fixed << std::setprecision(2) << 0.00 << " "
             << std::fixed << std::setprecision(5)
             << x_hadron << " "
             << y_hadron << " "
@@ -110,7 +116,9 @@ void write_final_hadrons(
             << p.pz() << " "
             << pdgid << " "
             << pid << " "
-            << charge << '\n';
+            << charge << " "
+            << t_hadron << " "
+            << 0.0 << '\n';
 
         ++particle_index;
     }
@@ -158,7 +166,9 @@ void write_spectator_nucleons(
             << pz << " "
             << 2212 << " "
             << particle_index << " "
-            << 1 << '\n';
+            << 1 << " "
+            << 0.0 << " "
+            << 1.0 << '\n';
 
         ++particle_index;
     }
@@ -192,7 +202,9 @@ void write_spectator_nucleons(
             << pz << " "
             << 2112 << " "
             << particle_index << " "
-            << 0 << '\n';
+            << 0 << " "
+            << 0.0 << " "
+            << 1.0 << '\n';
 
         ++particle_index;
     }
@@ -201,8 +213,8 @@ void write_spectator_nucleons(
 } // namespace
 
 void write_event_headers(std::ostream& out) {
-    out << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge\n";
-    out << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none\n";
+    out << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge begin_form_time xsecfac\n";
+    out << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none fm none\n";
 }
 
 void write_event_output(
