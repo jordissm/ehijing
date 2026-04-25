@@ -95,8 +95,8 @@ int main(int argc, char* argv[]) {
     add_arg<int>(pythia, "PDF:nPDFBeamA", nucleus_PDG_id);
     add_arg<int>(pythia, "eHIJING:MediumModificationSplittingFunctionMode", medium_modification_mode);
     add_arg<int>(pythia, "eHIJING:MassNumber", mass_number);
-    add_arg<int>(pythia, "eHIJING:ChargeNumber", atomic_number);
-    add_arg<double>(pythia, "eHIJING:Kfactor", tmd_k_constant);
+    add_arg<int>(pythia, "eHIJING:AtomicNumber", atomic_number);
+    add_arg<double>(pythia, "eHIJING:TransverseMomentumDistributionConstant", tmd_k_constant);
     add_arg<std::string>(pythia, "eHIJING:TablePath", tabulation_path);
 
     // Initialize Pythia
