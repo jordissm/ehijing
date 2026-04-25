@@ -96,19 +96,24 @@ void TimeShower::init( BeamParticle* beamAPtrIn,
   dampenBeamRecoil   = settingsPtr->flag("TimeShower:dampenBeamRecoil");
   recoilToColoured   = settingsPtr->flag("TimeShower:recoilToColoured");
   allowMPIdipole     = settingsPtr->flag("TimeShower:allowMPIdipole");
-  // WK: eHIJING flag and qhat0g
-  eHIJING            = settingsPtr->flag("eHIJING:all");
-  eHIJING_Kfactor    = settingsPtr->parm("eHIJING:Kfactor");
-  eHIJING_mode       = settingsPtr->parm("eHIJING:Mode");
-  eHIJING_table      = settingsPtr->word("eHIJING:TablePath");
-  AtomicNumber       = settingsPtr->parm("eHIJING:AtomicNumber");
-  ChargeNumber       = settingsPtr->parm("eHIJING:ChargeNumber");
 
-  eHIJING_Geometry = new EHIJING::NuclearGeometry(AtomicNumber, ChargeNumber);
+  // eHIJING change: Added "eHIJING" flag, "eHIJING_TransverseMomentumDistributionConstant",
+  // "eHIJING_MediumModificationSplittingFunctionMode", "eHIJING_MassNumber",
+  // and "eHIJING_AtomicNumber" parameters
+  // WK: eHIJING flag and qhat0g
+  eHIJING                                         = settingsPtr->flag("eHIJING:all");
+  eHIJING_TransverseMomentumDistributionConstant  = settingsPtr->parm("eHIJING:Kfactor");
+  eHIJING_MediumModificationSplittingFunctionMode = settingsPtr->parm("eHIJING:MediumModificationSplittingFunctionMode");
+  eHIJING_table                                   = settingsPtr->word("eHIJING:TabulationPath");
+  eHIJING_MassNumber                              = settingsPtr->parm("eHIJING:MassNumber");
+  eHIJING_AtomicNumber                            = settingsPtr->parm("eHIJING:AtomicNumber");
+
+  // eHIJING change
+  eHIJING_Geometry = new EHIJING::NuclearGeometry(eHIJING_MassNumber, eHIJING_AtomicNumber);
   if (eHIJING){
-      std::cout << "init EHIJING << K = "<< eHIJING_Kfactor << std::endl;
-      eHIJING_Gen = new EHIJING::eHIJING(eHIJING_mode,
-                                         eHIJING_Kfactor,
+      std::cout << "init EHIJING << K = "<< eHIJING_TransverseMomentumDistributionConstant << std::endl;
+      eHIJING_Gen = new EHIJING::eHIJING(eHIJING_MediumModificationSplittingFunctionMode,
+                                         eHIJING_TransverseMomentumDistributionConstant,
                                          settingsPtr->parm("eHIJING:xG-n"),
                                          settingsPtr->parm("eHIJING:xG-lambda")
                                           );
@@ -2079,6 +2084,7 @@ void TimeShower::pT2nextQCD(double pT2begDip, double pT2sel,
   // For dipole recoil: no emission if the radiator is a quark,
   // since then a unified description is in SpaceShower.
   int    colTypeAbs = abs(dip.colType);
+  // eHIJING change
   // In eHIJING, I have to turn on FSR
   if ((!eHIJING) && doDipoleRecoil && dip.isrType != 0 && colTypeAbs == 1) return;
 
@@ -2176,6 +2182,7 @@ void TimeShower::pT2nextQCD(double pT2begDip, double pT2sel,
         emitCoefGlue *= userHooksPtr->enhanceFactor("fsr:Q2QG");
 
       // For dipole recoil: no g -> g g branching, since in SpaceShower.
+      // eHIJING change
       // WK: in eHIJING, always turn on FSR
       if ((!eHIJING) && doDipoleRecoil && dip.isrType != 0 && colTypeAbs == 2)
         emitCoefGlue = 0.;
@@ -2225,6 +2232,7 @@ void TimeShower::pT2nextQCD(double pT2begDip, double pT2sel,
 
     // Ditto for first-order alpha_strong.
     } else if (alphaSorder == 1) {
+      // eHIJING change
       // WK> >> this is where the veto program applies
       // to the first order running alpha_s.
       if (!eHIJING || dip.pT2 < Qs2 || true) {
@@ -2266,6 +2274,7 @@ void TimeShower::pT2nextQCD(double pT2begDip, double pT2sel,
         if (colTypeAbs == 2 && emitCoefQqbar > rndmPtr->flat()
            * emitCoefTot) dip.flavour = 0;
 
+        // eHIJING change
         // WK >>>
         // Pick z: either dz/(1-z) or flat dz in vacuum
         // sample z according to 1/(1-z) * (1 + induced(z) )
@@ -3260,6 +3269,7 @@ bool TimeShower::branch( Event& event, bool isInterleaved) {
   int isrTypeNow  = dipSel->isrType;
   int isrTypeSave = isrTypeNow;
   if (!useLocalRecoilNow) isrTypeNow = 0;
+  // eHIJING change
   if (isrTypeNow != 0 && (!eHIJING)) pRec = 2. * recBef.p() - pRec; // WK: check this
 
   // New: Return if the x-value for the incoming recoiler is nonsense.

@@ -33,6 +33,8 @@
 #include "Pythia8/TimeShower.h"
 #include "Pythia8/UserHooks.h"
 #include <string>
+
+// eHIJING change: Added include for eHIJING
 #include "eHIJING/eHIJING.h"
 
 namespace Pythia8 {
@@ -120,10 +122,19 @@ private:
          hasTwoLeptonBeams, hasPointLeptons, canVetoPT, canVetoStep,
          canVetoMPIStep, canVetoEarly, canSetScale, allowRH, earlyResDec,
          vetoWeakJets, canReconResSys, doReconnect, doHardDiff,
-         forceResonanceCR, doNDgamma, doMPIgmgm, showUnresGamma, eHIJING; 
+         forceResonanceCR, doNDgamma, doMPIgmgm, showUnresGamma, 
+         // eHIJING change: Added "eHIJING" flag
          // WK: eHIJING
-  int    pTmaxMatchMPI, eHIJING_mode, AtomicNumber, ChargeNumber; // WK: eHIJING_mode, AtomicNumber, eHIJING_Kfactor
+         eHIJING; 
+  int    pTmaxMatchMPI, 
+         // eHIJING change: Added "eHIJING_MediumModificationSplittingFunctionMode", "eHIJING_MassNumber", and "eHIJING_AtomicNumber" parameters
+         // WK: eHIJING_MediumModificationSplittingFunctionMode, eHIJING_MassNumber, eHIJING_AtomicNumber, eHIJING_TransverseMomentumDistributionConstant
+         eHIJING_MediumModificationSplittingFunctionMode, 
+         eHIJING_MassNumber, 
+         eHIJING_AtomicNumber; 
   double mMinDiff, mWidthDiff, pMaxDiff, vetoWeakDeltaR2;
+
+  // eHIJING change
   EHIJING::NuclearGeometry * eHIJING_Geometry;
 
   // Event generation strategy. Number of steps. Maximum pT scales.

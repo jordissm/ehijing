@@ -1,7 +1,5 @@
-#include "eHIJING/eHIJING.h"
 #include <iostream>
 #include <fstream>
-#include "eHIJING/integrator.h"
 #include <cmath>
 #include <thread>
 #include <gsl/gsl_errno.h>
@@ -15,6 +13,8 @@
 #include <filesystem>
 #include <atomic>
 
+#include "eHIJING/eHIJING.h"
+#include "eHIJING/integrator.h"
 namespace EHIJING {
 
 // Unit conversion constants

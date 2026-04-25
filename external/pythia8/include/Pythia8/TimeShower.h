@@ -24,6 +24,8 @@
 #include "Pythia8/MergingHooks.h"
 #include "Pythia8/WeakShowerMEs.h"
 #include <string>
+
+// eHIJING change: Added include for eHIJING
 #include "eHIJING/eHIJING.h"
 
 namespace Pythia8 {
@@ -267,10 +269,19 @@ private:
          singleWeakEmission, alphaSuseCMW, vetoWeakJets, allowMPIdipole,
          weakExternal, recoilDeadCone, doUncertainties, uVarMuSoftCorr,
          uVarMPIshowers, doDipoleRecoil, doPartonVertex, noResVariations,
-         noProcVariations, eHIJING; // WK: eHIJING
+         noProcVariations, 
+         // eHIJING change: Added "eHIJING" flag
+         // WK: eHIJING
+         eHIJING;
   int    pTmaxMatch, pTdampMatch, alphaSorder, alphaSnfmax, nGluonToQuark,
          weightGluonToQuark, alphaEMorder, nGammaToQuark, nGammaToLepton,
-         nCHV, idHV, alphaHVorder, nMaxGlobalRecoil, weakMode, eHIJING_mode, AtomicNumber, ChargeNumber; // WK: eHIJING_mode
+         nCHV, idHV, alphaHVorder, nMaxGlobalRecoil, weakMode, 
+         // eHIJING change: Added "eHIJING_MediumModificationSplittingFunctionMode", 
+         // "eHIJING_MassNumber", and "eHIJING_AtomicNumber" parameters
+         // WK: eHIJING_MediumModificationSplittingFunctionMode
+         eHIJING_MediumModificationSplittingFunctionMode, 
+         eHIJING_MassNumber, 
+         eHIJING_AtomicNumber;
   double pTdampFudge, mc, mb, m2c, m2b, renormMultFac, factorMultFac,
          fixedFacScale2, alphaSvalue, alphaS2pi, Lambda3flav, Lambda4flav,
          Lambda5flav, Lambda3flav2, Lambda4flav2, Lambda5flav2,
@@ -280,8 +291,15 @@ private:
          octetOniumColFac, mZ, gammaZ, thetaWRat, mW, gammaW, CFHV, nFlavHV,
          alphaHVfix, LambdaHV, pThvCut, pT2hvCut, mHV, pTmaxFudgeMPI,
          weakEnhancement, vetoWeakDeltaR2, dASmax, cNSpTmin, uVarpTmin2,
-         overFactor, eHIJING_Kfactor; // WK: AtomicNumber, eHIJING_Kfactor
-  std::string eHIJING_table; // WK: eHIJING_table
+         overFactor, 
+         // eHIJING change: Added "eHIJING_TransverseMomentumDistributionConstant" parameter
+         // WK: eHIJING_MassNumber, eHIJING_TransverseMomentumDistributionConstant
+         eHIJING_TransverseMomentumDistributionConstant;
+  // eHIJING change: Added "eHIJING_table" parameter
+  // WK: eHIJING_table
+  std::string eHIJING_table;
+
+  // eHIJING change
   EHIJING::eHIJING * eHIJING_Gen;
   EHIJING::NuclearGeometry * eHIJING_Geometry;
 

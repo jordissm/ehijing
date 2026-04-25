@@ -1843,8 +1843,9 @@ void Settings::resetTuneEE() {
   resetParm("TimeShower:pTmin");
   resetParm("TimeShower:pTminChgQ");
 
+  // eHIJING change
   resetFlag("eHIJING:all");
-  resetParm("eHIJING:AtomicNumber");
+  resetParm("eHIJING:MassNumber");
   resetParm("eHIJING:qhat0g");
 
 }

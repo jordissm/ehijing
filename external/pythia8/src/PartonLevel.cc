@@ -75,11 +75,13 @@ bool PartonLevel::init( Info* infoPtrIn, Settings& settings,
   doHardDiff         = settings.flag("Diffraction:doHard");
   sampleTypeDiff     = (doHardDiff) ? settings.mode("Diffraction:sampleType")
                      : 0;
+
+  // eHIJING change
   // WK: eHIJING flag and qhat0g
-  eHIJING            = settings.flag("eHIJING:all");
-  AtomicNumber       = settings.parm("eHIJING:AtomicNumber");
-  ChargeNumber       = settings.parm("eHIJING:ChargeNumber");
-  eHIJING_Geometry = new EHIJING::NuclearGeometry(AtomicNumber, ChargeNumber);
+  eHIJING               = settings.flag("eHIJING:all");
+  eHIJING_MassNumber    = settings.parm("eHIJING:MassNumber");
+  eHIJING_AtomicNumber  = settings.parm("eHIJING:AtomicNumber");
+  eHIJING_Geometry      = new EHIJING::NuclearGeometry(eHIJING_MassNumber, eHIJING_AtomicNumber);
   
 
   // Separate low-mass (unresolved) and high-mass (perturbative) diffraction.
@@ -1371,6 +1373,7 @@ bool PartonLevel::setupUnresolvedSys( Event& process, Event& event) {
 // Set up the hard process(es), excluding subsequent resonance decays.
 
 void PartonLevel::setupHardSys(Event& process, Event& event) {
+  // eHIJING change
   // WK >>>
   // Sample hard location in the rest frame of A
   if(eHIJING){
@@ -1488,6 +1491,7 @@ void PartonLevel::setupHardSys(Event& process, Event& event) {
   // Add the beam and hard subprocess partons to the event record.
   for (int i = sizeProcess; i < iBeginSecond; ++i) {
     if (process[i].mother1() > inM) break;
+    // eHIJING change
     // WK >>>
     // beam and hard subprocess partons to the event record.
     if (eHIJING && process[i].isParton() && process[i].status()>0
@@ -1558,6 +1562,7 @@ void PartonLevel::setupHardSys(Event& process, Event& event) {
     for (int i = inP2; i < process.size(); ++ i) {
       int mother = process[i].mother1();
       if ( (mother > 2 && mother < inP2) || mother > inM2 ) break;
+      // eHIJING change
       // WK >>>
       // beam and hard subprocess partons to the event record.
       if (eHIJING && process[i].isParton() && process[i].status()>0
