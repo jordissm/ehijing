@@ -28,15 +28,17 @@ void usage(const char* prog) {
     std::cerr
         << "Usage:\n"
         << "  " << prog
-        << " --nevents N --first-event-id I --Z Z --A A --mode M --K K "
-        << "--table-dir PATH --run-dir PATH --config-file PATH --seed S\n\n"
+        << " --number-of-events N --first-event-id I --Z Z --A A --mode M --K K "
+        << "--tabulation-path PATH --run-path PATH --hard-process-config PATH "
+        << "--hadronization-config PATH --medium-modification-mode M --seed S\n\n"
         << "Example:\n"
         << "  " << prog
-        << " --nevents 1000 --first-event-id 0 --Z 1 --A 2 --mode 0 --K 4.0 "
-        << "--table-dir output/runs/ehijing/tables/K4p0 "
-        << "--run-dir output/runs/ehijing/events "
-        << "--config-file /opt/electra/ehijing_bin/config/experiments/hermes.setting "
-        << "--seed 12345\n";
+        << " --number-of-events 1000 --first-event-id 0 --Z 1 --A 2 --mode 0 --K 4.0 "
+        << "--tabulation-path output/runs/ehijing/tables/K4p0 "
+        << "--run-path output/runs/ehijing/events "
+        << "--hard-process-config /opt/electra/ehijing_bin/config/experiments/hermes.setting "
+        << "--hadronization-config /opt/electra/ehijing_bin/config/experiments/hermes.setting "
+        << "--medium-modification-mode 0 --seed 12345\n";
 }
 
 RunConfig parse_args(int argc, char* argv[]) {
@@ -105,7 +107,7 @@ RunConfig parse_args(int argc, char* argv[]) {
     }
 
     if (cfg.n_events <= 0) {
-        std::cerr << "ERROR: --nevents must be > 0\n";
+        std::cerr << "ERROR: --number-of-events must be > 0\n";
         std::exit(2);
     }
 
