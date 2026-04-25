@@ -38,22 +38,23 @@ int main(int argc, char* argv[]) {
 
     const RunConfig cfg = parse_args(argc, argv);
 
-    const int n_events = cfg.n_events;
-    const int atomic_number = cfg.atomic_number;
-    const int mass_number = cfg.mass_number;
-    const int mode = cfg.mode;
-    const double k_factor = cfg.k_factor;
-    const std::string& table_path = cfg.table_path;
-    const std::string& outDir = cfg.runDir;
-    const std::string& configFile = cfg.configFile;
-    const int64_t first_event_id = cfg.first_event_id;
-    const int64_t chunk_size = cfg.chunk_size;
-    const uint32_t seed = cfg.seed;
+    const int n_events                              = cfg.n_events;
+    const int atomic_number                         = cfg.atomic_number;
+    const int mass_number                           = cfg.mass_number;
+    const double tmd_k_constant                     = cfg.tmd_k_constant;
+    const int medium_modification_mode              = cfg.medium_modification_mode;
+    const std::string& tabulation_path              = cfg.tabulation_path;
+    const std::string& run_path                     = cfg.run_path;
+    const std::string& hard_process_config_path     = cfg.hard_process_config_path;
+    const std::string& hadronization_config_path    = cfg.hadronization_config_path;
+    const int64_t first_event_id                    = cfg.first_event_id;
+    const int64_t chunk_size                        = cfg.chunk_size;
+    const uint32_t seed                             = cfg.seed;
 
     // Ensure output directories exist
     try { // Attempt to create the directories if they do not exist
-        std::filesystem::create_directories(std::filesystem::path(outDir));
-        std::filesystem::create_directories(std::filesystem::path(table_path));
+        std::filesystem::create_directories(std::filesystem::path(run_path));
+        std::filesystem::create_directories(std::filesystem::path(tabulation_path));
     } catch (const std::filesystem::filesystem_error& e) { // Handle any errors that occur during directory creation
         std::cerr << "ERROR: cannot create output/table directories:\n  " << e.what() << "\n";
         return 3;
@@ -79,9 +80,8 @@ int main(int argc, char* argv[]) {
     Pythia pythia;
 
     // Read settings from the config file and apply them to the Pythia instance
-    pythia.readFile(configFile);
+    pythia.readFile(hard_process_config_path);
     
-    // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
     // Make Pythia deterministic
     pythia.readString("Random:setSeed = on");
     pythia.readString("Random:seed = " + std::to_string(seed));
@@ -93,11 +93,11 @@ int main(int argc, char* argv[]) {
     // Note: Command line arguments will override settings in the config file if there are conflicts
     add_arg<int>(pythia, "PDF:nPDFSetA", nuclear_modification);
     add_arg<int>(pythia, "PDF:nPDFBeamA", nucleus_PDG_id);
-    add_arg<int>(pythia, "eHIJING:Mode", mode);
-    add_arg<int>(pythia, "eHIJING:AtomicNumber", mass_number);
+    add_arg<int>(pythia, "eHIJING:MediumModificationSplittingFunctionMode", medium_modification_mode);
+    add_arg<int>(pythia, "eHIJING:MassNumber", mass_number);
     add_arg<int>(pythia, "eHIJING:ChargeNumber", atomic_number);
-    add_arg<double>(pythia, "eHIJING:Kfactor", k_factor);
-    add_arg<std::string>(pythia, "eHIJING:TablePath", table_path);
+    add_arg<double>(pythia, "eHIJING:Kfactor", tmd_k_constant);
+    add_arg<std::string>(pythia, "eHIJING:TablePath", tabulation_path);
 
     // Initialize Pythia
     pythia.init();
