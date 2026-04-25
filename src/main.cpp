@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
         nuclear_modification = 2: EPPS16, NLO
     */
     // We will use only isospin for deuteron, and EPPS16 NLO for heavier nucleus
-    int nuclear_modification = 0; // (A>2)?3:0;
+    int nuclear_modification = (atomic_number > 2) ? 3 : 0;
 
     // Initialize the Pythia instance for hadronization
     Hadronizer hadronizer;
