@@ -28,19 +28,8 @@ Modified_FF::Modified_FF(int mode,
 }
 
 // The realization of the modified FF
-void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, double& Rz)
+void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinematics, double& Rx, double& Ry, double& Rz)
 {
-    Vec4 pProton = pythia.event[1].p();   // four-momentum of proton
-    Vec4 peIn = pythia.event[4].p();      // incoming electron
-    Vec4 peOut = pythia.event[6].p();     // outgoing electron
-    Vec4 pGamma = peIn - peOut;    // virtual boson photon/Z^0/W^+-
-    double Q20 = -pGamma.m2Calc(); // hard scale square
-    double Q0 = std::sqrt(Q20);
-    double bjorken_x = Q20 / (2. * pProton * pGamma); // Bjorken x
-    double nu = pGamma.e();
-    double W2 = (pProton + pGamma).m2Calc();
-    auto& hardP = pythia.event[5];
-
     // Use fixed coupling at Qs of this event for anything medium-induced below Qs
     double kt2max_now = pythia.event.SeparationScale();
     double alpha_fix = EHIJING::alphas(kt2max_now);
@@ -349,7 +338,15 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, doub
             // the gluon can continue to collide
 
             std::vector<double> g_qt2s, g_ts, g_phis;
-            collision_sampler_.sample_all_qt2(21, kmu.e(), path_length, nuclear_thickness, bjorken_x, Q20, g_qt2s, g_ts, g_phis);
+            collision_sampler_.sample_all_qt2(21,
+                                              kmu.e(),
+                                              path_length,
+                                              nuclear_thickness,
+                                              kinematics.bjorken_x,
+                                              kinematics.Q2,
+                                              g_qt2s,
+                                              g_ts,
+                                              g_phis);
             Vec4 Qtot{0., 0., 0., 0.};
             double e0 = kmu.e();
             for (int ig = 0; ig < g_ts.size(); ig++) {

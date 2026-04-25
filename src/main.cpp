@@ -105,13 +105,13 @@ int main(int argc, char* argv[]) {
     // Initialize the modified FF module for medium corrections to the parton shower
     double xg_n = pythia.settings.parm("eHIJING:xG-n");
     double xg_lambda = pythia.settings.parm("eHIJING:xG-lambda");
-    Modified_FF modified_ff(mode, 
+    Modified_FF modified_ff(medium_modification_mode, 
                             atomic_number, 
                             mass_number, 
-                            k_factor, 
+                            tmd_k_constant, 
                             xg_n,
                             xg_lambda, 
-                            table_path);
+                            tabulation_path);
 
     // Define counter for events written to output
     int n_written = 0;
@@ -158,7 +158,7 @@ int main(int argc, char* argv[]) {
             // Find the hard vertex
             double Rx, Ry, Rz;
             // Modify the final shower with low-Q^2 medium corrections
-            modified_ff.sample_ff_partons(pythia, Rx, Ry, Rz);
+            modified_ff.sample_ff_partons(pythia, kinematics, Rx, Ry, Rz);
             
             // Put the parton-level event into the separate hadronizer
             auto hadronized_event_opt = hadronizer.hadronize(pythia, atomic_number, mass_number, Rx, Ry, Rz);
@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
             const int64_t event_id = first_event_id + n_written;
             
             // Define output paths for the OSCAR event file and the metadata file based on the event ID and chunk size
-            const EventPaths paths = make_event_paths(std::filesystem::path(outDir), event_id, chunk_size);
+            const EventPaths paths = make_event_paths(std::filesystem::path(run_path), event_id, chunk_size);
 
             // Open OSCAR output file
             std::ofstream event_out(paths.eventPath);

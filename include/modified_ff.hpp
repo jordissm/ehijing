@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dis_kinematics.hpp"
+
 #include "Pythia8/Pythia.h"
 #include <random>
 #include <string>
@@ -18,7 +20,7 @@ public:
                 double xg_lambda,
                 std::string table_path);
 
-    void sample_ff_partons(Pythia& pythia, double& Rx, double& Ry, double& Rz);
+    void sample_ff_partons(Pythia& pythia, const DISKinematics& kinematics, double& Rx, double& Ry, double& Rz);
 
 private:
     int mode_, atomic_number_, mass_number_;
