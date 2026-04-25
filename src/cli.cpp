@@ -63,14 +63,15 @@ RunConfig parse_args(int argc, char* argv[]) {
     RunConfig cfg{};
 
     // Required arguments parser
-    cfg.n_events        = std::stoi(require_arg(args, "--nevents", argv[0]));
+    cfg.n_events        = std::stoi(require_arg(args, "--number-of-events", argv[0]));
     cfg.atomic_number   = std::stoi(require_arg(args, "--Z", argv[0]));
     cfg.mass_number     = std::stoi(require_arg(args, "--A", argv[0]));
-    cfg.mode            = std::stoi(require_arg(args, "--mode", argv[0]));
-    cfg.k_factor        = std::stod(require_arg(args, "--K", argv[0]));
-    cfg.table_path      = require_arg(args, "--table-dir", argv[0]);
-    cfg.runDir          = require_arg(args, "--run-dir", argv[0]);
-    cfg.configFile      = require_arg(args, "--config-file", argv[0]);
+    cfg.tmd_k_constant  = std::stod(require_arg(args, "--K", argv[0]));
+    cfg.tabulation_path = require_arg(args, "--tabulation-path", argv[0]);
+    cfg.run_path        = require_arg(args, "--run-path", argv[0]);
+    cfg.hard_process_config_path    = require_arg(args, "--hard-process-config", argv[0]);
+    cfg.hadronization_config_path   = require_arg(args, "--hadronization-config", argv[0]);
+    cfg.medium_modification_mode    = std::stoi(require_arg(args, "--medium-modification-mode", argv[0]));
 
     // Parse optional first global event ID for this chunk
     cfg.first_event_id = 0;
