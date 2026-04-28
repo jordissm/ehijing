@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
         // Flag to indicate whether the event was successfully generated, passed the trigger, and hadronized
         bool success = false;
 
-        for (int attempt = 0; attempt < hadronization_retries_max; ++attempt) { // Try up to 10 times to generate a valid event
+        for (int attempt = 0; attempt < hadronization_retries_max; ++attempt) { // Try to generate a valid event
 
             // Add to total event attempt count
             n_total_attempts++;
@@ -163,9 +163,11 @@ int main(int argc, char* argv[]) {
             // Put the parton-level event into the separate hadronizer
             auto hadronized_event_opt = hadronizer.hadronize(pythia, atomic_number, mass_number, Rx, Ry, Rz);
             if (!hadronized_event_opt) {
+                std::cerr << "WARNING: hadronization failed for event " << (first_event_id + n_written) << " on attempt " << (attempt + 1) << "/" << hadronization_retries_max << "\n";
                 n_hadronization_failed++;
                 continue;
             }
+            std::cout << "INFO: hadronization succeeded for event " << (first_event_id + n_written) << " on attempt " << (attempt + 1) << "/" << hadronization_retries_max << "\n";
             const auto& hadronized_event = *hadronized_event_opt;
             
             // Set event ID
