@@ -102,7 +102,7 @@ void TimeShower::init( BeamParticle* beamAPtrIn,
   // and "eHIJING_AtomicNumber" parameters
   // WK: eHIJING flag and qhat0g
   eHIJING                                         = settingsPtr->flag("eHIJING:all");
-  eHIJING_TransverseMomentumDistributionConstant  = settingsPtr->parm("eHIJING:Kfactor");
+  eHIJING_TransverseMomentumDistributionConstant  = settingsPtr->parm("eHIJING:TransverseMomentumDistributionConstant");
   eHIJING_MediumModificationSplittingFunctionMode = settingsPtr->parm("eHIJING:MediumModificationSplittingFunctionMode");
   eHIJING_table                                   = settingsPtr->word("eHIJING:TabulationPath");
   eHIJING_MassNumber                              = settingsPtr->parm("eHIJING:MassNumber");
