@@ -27,18 +27,18 @@ std::string require_arg(
 void usage(const char* prog) {
     std::cerr
         << "Usage:\n"
-        << "  " << prog
-        << " --number-of-events N --first-event-id I --Z Z --A A --mode M --K K "
-        << "--tabulation-path PATH --run-path PATH --hard-process-config PATH "
-        << "--hadronization-config PATH --medium-modification-mode M --seed S\n\n"
-        << "Example:\n"
-        << "  " << prog
-        << " --number-of-events 1000 --first-event-id 0 --Z 1 --A 2 --mode 0 --K 4.0 "
-        << "--tabulation-path output/runs/ehijing/tables/K4p0 "
-        << "--run-path output/runs/ehijing/events "
-        << "--hard-process-config /opt/electra/ehijing_bin/config/experiments/hermes.setting "
-        << "--hadronization-config /opt/electra/ehijing_bin/config/experiments/hermes.setting "
-        << "--medium-modification-mode 0 --seed 12345\n";
+        << "  " << prog << " "
+        << "--number-of-events <NUMBER OF EVENTS> "
+        << "--first-event-id <ID> "
+        << "--Z <ATOMIC NUMBER> "
+        << "--A <MASS NUMBER> "
+        << "--K <TMD CONSTANT> "
+        << "--medium-modification-mode <MEDIUM MODIFICATION MODE (0: HT | 1: GHT)> "
+        << "--tabulation-path <PATH> "
+        << "--run-path <PATH> "
+        << "--hard-process-config <PATH> "
+        << "--hadronization-config <PATH> "
+        << "--seed <SEED>\n\n";
 }
 
 RunConfig parse_args(int argc, char* argv[]) {
@@ -72,7 +72,7 @@ RunConfig parse_args(int argc, char* argv[]) {
     cfg.tabulation_path = require_arg(args, "--tabulation-path", argv[0]);
     cfg.run_path        = require_arg(args, "--run-path", argv[0]);
     cfg.hard_process_config_path    = require_arg(args, "--hard-process-config", argv[0]);
-    cfg.hadronization_config_path   = require_arg(args, "--hadronization-config", argv[0]);
+    // cfg.hadronization_config_path   = require_arg(args, "--hadronization-config", argv[0]);
     cfg.medium_modification_mode    = std::stoi(require_arg(args, "--medium-modification-mode", argv[0]));
 
     // Parse optional first global event ID for this chunk
