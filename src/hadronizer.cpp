@@ -83,8 +83,16 @@ Hadronizer::Hadronizer() : pythia(), rd(), gen(rd()), dist(0., 1.) {
     // Set some hadronic & decay specific channels
     pythia.readString("HadronLevel:Decay = off");
     pythia.readString("111:mayDecay=off");
+    pythia.readString("111:m0 = 0.138");
     pythia.readString("211:mayDecay=off");
+    pythia.readString("211:m0 = 0.138");
     pythia.readString("321:mayDecay=off");
+    pythia.readString("321:m0 = 0.494");
+    pythia.readString("311:m0 = 0.494");
+    pythia.readString("130:m0 = 0.494");
+    pythia.readString("310:m0 = 0.494");
+    pythia.readString("2112:m0 = 0.938");
+    pythia.readString("2212:m0 = 0.938");
     // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
     pythia.readString("PDF:nPDFSetA=0");
     pythia.readString("PDF:nPDFSetB=0");
