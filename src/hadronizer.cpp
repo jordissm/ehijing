@@ -3,10 +3,39 @@
 #include <cmath>
 #include <iostream>
 #include <optional>
+#include <stdexcept>
 
 using namespace Pythia8;
 
 namespace {
+    struct ParticleMassOverride {
+        int id;
+        double mass;
+    };
+
+    void apply_smash_particle_data_overrides(Pythia& pythia) {
+        // Current hand overrides live here until this is backed by the SMASH
+        // particle list.
+        const int stable_particle_ids[] = {111, 211, 321};
+        for (const int id : stable_particle_ids) {
+            pythia.particleData.mayDecay(id, false);
+        }
+
+        const ParticleMassOverride mass_overrides[] = {
+            {111, 0.138},
+            {211, 0.138},
+            {321, 0.494},
+            {311, 0.494},
+            {130, 0.494},
+            {310, 0.494},
+            {2112, 0.938},
+            {2212, 0.938},
+        };
+        for (const auto& entry : mass_overrides) {
+            pythia.particleData.m0(entry.id, entry.mass);
+        }
+    }
+
     void rotate(double px, double py, double pz, double pr[4], int icc) {
 
         //     input:  (px,py,pz), (wx,wy,wz), argument (i)
@@ -64,47 +93,21 @@ namespace {
     }
 } // namespace
 
-Hadronizer::Hadronizer() : pythia(), rd(), gen(rd()), dist(0., 1.) {
+Hadronizer::Hadronizer(const std::string& hadronization_config_path)
+    : pythia(), rd(), gen(rd()), dist(0., 1.) {
+
+    if (!pythia.readFile(hadronization_config_path)) {
+        throw std::runtime_error("Hadronizer: failed to read config file: " +
+                                 hadronization_config_path);
+    }
 
     pythia.readString("ProcessLevel:all = off");
     pythia.readString("Print:quiet = on");
     pythia.readString("Next:numberShowInfo = 0");
     pythia.readString("Next:numberShowProcess = 0");
     pythia.readString("Next:numberShowEvent = 0");
-    // parton tune and PDF set, please check
-    pythia.readString("Tune:pp = 19");
-    pythia.readString("PDF:pSet = 12");
-    // These two parameters have something to do with the
-    // Lund String interative breaking conditions
-    // ** We have changed stopMass=0.0 GeV, different from Pythia8 Default
-    // too match HERMES FF measurements of pion and Kaon.
-    pythia.readString("StringFragmentation:stopMass = 0.0");
-    pythia.readString("HadronLevel:mStringMin = 0.5");
-    // Set some hadronic & decay specific channels
-    pythia.readString("HadronLevel:Decay = off");
-    pythia.readString("111:mayDecay=off");
-    pythia.readString("111:m0 = 0.138");
-    pythia.readString("211:mayDecay=off");
-    pythia.readString("211:m0 = 0.138");
-    pythia.readString("321:mayDecay=off");
-    pythia.readString("321:m0 = 0.494");
-    pythia.readString("311:m0 = 0.494");
-    pythia.readString("130:m0 = 0.494");
-    pythia.readString("310:m0 = 0.494");
-    pythia.readString("2112:m0 = 0.938");
-    pythia.readString("2212:m0 = 0.938");
-    // JORDI: These lines are different from ehijing-default-Briet-frame.cpp
-    pythia.readString("PDF:nPDFSetA=0");
-    pythia.readString("PDF:nPDFSetB=0");
-    // Enabling setting of vertex information.
-    pythia.readString("PartonVertex:setVertex = on");
-    pythia.readString("PartonVertex:modeVertex = 2");
-    pythia.readString("PartonVertex:ProtonRadius = 0.85");
-    pythia.readString("PartonVertex:EmissionWidth = 0.1");
-    pythia.readString("Fragmentation:setVertices = on");
-    pythia.readString("HadronVertex:mode = 0");
-    pythia.readString("HadronVertex:smearOn = on");
-    pythia.readString("HadronVertex:xySmear = 0.7");
+
+    apply_smash_particle_data_overrides(pythia);
 
     pythia.init();
 }
