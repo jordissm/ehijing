@@ -65,14 +65,11 @@ inline constexpr double pion_gev = 0.138;
 /// Effective kaon mass in GeV for particle-data overrides.
 inline constexpr double kaon_gev = 0.494;
 
-/// Nucleon mass written to OSCAR spectator records, in GeV.
-inline constexpr double output_nucleon_gev = 0.938;
-
 /// Proton mass in GeV used for particle-data overrides.
-inline constexpr double proton_gev = 0.93847;
+inline constexpr double proton_gev = 0.938;
 
 /// Neutron mass in GeV used for particle-data overrides.
-inline constexpr double neutron_gev = 0.93957;
+inline constexpr double neutron_gev = 0.938;
 
 /// Constituent light-quark mass in GeV used by remnant construction.
 inline constexpr double constituent_light_quark_gev = 0.33;

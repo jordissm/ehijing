@@ -156,15 +156,15 @@ void write_spectator_nucleons(
         const double py = 0.0;
         const double pz = 0.0;
         const double p0 = std::sqrt(
-            constants::mass::output_nucleon_gev *
-            constants::mass::output_nucleon_gev + px * px + py * py + pz * pz);
+            constants::mass::proton_gev *
+            constants::mass::proton_gev + px * px + py * py + pz * pz);
 
         out << std::fixed << std::setprecision(2) << t << " "
             << std::fixed << std::setprecision(5)
             << rx << " "
             << ry << " "
             << rz << " "
-            << constants::mass::output_nucleon_gev << " "
+            << constants::mass::proton_gev << " "
             << p0 << " "
             << px << " "
             << py << " "
@@ -194,15 +194,15 @@ void write_spectator_nucleons(
         const double py = 0.0;
         const double pz = 0.0;
         const double p0 = std::sqrt(
-            constants::mass::output_nucleon_gev *
-            constants::mass::output_nucleon_gev + px * px + py * py + pz * pz);
+            constants::mass::neutron_gev *
+            constants::mass::neutron_gev + px * px + py * py + pz * pz);
 
         out << std::fixed << std::setprecision(2) << t << " "
             << std::fixed << std::setprecision(5)
             << rx << " "
             << ry << " "
             << rz << " "
-            << constants::mass::output_nucleon_gev << " "
+            << constants::mass::neutron_gev << " "
             << p0 << " "
             << px << " "
             << py << " "

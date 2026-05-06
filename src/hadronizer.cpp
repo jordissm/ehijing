@@ -35,8 +35,8 @@ namespace {
             {constants::pdg::k0_id, constants::mass::kaon_gev},
             {constants::pdg::k0_long_id, constants::mass::kaon_gev},
             {constants::pdg::k0_short_id, constants::mass::kaon_gev},
-            {constants::pdg::neutron_id, constants::mass::output_nucleon_gev},
-            {constants::pdg::proton_id, constants::mass::output_nucleon_gev},
+            {constants::pdg::neutron_id, constants::mass::neutron_gev},
+            {constants::pdg::proton_id, constants::mass::proton_gev},
         };
         for (const auto& entry : mass_overrides) {
             pythia.particleData.m0(entry.id, entry.mass);
