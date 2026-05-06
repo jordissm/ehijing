@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file dis_kinematics.hpp
+ * @brief DIS kinematics reconstruction and runtime event-selection cuts.
+ */
+
 #include "Pythia8/Pythia.h"
 
 #include <string>

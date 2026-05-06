@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file cli.hpp
+ * @brief Command-line configuration interface for the eHIJING executable.
+ */
+
 #include <cstdint>
 #include <string>
 
