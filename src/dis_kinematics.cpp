@@ -1,14 +1,17 @@
 #include "dis_kinematics.hpp"
+#include "ehijing_constants.hpp"
 
 #include <cmath>
 
 DISKinematics compute_dis_kinematics(const Pythia8::Pythia& pythia) {
+    namespace constants = ehijing::constants;
+
     DISKinematics kin;
 
     // PYTHIA DIS event-record convention documented in dis_kinematics.hpp.
-    kin.pProton = pythia.event[1].p();  // four-momentum of the incoming proton
-    kin.peIn    = pythia.event[4].p();  // four-momentum of the incoming electron
-    kin.peOut   = pythia.event[6].p();  // four-momentum of the outgoing electron
+    kin.pProton = pythia.event[constants::pythia::incoming_target_index].p();
+    kin.peIn    = pythia.event[constants::pythia::incoming_lepton_index].p();
+    kin.peOut   = pythia.event[constants::pythia::outgoing_lepton_index].p();
     kin.pGamma  = kin.peIn - kin.peOut; // four-momentum of the virtual photon/Z^0/W^±
 
     const double P_dot_q = kin.pProton * kin.pGamma;
@@ -26,19 +29,14 @@ DISKinematics compute_dis_kinematics(const Pythia8::Pythia& pythia) {
 }
 
 bool is_valid_dis_event(const DISKinematics& kin) {
-    constexpr double ymin  = 0.10;
-    constexpr double ymax  = 0.85;
-    constexpr double bjorken_x_min = 0.023;
-    constexpr double bjorken_x_max = 0.6;
-    constexpr double Q2min = 1.0;               // GeV^2
-    constexpr double Wmin  = std::sqrt(10.0);   // GeV
+    namespace constants = ehijing::constants;
     
-    return (ymin < kin.y) && 
-           (kin.y < ymax) &&
-           (bjorken_x_min < kin.bjorken_x) && 
-           (kin.bjorken_x < bjorken_x_max) &&
-           (Wmin < kin.W) &&
-           (Q2min < kin.Q2);
+    return (constants::dis_cuts::y_min < kin.y) &&
+           (kin.y < constants::dis_cuts::y_max) &&
+           (constants::dis_cuts::bjorken_x_min < kin.bjorken_x) &&
+           (kin.bjorken_x < constants::dis_cuts::bjorken_x_max) &&
+           (constants::dis_cuts::w2_min_gev2 < kin.W2) &&
+           (constants::dis_cuts::q2_min_gev2 < kin.Q2);
 }
 
 bool trigger(const Pythia8::Pythia& pythia) {

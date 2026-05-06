@@ -1,4 +1,5 @@
 #include "modified_ff.hpp"
+#include "ehijing_constants.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -6,6 +7,7 @@
 #include <cstdlib>
 
 using namespace Pythia8;
+namespace constants = ehijing::constants;
 
 Modified_FF::Modified_FF(int mode,
                          int atomic_number,
@@ -33,8 +35,9 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
     // Use fixed coupling at Qs of this event for anything medium-induced below Qs
     double kt2max_now = pythia.event.SeparationScale();
     double alpha_fix = EHIJING::alphas(kt2max_now);
-    double alpha_bar = alpha_fix * EHIJING::CA / M_PI;
-    double min_energy = .2;
+    double alpha_bar = alpha_fix * EHIJING::CA / constants::math::pi;
+    double min_energy = constants::modified_ff::min_parton_energy_gev;
+    const double hbarc = constants::units::hbarc_gev_fm;
 
     // This will hold the gluons emitted from the medium-contrbuted FF in this stage
     // as well as recoil partons that keeps the entire system color neutral.
@@ -73,7 +76,10 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             g: 21
         */
         auto abs_particle_id = particle.idAbs();
-        bool is_light_parton = (abs_particle_id == 1) || (abs_particle_id == 2) || (abs_particle_id == 3) || (abs_particle_id == 21);
+        bool is_light_parton = (abs_particle_id == constants::pdg::down_id) ||
+                               (abs_particle_id == constants::pdg::up_id) ||
+                               (abs_particle_id == constants::pdg::strange_id) ||
+                               (abs_particle_id == constants::pdg::gluon_id);
         if (!is_light_parton) {
             continue;
         }
@@ -106,7 +112,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             sumq2 += qt2s[i];
         }
         // Neglect too soft momentum kicks
-        if (sumq2 < 1e-9) {
+        if (sumq2 < constants::numeric::min_momentum_kick2) {
             continue;
         }
 
@@ -263,11 +269,13 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
 
             // Step 3: Correct for the splitting function
             // If particle is a gluon
-            if (particle.id() == 21 && (1 + std::pow(1. - z, 3)) / 2. < uniform_dist_(rng_)) {
+            if (particle.id() == constants::pdg::gluon_id &&
+                (1 + std::pow(1. - z, 3)) / 2. < uniform_dist_(rng_)) {
                 continue;
             }
             // If particle is a quark
-            if (particle.id() != 21 && (1 + std::pow(1. - z, 2)) / 2. < uniform_dist_(rng_)) {
+            if (particle.id() != constants::pdg::gluon_id &&
+                (1 + std::pow(1. - z, 2)) / 2. < uniform_dist_(rng_)) {
                 continue;
             }
 
@@ -276,7 +284,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             if (mode_ == 0) {
 
                 // No particular angular structure in the HT expansion
-                phik = 2 * M_PI * uniform_dist_(rng_);
+                phik = constants::math::two_pi * uniform_dist_(rng_);
                 lt2 = kt2;
 
             // If mode = 1, use GHT
@@ -307,7 +315,9 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
                 acceptance = 0.;
                 while (acceptance < uniform_dist_(rng_)) {
                     r = uniform_dist_(rng_);
-                    dphiqk = 2. * std::atan(std::tan(M_PI / 2. * r) * (delta + 1) / (delta - 1));
+                    dphiqk = 2. * std::atan(
+                        std::tan(constants::math::pi / 2. * r) *
+                        (delta + 1) / (delta - 1));
                     acceptance = (1 + delta * std::cos(dphiqk)) / 2.;
                 }
                 phik = phis[choice] + ((uniform_dist_(rng_) > .5) ? dphiqk : (-dphiqk));
@@ -338,7 +348,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             // the gluon can continue to collide
 
             std::vector<double> g_qt2s, g_ts, g_phis;
-            collision_sampler_.sample_all_qt2(21,
+            collision_sampler_.sample_all_qt2(constants::pdg::gluon_id,
                                               kmu.e(),
                                               path_length,
                                               nuclear_thickness,
@@ -368,77 +378,108 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             // if the gluon forms inside the nuclei,
             // we consider it will lose color correlation with the original parton,
             // and form a new string with beam remnant
-            Particle gluon = Particle(21, 201, i, 0, 0, 0, pythia.event.nextColTag(),
-                                        pythia.event.nextColTag(), kmu, 0.0, 0);
+            Particle gluon = Particle(constants::pdg::gluon_id,
+                                      constants::pythia::medium_recoil_status,
+                                      i,
+                                      0,
+                                      0,
+                                      0,
+                                      pythia.event.nextColTag(),
+                                      pythia.event.nextColTag(),
+                                      kmu,
+                                      0.0,
+                                      0);
             int qid, diqid;
             double mq, mdiq, mn;
             if (uniform_dist_(rng_) < z_over_a_) { // diquark from a proton
-                diqid = 2101;
-                mdiq = 0.57933;
-                qid = 2;
-                mq = 0.33;
-                mn = 0.93847;
+                diqid = constants::pdg::ud_spin0_diquark_id;
+                mdiq = constants::mass::remnant_diquark_gev;
+                qid = constants::pdg::up_id;
+                mq = constants::mass::constituent_light_quark_gev;
+                mn = constants::mass::proton_gev;
                 if (uniform_dist_(rng_) < 2. / 3.) { // take away a u
-                    qid = 2;
+                    qid = constants::pdg::up_id;
                     if (uniform_dist_(rng_) < .75) {
-                        diqid = 2101;
+                        diqid = constants::pdg::ud_spin0_diquark_id;
                     } else {
-                        diqid = 2103;
+                        diqid = constants::pdg::ud_spin1_diquark_id;
                     }
                 } else { // take away the d
-                    qid = 1;
-                    diqid = 2203;
+                    qid = constants::pdg::down_id;
+                    diqid = constants::pdg::uu_spin1_diquark_id;
                 }
             } else { // diquark from a neutron
-                diqid = 2101;
-                mdiq = 0.57933;
-                qid = 1;
-                mq = 0.33;
-                mn = 0.93957;
+                diqid = constants::pdg::ud_spin0_diquark_id;
+                mdiq = constants::mass::remnant_diquark_gev;
+                qid = constants::pdg::down_id;
+                mq = constants::mass::constituent_light_quark_gev;
+                mn = constants::mass::neutron_gev;
                 if (uniform_dist_(rng_) < 2. / 3.) { // take away a d
-                    qid = 1;
+                    qid = constants::pdg::down_id;
                     if (uniform_dist_(rng_) < .75) {
-                        diqid = 2101;
+                        diqid = constants::pdg::ud_spin0_diquark_id;
                     } else {
-                        diqid = 2103;
+                        diqid = constants::pdg::ud_spin1_diquark_id;
                     }
                 } else {
                     // take away the u
-                    qid = 2;
-                    diqid = 1103;
+                    qid = constants::pdg::up_id;
+                    diqid = constants::pdg::dd_spin1_diquark_id;
                 }
             }
             double pabs = std::sqrt((mn * mn - std::pow(mq + mdiq, 2)) *
                                     (mn * mn - std::pow(mq - mdiq, 2))) /
                             (2. * mn);
             double costheta = uniform_dist_(rng_) * 2. - 1.;
-            double sintheta = std::sqrt(std::max(1. - costheta * costheta, 1e-9));
-            double rphi = 2 * M_PI * uniform_dist_(rng_);
+            double sintheta = std::sqrt(
+                std::max(1. - costheta * costheta,
+                         constants::numeric::min_sin_theta2));
+            double rphi = constants::math::two_pi * uniform_dist_(rng_);
             double Nqz = pabs * costheta, Nqx = pabs * sintheta * std::cos(rphi),
                     Nqy = pabs * sintheta * std::sin(rphi);
             Vec4 pq{Nqx, Nqy, Nqz, 0}, pdiq{-Nqx, -Nqy, -Nqz, 0};
             pq.e(std::sqrt(pq.pAbs2() + mq * mq));
             pdiq.e(std::sqrt(pdiq.pAbs2() + mdiq * mdiq));
-            Particle recolQ = Particle(qid, 201, i, 0, 0, 0, gluon.acol(), 0, pq, mq, 0);
-            Particle recoldiQ = Particle(diqid, 201, i, 0, 0, 0, 0, gluon.col(), pdiq, mdiq, 0);
+            Particle recolQ = Particle(qid,
+                                       constants::pythia::medium_recoil_status,
+                                       i,
+                                       0,
+                                       0,
+                                       0,
+                                       gluon.acol(),
+                                       0,
+                                       pq,
+                                       mq,
+                                       0);
+            Particle recoldiQ = Particle(diqid,
+                                         constants::pythia::medium_recoil_status,
+                                         i,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         gluon.col(),
+                                         pdiq,
+                                         mdiq,
+                                         0);
             // time formation_time
             recoiled_beam_remnants.push_back(gluon);
-            x_arr.push_back(formation_time * HBARC * kmu.px() / kmu.e());
-            y_arr.push_back(formation_time * HBARC * kmu.py() / kmu.e());
-            z_arr.push_back(formation_time * HBARC * kmu.pz() / kmu.e());
-            t_arr.push_back(formation_time * HBARC);
+            x_arr.push_back(formation_time * hbarc * kmu.px() / kmu.e());
+            y_arr.push_back(formation_time * hbarc * kmu.py() / kmu.e());
+            z_arr.push_back(formation_time * hbarc * kmu.pz() / kmu.e());
+            t_arr.push_back(formation_time * hbarc);
 
             recoiled_beam_remnants.push_back(recolQ);
-            x_arr.push_back(formation_time * HBARC * pq.px() / pq.e());
-            y_arr.push_back(formation_time * HBARC * pq.py() / pq.e());
-            z_arr.push_back(formation_time * HBARC * pq.pz() / pq.e());
-            t_arr.push_back(formation_time * HBARC);
+            x_arr.push_back(formation_time * hbarc * pq.px() / pq.e());
+            y_arr.push_back(formation_time * hbarc * pq.py() / pq.e());
+            z_arr.push_back(formation_time * hbarc * pq.pz() / pq.e());
+            t_arr.push_back(formation_time * hbarc);
 
             recoiled_beam_remnants.push_back(recoldiQ);
-            x_arr.push_back(formation_time * HBARC * pdiq.px() / pdiq.e());
-            y_arr.push_back(formation_time * HBARC * pdiq.py() / pdiq.e());
-            z_arr.push_back(formation_time * HBARC * pdiq.pz() / pdiq.e());
-            t_arr.push_back(formation_time * HBARC);
+            x_arr.push_back(formation_time * hbarc * pdiq.px() / pdiq.e());
+            y_arr.push_back(formation_time * hbarc * pdiq.py() / pdiq.e());
+            z_arr.push_back(formation_time * hbarc * pdiq.pz() / pdiq.e());
+            t_arr.push_back(formation_time * hbarc);
         } // Comment out this loop to turn off radiation
 
         // Handle recoil and remnants
@@ -458,7 +499,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             particle.e(std::sqrt(particle.pAbs2() + particle.m2()));
             int q_col, q_acol;
             // update color
-            if (particle.id() == 21) {
+            if (particle.id() == constants::pdg::gluon_id) {
                 if (std::rand() % 2 == 0) {
                     q_acol = particle.acol();
                     particle.acol(pythia.event.nextColTag());
@@ -480,46 +521,48 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             int qid, diqid;
             double mq, mdiq, mn;
             if (uniform_dist_(rng_) < z_over_a_) { // diquark from a proton
-                diqid = 2101;
-                mdiq = 0.57933;
-                qid = 2;
-                mq = 0.33;
-                mn = 0.93847;
+                diqid = constants::pdg::ud_spin0_diquark_id;
+                mdiq = constants::mass::remnant_diquark_gev;
+                qid = constants::pdg::up_id;
+                mq = constants::mass::constituent_light_quark_gev;
+                mn = constants::mass::proton_gev;
                 if (uniform_dist_(rng_) < 2. / 3.) { // take away a u
-                    qid = 2;
+                    qid = constants::pdg::up_id;
                     if (uniform_dist_(rng_) < .75) {
-                        diqid = 2101;
+                        diqid = constants::pdg::ud_spin0_diquark_id;
                     } else {
-                        diqid = 2103;
+                        diqid = constants::pdg::ud_spin1_diquark_id;
                     }
                 } else { // take away the d
-                    qid = 1;
-                    diqid = 2203;
+                    qid = constants::pdg::down_id;
+                    diqid = constants::pdg::uu_spin1_diquark_id;
                 }
             } else { // diquark from a neutron
-                diqid = 2101;
-                mdiq = 0.57933;
-                qid = 1;
-                mq = 0.33;
-                mn = 0.93957;
+                diqid = constants::pdg::ud_spin0_diquark_id;
+                mdiq = constants::mass::remnant_diquark_gev;
+                qid = constants::pdg::down_id;
+                mq = constants::mass::constituent_light_quark_gev;
+                mn = constants::mass::neutron_gev;
                 if (uniform_dist_(rng_) < 2. / 3.) { // take away a d
-                    qid = 1;
+                    qid = constants::pdg::down_id;
                     if (uniform_dist_(rng_) < .75) {
-                        diqid = 2101;
+                        diqid = constants::pdg::ud_spin0_diquark_id;
                     } else {
-                        diqid = 2103;
+                        diqid = constants::pdg::ud_spin1_diquark_id;
                     }
                 } else { // take away the u
-                    qid = 2;
-                    diqid = 1103;
+                    qid = constants::pdg::up_id;
+                    diqid = constants::pdg::dd_spin1_diquark_id;
                 }
             }
             double pabs =
                 std::sqrt((mn * mn - std::pow(mq + mdiq, 2)) * (mn * mn - std::pow(mq - mdiq, 2))) /
                 (2. * mn);
             double costheta = uniform_dist_(rng_) * 2. - 1.;
-            double sintheta = std::sqrt(std::max(1. - costheta * costheta, 1e-9));
-            double rphi = 2 * M_PI * uniform_dist_(rng_);
+            double sintheta = std::sqrt(
+                std::max(1. - costheta * costheta,
+                         constants::numeric::min_sin_theta2));
+            double rphi = constants::math::two_pi * uniform_dist_(rng_);
             double Nqz = pabs * costheta, Nqx = pabs * sintheta * std::cos(rphi),
                    Nqy = pabs * sintheta * std::sin(rphi);
             Vec4 pq{Nqx, Nqy, Nqz, 0}, pdiq{-Nqx, -Nqy, -Nqz, 0};
@@ -531,20 +574,40 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             }
             pq.e(std::sqrt(pq.pAbs2() + mq * mq));
             pdiq.e(std::sqrt(pdiq.pAbs2() + mdiq * mdiq));
-            Particle recolQ = Particle(qid, 201, i, 0, 0, 0, q_col, 0, pq, mq, 0);
-            Particle recoldiQ = Particle(diqid, 201, i, 0, 0, 0, 0, q_acol, pdiq, mdiq, 0);
+            Particle recolQ = Particle(qid,
+                                       constants::pythia::medium_recoil_status,
+                                       i,
+                                       0,
+                                       0,
+                                       0,
+                                       q_col,
+                                       0,
+                                       pq,
+                                       mq,
+                                       0);
+            Particle recoldiQ = Particle(diqid,
+                                         constants::pythia::medium_recoil_status,
+                                         i,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         q_acol,
+                                         pdiq,
+                                         mdiq,
+                                         0);
 
             recoiled_beam_remnants.push_back(recolQ);
-            x_arr.push_back(ts[j] * HBARC * pq.px() / pq.e());
-            y_arr.push_back(ts[j] * HBARC * pq.py() / pq.e());
-            z_arr.push_back(ts[j] * HBARC * pq.pz() / pq.e());
-            t_arr.push_back(ts[j] * HBARC);
+            x_arr.push_back(ts[j] * hbarc * pq.px() / pq.e());
+            y_arr.push_back(ts[j] * hbarc * pq.py() / pq.e());
+            z_arr.push_back(ts[j] * hbarc * pq.pz() / pq.e());
+            t_arr.push_back(ts[j] * hbarc);
 
             recoiled_beam_remnants.push_back(recoldiQ);
-            x_arr.push_back(ts[j] * HBARC * pdiq.px() / pdiq.e());
-            y_arr.push_back(ts[j] * HBARC * pdiq.py() / pdiq.e());
-            z_arr.push_back(ts[j] * HBARC * pdiq.pz() / pdiq.e());
-            t_arr.push_back(ts[j] * HBARC);
+            x_arr.push_back(ts[j] * hbarc * pdiq.px() / pdiq.e());
+            y_arr.push_back(ts[j] * hbarc * pdiq.py() / pdiq.e());
+            z_arr.push_back(ts[j] * hbarc * pdiq.pz() / pdiq.e());
+            t_arr.push_back(ts[j] * hbarc);
         }
 
         for (auto& fragmented_gluon : fragmented_gluons) {
@@ -560,7 +623,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
     for (auto& new_particle : new_particles) {
         
         pythia.event.append(new_particle.id(),
-                            201, 
+                            constants::pythia::medium_recoil_status,
                             new_particle.col(), 
                             new_particle.acol(), 
                             new_particle.px(), 
@@ -571,9 +634,9 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
         
         auto& appended = pythia.event.back();
         appended.vProd(Vec4(
-            x_arr[ixyz] + Rx * HBARC,
-            y_arr[ixyz] + Ry * HBARC,
-            z_arr[ixyz] + Rz * HBARC,
+            x_arr[ixyz] + Rx * hbarc,
+            y_arr[ixyz] + Ry * hbarc,
+            z_arr[ixyz] + Rz * hbarc,
             t_arr[ixyz]
         ));
 

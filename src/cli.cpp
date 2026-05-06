@@ -1,4 +1,5 @@
 #include "cli.hpp"
+#include "ehijing_constants.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -7,6 +8,8 @@
 #include <unordered_map>
 
 namespace {
+
+namespace constants = ehijing::constants;
 
 std::string require_arg(
     const std::unordered_map<std::string, std::string>& args,
@@ -100,7 +103,7 @@ RunConfig parse_args(int argc, char* argv[]) {
     if (auto it = args.find("--seed"); it != args.end()) {
         // Pythia seeds must be in [1, 900000000] typically; keep it in range
         const uint64_t s64 = std::stoull(it->second);
-        cfg.seed = static_cast<uint32_t>(1 + (s64 % 900000000ULL));
+        cfg.seed = static_cast<uint32_t>(1 + (s64 % constants::pythia::max_seed));
     } else {
         // Non-deterministic fallback
         cfg.seed = static_cast<uint32_t>(std::random_device{}());

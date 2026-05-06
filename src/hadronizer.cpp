@@ -1,4 +1,5 @@
 #include "hadronizer.hpp"
+#include "ehijing_constants.hpp"
 
 #include <cmath>
 #include <iostream>
@@ -8,6 +9,8 @@
 using namespace Pythia8;
 
 namespace {
+    namespace constants = ehijing::constants;
+
     struct ParticleMassOverride {
         int id;
         double mass;
@@ -16,20 +19,24 @@ namespace {
     void apply_smash_particle_data_overrides(Pythia& pythia) {
         // Current hand overrides live here until this is backed by the SMASH
         // particle list.
-        const int stable_particle_ids[] = {111, 211, 321};
+        const int stable_particle_ids[] = {
+            constants::pdg::pi0_id,
+            constants::pdg::pion_charged_id,
+            constants::pdg::kaon_charged_id,
+        };
         for (const int id : stable_particle_ids) {
             pythia.particleData.mayDecay(id, false);
         }
 
         const ParticleMassOverride mass_overrides[] = {
-            {111, 0.138},
-            {211, 0.138},
-            {321, 0.494},
-            {311, 0.494},
-            {130, 0.494},
-            {310, 0.494},
-            {2112, 0.938},
-            {2212, 0.938},
+            {constants::pdg::pi0_id, constants::mass::pion_gev},
+            {constants::pdg::pion_charged_id, constants::mass::pion_gev},
+            {constants::pdg::kaon_charged_id, constants::mass::kaon_gev},
+            {constants::pdg::k0_id, constants::mass::kaon_gev},
+            {constants::pdg::k0_long_id, constants::mass::kaon_gev},
+            {constants::pdg::k0_short_id, constants::mass::kaon_gev},
+            {constants::pdg::neutron_id, constants::mass::output_nucleon_gev},
+            {constants::pdg::proton_id, constants::mass::output_nucleon_gev},
         };
         for (const auto& entry : mass_overrides) {
             pythia.particleData.m0(entry.id, entry.mass);
@@ -60,7 +67,7 @@ namespace {
 
         //  if(pt==0)
 
-        if (pt < 1e-6) {
+        if (pt < constants::numeric::rotation_epsilon) {
             cosa = 1;
             sina = 0;
         } else {
@@ -68,7 +75,7 @@ namespace {
             sina = py / pt;
         }
 
-        if (E > 1e-6) {
+        if (E > constants::numeric::rotation_epsilon) {
             cosb = pz / E;
             sinb = pt / E;
             if (icc == 1) {
@@ -125,6 +132,7 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
 
     // Define charge fraction
     double charge_fraction = atomic_number * 1.0 / mass_number;
+    const double hbarc = constants::units::hbarc_gev_fm;
 
     // This vector will store the final hadrons after hadronization, and will be
     // returned to the main function
@@ -132,7 +140,7 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
     FinalStateParticles.clear();
 
     // Get the initial hard parton ID
-    int hardid = pythiaIn.event[5].id();
+    int hardid = pythiaIn.event[constants::pythia::hard_parton_index].id();
 
     // Empty the event record of the hadronizer, and prepare to fill it with
     // partons from the shower
@@ -156,7 +164,9 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
         //   (ud)_0 : 2101
         //   (ud)_1 : 2103
         //   (uu)_1 : 2203
-        if (particle.status() == 63 && 1000 < particle.idAbs() && particle.idAbs() < 3000) {
+        if (particle.status() == constants::pythia::beam_remnant_status &&
+            constants::pdg::diquark_id_min_exclusive < particle.idAbs() &&
+            particle.idAbs() < constants::pdg::diquark_id_max_exclusive) {
 
             // valence stuff, the remnants will contain the rest flavor component
             // note that the hard quark has already been sampled according to the
@@ -166,30 +176,30 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
             // ratio this nuclei
             // 1) Decide whether it is from a neutron or proton
             if (dist(gen) < charge_fraction) { // From a proton 2212
-                if (hardid == 1) {
+                if (hardid == constants::pdg::down_id) {
                     // Produce (uu)_1 : 2203
-                    particle.id(2203);
-                } else if (hardid == 2) {
+                    particle.id(constants::pdg::uu_spin1_diquark_id);
+                } else if (hardid == constants::pdg::up_id) {
                     // Produce (ud)_0 : 2101 and (ud)_1 : 2103 with ratio 3:1
                     if (dist(gen) < 0.75) {
-                        particle.id(2101);
+                        particle.id(constants::pdg::ud_spin0_diquark_id);
                     } else {
-                        particle.id(2103);
+                        particle.id(constants::pdg::ud_spin1_diquark_id);
                     }
                 }
             }
             else { // From a neutron 2112
-                if (hardid == 1) {
+                if (hardid == constants::pdg::down_id) {
                     // Produce (ud)_0 : 2101 and (ud)_1 : 2103 with ratio 3:1
                     if (dist(gen) < 0.75) {
-                        particle.id(2101);
+                        particle.id(constants::pdg::ud_spin0_diquark_id);
                     } else {
-                        particle.id(2103);
+                        particle.id(constants::pdg::ud_spin1_diquark_id);
                     }
                 }
-                else if (hardid == 2) {
+                else if (hardid == constants::pdg::up_id) {
                     // Produce (dd)_1 : 1103
-                    particle.id(1103);
+                    particle.id(constants::pdg::dd_spin1_diquark_id);
                 }
             }
         }
@@ -197,7 +207,7 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
         // For other partons, just put it in the shower
         // status() == 23 : outgoing particles of the hardest subprocess
         pythia.event.append(particle.id(),
-                            23,
+                            constants::pythia::hard_process_outgoing_status,
                             particle.col(),
                             particle.acol(),
                             particle.px(),
@@ -244,7 +254,8 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
                 p4[0] = p4[1] = p4[2] = p4[3] = 0.0;
 
                 // 
-                if (std::abs(pythia.event[IDiii].status()) == 23 ||
+                if (std::abs(pythia.event[IDiii].status()) ==
+                        constants::pythia::hard_process_outgoing_status ||
                     std::abs(pythia.event[IDiii].status()) == 21 ||
                     std::abs(pythia.event[IDiii].status()) == 12) {
                     timebreaker = 1;
@@ -424,9 +435,9 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
                 rotate(p4[1], p4[2], p4[3], p0, -1);
                 double kt_daughter = qt;
 
-                if (kt_daughter > 1.e-10) {
+                if (kt_daughter > constants::numeric::min_kt_daughter) {
                     time_step = 2.0 * p4[0] * x_split * (1 - x_split) /
-                                pow(kt_daughter, 2) * HBARC;
+                                pow(kt_daughter, 2) * hbarc;
                     timeplus = timeplus + time_step;
                     position[0] = position[0] + time_step * p4[1] / p4[0];
                     position[1] = position[1] + time_step * p4[2] / p4[0];
@@ -435,10 +446,12 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
                 }
             }
 
-            particle.vProd(particle.vProd() + Vec4(position[0] + Rx * HBARC,
-                                                   position[1] + Ry * HBARC,
-                                                   position[2] + Rz * HBARC,
-                                                   timeplus));
+            particle.vProd(
+                particle.vProd() +
+                Vec4(position[0] + Rx * hbarc,
+                     position[1] + Ry * hbarc,
+                     position[2] + Rz * hbarc,
+                     timeplus));
         }
     }
 

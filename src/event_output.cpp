@@ -1,4 +1,5 @@
 #include "event_output.hpp"
+#include "ehijing_constants.hpp"
 
 #include <cmath>
 #include <iomanip>
@@ -10,9 +11,7 @@ using namespace Pythia8;
 
 namespace {
 
-constexpr double kFormationEpsilon = 1.0e-4;
-constexpr double kProtonMass = 0.938;
-constexpr double kNeutronMass = 0.938;
+namespace constants = ehijing::constants;
 
 double sample_point_in_sphere(double R, std::mt19937& gen) {
     std::uniform_real_distribution<double> uniform(0.0, 1.0);
@@ -74,10 +73,13 @@ void write_final_hadrons(
         local_pos.bstback(p_com);
 
         Vec4 formation_4{
-            kFormationEpsilon * phadron.px() / phadron.e() + local_pos.px(),
-            kFormationEpsilon * phadron.py() / phadron.e() + local_pos.py(),
-            kFormationEpsilon * phadron.pz() / phadron.e() + local_pos.pz(),
-            kFormationEpsilon + local_pos.e()
+            constants::numeric::formation_epsilon_fm * phadron.px() /
+                phadron.e() + local_pos.px(),
+            constants::numeric::formation_epsilon_fm * phadron.py() /
+                phadron.e() + local_pos.py(),
+            constants::numeric::formation_epsilon_fm * phadron.pz() /
+                phadron.e() + local_pos.pz(),
+            constants::numeric::formation_epsilon_fm + local_pos.e()
         };
 
         formation_4.bst(p_com);
@@ -134,13 +136,14 @@ void write_spectator_nucleons(
     std::uniform_real_distribution<double> uniform(0.0, 1.0);
     std::uniform_int_distribution<int> binary(0, 1);
 
-    const double RA = 1.2 * std::pow(static_cast<double>(mass_number), 1.0 / 3.0);
+    const double RA = constants::nuclear::radius_coefficient_fm *
+                      std::pow(static_cast<double>(mass_number), 1.0 / 3.0);
     const int random_binary = binary(gen);
 
     const int total_protons = atomic_number - random_binary;
     for (int i = 0; i < total_protons; ++i) {
         const double rr = sample_point_in_sphere(RA, gen);
-        const double phi = 2.0 * M_PI * uniform(gen);
+        const double phi = constants::math::two_pi * uniform(gen);
         const double costheta = 1.0 - 2.0 * uniform(gen);
         const double sintheta = std::sqrt(1.0 - costheta * costheta);
 
@@ -152,19 +155,21 @@ void write_spectator_nucleons(
         const double px = 0.0;
         const double py = 0.0;
         const double pz = 0.0;
-        const double p0 = std::sqrt(kProtonMass * kProtonMass + px * px + py * py + pz * pz);
+        const double p0 = std::sqrt(
+            constants::mass::output_nucleon_gev *
+            constants::mass::output_nucleon_gev + px * px + py * py + pz * pz);
 
         out << std::fixed << std::setprecision(2) << t << " "
             << std::fixed << std::setprecision(5)
             << rx << " "
             << ry << " "
             << rz << " "
-            << kProtonMass << " "
+            << constants::mass::output_nucleon_gev << " "
             << p0 << " "
             << px << " "
             << py << " "
             << pz << " "
-            << 2212 << " "
+            << constants::pdg::proton_id << " "
             << particle_index << " "
             << 1 << " "
             << 0.0 << " "
@@ -176,7 +181,7 @@ void write_spectator_nucleons(
     const int total_neutrons = mass_number - atomic_number + random_binary;
     for (int i = 0; i < total_neutrons; ++i) {
         const double rr = sample_point_in_sphere(RA, gen);
-        const double phi = 2.0 * M_PI * uniform(gen);
+        const double phi = constants::math::two_pi * uniform(gen);
         const double costheta = 1.0 - 2.0 * uniform(gen);
         const double sintheta = std::sqrt(1.0 - costheta * costheta);
 
@@ -188,19 +193,21 @@ void write_spectator_nucleons(
         const double px = 0.0;
         const double py = 0.0;
         const double pz = 0.0;
-        const double p0 = std::sqrt(kNeutronMass * kNeutronMass + px * px + py * py + pz * pz);
+        const double p0 = std::sqrt(
+            constants::mass::output_nucleon_gev *
+            constants::mass::output_nucleon_gev + px * px + py * py + pz * pz);
 
         out << std::fixed << std::setprecision(2) << t << " "
             << std::fixed << std::setprecision(5)
             << rx << " "
             << ry << " "
             << rz << " "
-            << kNeutronMass << " "
+            << constants::mass::output_nucleon_gev << " "
             << p0 << " "
             << px << " "
             << py << " "
             << pz << " "
-            << 2112 << " "
+            << constants::pdg::neutron_id << " "
             << particle_index << " "
             << 0 << " "
             << 0.0 << " "

@@ -2,11 +2,13 @@
 #include "cli.hpp"
 #include "filesystem_utils.hpp"
 #include "dis_kinematics.hpp"
+#include "ehijing_constants.hpp"
 #include "event_output.hpp"
 #include "hadronizer.hpp"
 #include "modified_ff.hpp"
 
 using namespace Pythia8;
+namespace constants = ehijing::constants;
 #include <algorithm>
 #include <chrono>
 #include <cstdlib> // for rand() and srand()
@@ -61,7 +63,10 @@ int main(int argc, char* argv[]) {
     }
 
     // Build the nucleus ID used by Pythia
-    const int nucleus_PDG_id = 100000000 + atomic_number * 10000 + mass_number * 10;
+    const int nucleus_PDG_id =
+        constants::pythia::nucleus_pdg_base +
+        atomic_number * constants::pythia::nucleus_pdg_z_factor +
+        mass_number * constants::pythia::nucleus_pdg_a_factor;
 
     /*
     The nuclear modication to be used for beam A
