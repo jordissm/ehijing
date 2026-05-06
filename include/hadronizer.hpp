@@ -3,13 +3,14 @@
 #include "Pythia8/Pythia.h"
 
 #include <random>
+#include <string>
 #include <vector>
 #include <optional>
 
 class Hadronizer
 {
 public:
-    Hadronizer();
+    explicit Hadronizer(const std::string& hadronization_config_path);
 
     std::optional<std::vector<Pythia8::Particle>> hadronize(Pythia8::Pythia& pythiaIn,
                                              int atomic_number,

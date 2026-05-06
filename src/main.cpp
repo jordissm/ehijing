@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
     int nuclear_modification = (atomic_number > 2) ? 3 : 0;
 
     // Initialize the Pythia instance for hadronization
-    Hadronizer hadronizer;
+    Hadronizer hadronizer(hadronization_config_path);
 
     // Create generator object for the eHIJING-Pythia high-Q parton shower in a medium
     Pythia pythia;

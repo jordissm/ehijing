@@ -72,7 +72,7 @@ RunConfig parse_args(int argc, char* argv[]) {
     cfg.tabulation_path = require_arg(args, "--tabulation-path", argv[0]);
     cfg.run_path        = require_arg(args, "--run-path", argv[0]);
     cfg.hard_process_config_path    = require_arg(args, "--hard-process-config", argv[0]);
-    // cfg.hadronization_config_path   = require_arg(args, "--hadronization-config", argv[0]);
+    cfg.hadronization_config_path   = require_arg(args, "--hadronization-config", argv[0]);
     cfg.medium_modification_mode    = std::stoi(require_arg(args, "--medium-modification-mode", argv[0]));
 
     // Parse optional first global event ID for this chunk
