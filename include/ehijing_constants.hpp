@@ -47,15 +47,6 @@ inline constexpr double constituent_light_quark_gev = 0.33;
 inline constexpr double remnant_diquark_gev = 0.57933;
 } // namespace mass
 
-namespace dis_cuts {
-inline constexpr double y_min = 0.10;
-inline constexpr double y_max = 0.85;
-inline constexpr double bjorken_x_min = 0.023;
-inline constexpr double bjorken_x_max = 0.6;
-inline constexpr double q2_min_gev2 = 1.0;
-inline constexpr double w2_min_gev2 = 10.0;
-} // namespace dis_cuts
-
 namespace nuclear {
 inline constexpr double radius_coefficient_fm = 1.2;
 } // namespace nuclear

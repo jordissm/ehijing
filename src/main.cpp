@@ -49,6 +49,7 @@ int main(int argc, char* argv[]) {
     const std::string& run_path                     = cfg.run_path;
     const std::string& hard_process_config_path     = cfg.hard_process_config_path;
     const std::string& hadronization_config_path    = cfg.hadronization_config_path;
+    const std::string& dis_cuts_config_path         = cfg.dis_cuts_config_path;
     const int64_t first_event_id                    = cfg.first_event_id;
     const int64_t chunk_size                        = cfg.chunk_size;
     const uint32_t seed                             = cfg.seed;
@@ -80,6 +81,8 @@ int main(int argc, char* argv[]) {
 
     // Initialize the Pythia instance for hadronization
     Hadronizer hadronizer(hadronization_config_path);
+
+    const DISCuts dis_cuts = load_dis_cuts(dis_cuts_config_path);
 
     // Create generator object for the eHIJING-Pythia high-Q parton shower in a medium
     Pythia pythia;
@@ -154,7 +157,7 @@ int main(int argc, char* argv[]) {
 
             // Skip event if its kinematics do not satisfy the DIS trigger conditions
             const DISKinematics kinematics = compute_dis_kinematics(pythia);
-            if (!is_valid_dis_event(kinematics)) {
+            if (!is_valid_dis_event(kinematics, dis_cuts)) {
                 // Add to failed DIS trigger count
                 n_trigger_failed++;
                 continue;

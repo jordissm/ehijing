@@ -41,6 +41,7 @@ void usage(const char* prog) {
         << "--run-path <PATH> "
         << "--hard-process-config <PATH> "
         << "--hadronization-config <PATH> "
+        << "--dis-cuts-config <PATH> "
         << "--seed <SEED>\n\n";
 }
 
@@ -76,6 +77,7 @@ RunConfig parse_args(int argc, char* argv[]) {
     cfg.run_path        = require_arg(args, "--run-path", argv[0]);
     cfg.hard_process_config_path    = require_arg(args, "--hard-process-config", argv[0]);
     cfg.hadronization_config_path   = require_arg(args, "--hadronization-config", argv[0]);
+    cfg.dis_cuts_config_path        = require_arg(args, "--dis-cuts-config", argv[0]);
     cfg.medium_modification_mode    = std::stoi(require_arg(args, "--medium-modification-mode", argv[0]));
 
     // Parse optional first global event ID for this chunk

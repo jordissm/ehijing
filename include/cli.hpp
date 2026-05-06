@@ -47,6 +47,9 @@ struct RunConfig {
     /// Path to the hadronization configuration file (e.g., fragmentation settings).
     std::string hadronization_config_path;
 
+    /// Path to the DIS cuts configuration file.
+    std::string dis_cuts_config_path;
+
     /// Mode for medium modification of the parton shower.
     int medium_modification_mode;
 

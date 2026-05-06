@@ -2,6 +2,8 @@
 
 #include "Pythia8/Pythia.h"
 
+#include <string>
+
 /**
  * @brief Container for reconstructed deep-inelastic scattering kinematics.
  *
@@ -51,6 +53,44 @@ struct DISKinematics {
 };
 
 /**
+ * @brief Runtime DIS event-selection cuts.
+ *
+ * Values are loaded from an input file so analysis selections can change
+ * without recompiling the generator.
+ */
+struct DISCuts {
+    /// Minimum DIS inelasticity.
+    double y_min;
+
+    /// Maximum DIS inelasticity.
+    double y_max;
+
+    /// Minimum Bjorken scaling variable.
+    double bjorken_x_min;
+
+    /// Maximum Bjorken scaling variable.
+    double bjorken_x_max;
+
+    /// Minimum photon virtuality in \f$ \mathrm{GeV}^2 \f$.
+    double q2_min_gev2;
+
+    /// Minimum photon-target invariant mass squared in \f$ \mathrm{GeV}^2 \f$.
+    double w2_min_gev2;
+};
+
+/**
+ * @brief Load DIS event-selection cuts from a key/value input file.
+ *
+ * Expected keys are `yMin`, `yMax`, `xBMin`, `xBMax`, `Q2Min`, and `W2Min`.
+ * Blank lines and `#` comments are ignored.
+ *
+ * @param config_path Path to the DIS cuts input file.
+ *
+ * @return Parsed DIS cuts.
+ */
+DISCuts load_dis_cuts(const std::string& config_path);
+
+/**
  * @brief Compute DIS kinematics from the current PYTHIA event record.
  *
  * Extracts the incoming proton, incoming lepton, and outgoing lepton from the
@@ -80,10 +120,11 @@ DISKinematics compute_dis_kinematics(const Pythia8::Pythia& pythia);
  * Applies the DIS phase-space cuts used by the analysis/generator filter.
  *
  * @param kin Reconstructed DIS kinematics for a single event.
+ * @param cuts Runtime DIS selection cuts.
  *
  * @return `true` if the event passes all selection cuts; otherwise `false`.
  */
-bool is_valid_dis_event(const DISKinematics& kin);
+bool is_valid_dis_event(const DISKinematics& kin, const DISCuts& cuts);
 
 /**
  * @brief Apply the DIS event trigger to the current PYTHIA event.
@@ -92,6 +133,7 @@ bool is_valid_dis_event(const DISKinematics& kin);
  * event and immediately checks whether the event passes the DIS selection cuts.
  *
  * @param pythia PYTHIA generator instance containing the current event.
+ * @param cuts Runtime DIS selection cuts.
  *
  * @return `true` if the current event passes the DIS selection; otherwise
  *         `false`.
@@ -99,4 +141,4 @@ bool is_valid_dis_event(const DISKinematics& kin);
  * @see compute_dis_kinematics
  * @see is_valid_dis_event
  */
-bool trigger(const Pythia8::Pythia& pythia);
+bool trigger(const Pythia8::Pythia& pythia, const DISCuts& cuts);
