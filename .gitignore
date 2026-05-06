@@ -2,6 +2,7 @@
 # temporary build directories
 # ===========================
 build/
+docs/doxygen/
 external/pythia8/bin/
 external/pythia8/lib/
 external/pythia8/tmp/

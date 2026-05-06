@@ -1,6 +1,31 @@
 cmake_minimum_required(VERSION 3.15)
 project(ehijing LANGUAGES CXX)
 
+option(EHIJING_BUILD_DOCS_ONLY "Configure only the eHIJING Doxygen documentation target" OFF)
+
+# ---- Documentation ----
+find_package(Doxygen QUIET)
+
+if(DOXYGEN_FOUND)
+  add_custom_target(docs
+    COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Generating eHIJING Doxygen documentation"
+    VERBATIM
+  )
+else()
+  add_custom_target(docs
+    COMMAND ${CMAKE_COMMAND} -E echo "Doxygen was not found. Install doxygen, then rerun: cmake --build <build-dir> --target docs"
+    COMMAND ${CMAKE_COMMAND} -E false
+    COMMENT "Doxygen is required to generate eHIJING documentation"
+    VERBATIM
+  )
+endif()
+
+if(EHIJING_BUILD_DOCS_ONLY)
+  return()
+endif()
+
 # If you have FindPythia8.cmake in ./cmake
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
