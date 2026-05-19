@@ -167,7 +167,9 @@ int main(int argc, char* argv[]) {
             }
 
             // Find the hard vertex
-            double Rx, Ry, Rz;
+            double Rx = pythia.event.Rx();
+            double Ry = pythia.event.Ry();
+            double Rz = pythia.event.Rz();
             // Modify the final shower with low-Q^2 medium corrections
             modified_ff.sample_ff_partons(pythia, kinematics, Rx, Ry, Rz);
             

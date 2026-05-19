@@ -32,6 +32,12 @@ Modified_FF::Modified_FF(int mode,
 // The realization of the modified FF
 void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinematics, double& Rx, double& Ry, double& Rz)
 {
+    // Always return the hard vertex, even when no parton passes the medium
+    // modification filters below.
+    Rx = pythia.event.Rx();
+    Ry = pythia.event.Ry();
+    Rz = pythia.event.Rz();
+
     // Use fixed coupling at Qs of this event for anything medium-induced below Qs
     double kt2max_now = pythia.event.SeparationScale();
     double alpha_fix = EHIJING::alphas(kt2max_now);
@@ -100,11 +106,6 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
         // Path length and nuclear thickness along the particle path
         double path_length = ehijing_geometry_.compute_L(pythia.event.Rx(), pythia.event.Ry(), pythia.event.Rz(), vx, vy, vz);
         double nuclear_thickness = ehijing_geometry_.compute_TA(pythia.event.Rx(), pythia.event.Ry(), pythia.event.Rz(), vx, vy, vz);
-
-        // Location of the hard vertex
-        Rx = pythia.event.Rx();
-        Ry = pythia.event.Ry();
-        Rz = pythia.event.Rz();
 
         // Useful quantity for the HT approach
         double sumq2 = 0.;
