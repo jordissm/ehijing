@@ -171,7 +171,7 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
             // valence stuff, the remnants will contain the rest flavor component
             // note that the hard quark has already been sampled according to the
             // the isospin content of the nuclear PDF;
-            // *** However, the remanent is generated assuming the rest stuff comes
+            // *** However, the remnant is generated assuming the rest stuff comes
             // from a proton. Therefore, we need to resample it according to the Z/A
             // ratio this nuclei
             // 1) Decide whether it is from a neutron or proton

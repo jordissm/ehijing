@@ -26,7 +26,7 @@ const double SigmaTotAux::HBARC2     = 0.38938;
 const double SigmaTotAux::CONVERTEL  = 0.0510925;
 
 // Proton and pion masses, and their squares. Euler's constant.
-const double SigmaTotAux::MPROTON    = 0.9382720;
+const double SigmaTotAux::MPROTON    = 0.938; // 0.9382720;
 const double SigmaTotAux::SPROTON    = 0.8803544;
 const double SigmaTotAux::MPION      = 0.1349766;
 const double SigmaTotAux::SPION      = 0.0182187;
@@ -275,7 +275,7 @@ void SigmaTotOwn::init(Info* , Settings& settings,
   a0      = 1. + settings.parm("SigmaDiffractive:PomFluxEpsilon");
   ap      = settings.parm("SigmaDiffractive:PomFluxAlphaPrime");
 
-  // Schuler-Sjöstrand.
+  // Schuler-Sjï¿½strand.
   if (pomFlux == 1) {
     b0    = 2.3;
 
@@ -372,7 +372,7 @@ double SigmaTotOwn::dsigmaSD(double xi, double t, bool , int ) {
   wtNow   = 1.;
   yNow    = -log(xi);
 
-  // Schuler-Sjöstrand.
+  // Schuler-Sjï¿½strand.
   if (pomFlux == 1) {
     b     = 2. * b0 + 2. * ap * yNow;
     wtNow = exp(b * t);
@@ -422,7 +422,7 @@ double SigmaTotOwn::dsigmaDD(double xi1, double xi2, double t, int ) {
   wtNow   = 1.;
   yNow    = - log(xi1 * xi2 * s / SPROTON);
 
-  // Schuler-Sjöstrand.
+  // Schuler-Sjï¿½strand.
   if (pomFlux == 1) {
     b     = max( bMinDD, 2. * ap * yNow);
     wtNow = exp(b * t);
@@ -473,7 +473,7 @@ double SigmaTotOwn::dsigmaCD( double xi1, double xi2, double t1, double t2,
   yNow1   = -log(xi1);
   yNow2   = -log(xi2);
 
-  // Schuler-Sjöstrand.
+  // Schuler-Sjï¿½strand.
   if (pomFlux == 1) {
     b1    = 2. * b0 + 2. * ap * yNow1;
     b2    = 2. * b0 + 2. * ap * yNow2;

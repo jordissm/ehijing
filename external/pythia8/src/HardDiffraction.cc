@@ -22,7 +22,7 @@ const double HardDiffraction::TINYPDF = 1e-10;
 // Ficticious Pomeron mass to leave room for beam remnant
 const double HardDiffraction::POMERONMASS = 1.;
 const double HardDiffraction::RHOMASS     = 0.77549;
-const double HardDiffraction::PROTONMASS  = 0.93827;
+const double HardDiffraction::PROTONMASS  = 0.938; // 0.93827;
 
 // Safetymargin for diffractive masses
 const double HardDiffraction::DIFFMASSMARGIN = 0.2;
