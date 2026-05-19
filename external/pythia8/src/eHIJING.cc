@@ -19,7 +19,7 @@ namespace EHIJING {
 
 // Unit conversion constants
 // https://pdg.lbl.gov/2025/reviews/rpp2025-rev-phys-constants.pdf
-const double GeVfm = 5.076; // 1. / 0.197'326'980'4; // ≈ 5.068
+const double GeVfm = 1. / 0.197'326'980'4; // ≈ 5.068
 const double GeV2fm2 = GeVfm * GeVfm;
 const double GeV3fm3 = GeVfm * GeV2fm2;
 

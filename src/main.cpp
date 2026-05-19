@@ -94,6 +94,9 @@ int main(int argc, char* argv[]) {
     pythia.readString("Random:setSeed = on");
     pythia.readString("Random:seed = " + std::to_string(seed));
 
+    // Override the default proton mass with the PDG value to ensure consistency with the nuclear geometry and kinematics
+    pythia.particleData.m0(2212, 0.938);
+
     gen.seed(seed);
     std::srand(seed);
 
@@ -131,7 +134,7 @@ int main(int argc, char* argv[]) {
     int n_trigger_failed = 0;
 
     // Define counter for events that failed hadronization
-    const int hadronization_retries_max = 10; // Maximum number of hadronization failures before giving up
+    const int hadronization_retries_max = 15; // Maximum number of hadronization failures before giving up
     int n_hadronization_failed = 0;
 
     // Define counter for total events
