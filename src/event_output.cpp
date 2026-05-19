@@ -66,33 +66,33 @@ void write_final_hadrons(
         }
 
         Vec4 local_pos{p.xProd(), p.yProd(), p.zProd(), p.tProd()};
-        Vec4 p_com = p.p();
-        Vec4 phadron = p.p();
+        // Vec4 p_com = p.p();
+        // Vec4 phadron = p.p();
 
-        phadron.bstback(p_com);
-        local_pos.bstback(p_com);
+        // phadron.bstback(p_com);
+        // local_pos.bstback(p_com);
 
-        Vec4 formation_4{
-            constants::numeric::formation_epsilon_fm * phadron.px() /
-                phadron.e() + local_pos.px(),
-            constants::numeric::formation_epsilon_fm * phadron.py() /
-                phadron.e() + local_pos.py(),
-            constants::numeric::formation_epsilon_fm * phadron.pz() /
-                phadron.e() + local_pos.pz(),
-            constants::numeric::formation_epsilon_fm + local_pos.e()
-        };
+        // Vec4 formation_4{
+        //     constants::numeric::formation_epsilon_fm * phadron.px() /
+        //         phadron.e() + local_pos.px(),
+        //     constants::numeric::formation_epsilon_fm * phadron.py() /
+        //         phadron.e() + local_pos.py(),
+        //     constants::numeric::formation_epsilon_fm * phadron.pz() /
+        //         phadron.e() + local_pos.pz(),
+        //     constants::numeric::formation_epsilon_fm + local_pos.e()
+        // };
 
-        formation_4.bst(p_com);
+        // formation_4.bst(p_com);
 
-        const double t_hadron = formation_4.e();
-        const double x_hadron = formation_4.px();
-        const double y_hadron = formation_4.py();
-        const double z_hadron = formation_4.pz();
+        // const double t_hadron = formation_4.e();
+        // const double x_hadron = formation_4.px();
+        // const double y_hadron = formation_4.py();
+        // const double z_hadron = formation_4.pz();
 
-        // const double t_hadron = local_pos.e();
-        // const double x_hadron = local_pos.px();
-        // const double y_hadron = local_pos.py();
-        // const double z_hadron = local_pos.pz();
+        const double t_hadron = local_pos.e();
+        const double x_hadron = local_pos.px();
+        const double y_hadron = local_pos.py();
+        const double z_hadron = local_pos.pz();
 
         const double mass = p.m();
         const double e = p.e();

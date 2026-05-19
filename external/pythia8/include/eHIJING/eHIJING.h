@@ -124,7 +124,7 @@ public:
     int N() const {return N_; };
     double R() const {return R_; };
 
-    // Sample the location of the hard vertex in a nuclei with nuclear massA
+    // Sample the location of the hard vertex in a nuclei with nuclear mass A
     void sample_HardVertex(double & Rx, double & Ry, double & Rz){
         double r = R_ * std::pow(flat_gen(gen), 1./3.);         // [GeV]^{-1}
         double costheta = 2.0 * flat_gen(gen) - 1.0;            // [-1, 1]
