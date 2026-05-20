@@ -47,7 +47,7 @@ const double twoPioverb0 = 2. * M_PI / b0;
 const double piCAoverdA = M_PI * CA / dA;
 const double Mproton = 0.938;                   // [GeV]
 const double rho0 = 0.17 / GeV3fm3;             //
-const double r0 = 1.12 * GeVfm;                 // [GeV]^{-1}
+const double r0 = 1.2 * GeVfm;                 // [GeV]^{-1}
 
 // Strong coupling constant
 double alphas(double Q2) {
