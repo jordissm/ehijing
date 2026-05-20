@@ -7,6 +7,7 @@
 
 #include "Pythia8/Pythia.h"
 #include "dis_kinematics.hpp"
+#include "hadronizer.hpp"
 
 #include <cstdint>
 #include <iosfwd>
@@ -29,6 +30,7 @@ void write_event_headers(std::ostream& out);
  * @param event_number Global event ID.
  * @param atomic_number Atomic number \f$ Z \f$ of the target nucleus.
  * @param mass_number Mass number \f$ A \f$ of the target nucleus.
+ * @param struck_nucleon Nucleon assigned by the hadronizer remnant model.
  * @param kin Reconstructed DIS kinematics for the event.
  * @param particles PYTHIA particles returned by the hadronizer.
  * @param event_out Stream that receives the OSCAR2013 particle list.
@@ -38,6 +40,7 @@ void write_event_output(
     int32_t event_number,
     int atomic_number,
     int mass_number,
+    StruckNucleon struck_nucleon,
     const DISKinematics& kin,
     const std::vector<Pythia8::Particle>& particles,
     std::ostream& event_out,

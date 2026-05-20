@@ -129,18 +129,18 @@ void write_final_hadrons(
 void write_spectator_nucleons(
     int atomic_number,
     int mass_number,
+    StruckNucleon struck_nucleon,
     std::ostream& out,
     int32_t& particle_index) {
 
     static thread_local std::mt19937 gen(std::random_device{}());
     std::uniform_real_distribution<double> uniform(0.0, 1.0);
-    std::uniform_int_distribution<int> binary(0, 1);
 
     const double RA = constants::nuclear::radius_coefficient_fm *
                       std::pow(static_cast<double>(mass_number), 1.0 / 3.0);
-    const int random_binary = binary(gen);
 
-    const int total_protons = atomic_number - random_binary;
+    const int total_protons =
+        atomic_number - (struck_nucleon == StruckNucleon::Proton ? 1 : 0);
     for (int i = 0; i < total_protons; ++i) {
         const double rr = sample_point_in_sphere(RA, gen);
         const double phi = constants::math::two_pi * uniform(gen);
@@ -178,7 +178,9 @@ void write_spectator_nucleons(
         ++particle_index;
     }
 
-    const int total_neutrons = mass_number - atomic_number + random_binary;
+    const int total_neutrons =
+        mass_number - atomic_number -
+        (struck_nucleon == StruckNucleon::Neutron ? 1 : 0);
     for (int i = 0; i < total_neutrons; ++i) {
         const double rr = sample_point_in_sphere(RA, gen);
         const double phi = constants::math::two_pi * uniform(gen);
@@ -228,6 +230,7 @@ void write_event_output(
     int32_t event_number,
     int atomic_number,
     int mass_number,
+    StruckNucleon struck_nucleon,
     const DISKinematics& kin,
     const std::vector<Particle>& particles,
     std::ostream& event_out,
@@ -242,7 +245,7 @@ void write_event_output(
 
     int32_t particle_index = 0;
     write_final_hadrons(particles, event_out, particle_index);
-    write_spectator_nucleons(atomic_number, mass_number, event_out, particle_index);
+    write_spectator_nucleons(atomic_number, mass_number, struck_nucleon, event_out, particle_index);
 
     // Write event footer
     event_out << "# event " << event_number << " end 0\n";

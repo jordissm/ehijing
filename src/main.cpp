@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
         nuclear_modification = 0: Only Isospin effect.
         nuclear_modification = 1: EPS09, LO
         nuclear_modification = 2: EPS09, NLO
-        nuclear_modification = 2: EPPS16, NLO
+        nuclear_modification = 3: EPPS16, NLO
     */
     // We will use only isospin for deuteron, and EPPS16 NLO for heavier nucleus
     int nuclear_modification = (atomic_number > 2) ? 3 : 0;
@@ -181,7 +181,7 @@ int main(int argc, char* argv[]) {
                 continue;
             }
             std::cout << "INFO: hadronization succeeded for event " << (first_event_id + n_written) << " on attempt " << (attempt + 1) << "/" << hadronization_retries_max << "\n";
-            const auto& hadronized_event = *hadronized_event_opt;
+            const auto& hadronization_result = *hadronized_event_opt;
             
             // Set event ID
             const int64_t event_id = first_event_id + n_written;
@@ -205,7 +205,14 @@ int main(int argc, char* argv[]) {
 
             // Write the event data and metadata to the respective files
             write_event_headers(event_out);
-            write_event_output(event_id, atomic_number, mass_number, kinematics, hadronized_event, event_out, meta_out);
+            write_event_output(event_id,
+                               atomic_number,
+                               mass_number,
+                               hadronization_result.struck_nucleon,
+                               kinematics,
+                               hadronization_result.particles,
+                               event_out,
+                               meta_out);
 
             // Mark event as successfully generated, passed trigger, and hadronized
             success = true;

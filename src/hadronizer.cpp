@@ -123,7 +123,7 @@ Hadronizer::Hadronizer(const std::string& hadronization_config_path)
 This function takes the shower PythiaIn (ep-shower with recoil particles)
 and assume it fragments in a nuclear medium with atomic number Z and mass number A
 */
-std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
+std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
                                                       int atomic_number,
                                                       int mass_number,
                                                       double Rx,
@@ -134,10 +134,12 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
     double charge_fraction = atomic_number * 1.0 / mass_number;
     const double hbarc = constants::units::hbarc_gev_fm;
 
-    // This vector will store the final hadrons after hadronization, and will be
+    // This result will store the final hadrons after hadronization, and will be
     // returned to the main function
-    std::vector<Particle> FinalStateParticles;
-    FinalStateParticles.clear();
+    HadronizationResult result;
+    result.struck_nucleon =
+        (dist(gen) < charge_fraction) ? StruckNucleon::Proton
+                                      : StruckNucleon::Neutron;
 
     // Get the initial hard parton ID
     int hardid = pythiaIn.event[constants::pythia::hard_parton_index].id();
@@ -175,7 +177,7 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
             // from a proton. Therefore, we need to resample it according to the Z/A
             // ratio this nuclei
             // 1) Decide whether it is from a neutron or proton
-            if (dist(gen) < charge_fraction) { // From a proton 2212
+            if (result.struck_nucleon == StruckNucleon::Proton) { // From a proton 2212
                 if (hardid == constants::pdg::down_id) {
                     // Produce (uu)_1 : 2203
                     particle.id(constants::pdg::uu_spin1_diquark_id);
@@ -468,10 +470,10 @@ std::optional<std::vector<Particle>> Hadronizer::hadronize(Pythia& pythiaIn,
         auto& particle = pythia.event[i];
 
         if (particle.isFinal()) {
-            FinalStateParticles.push_back(particle);
+            result.particles.push_back(particle);
 
         }
     }
 
-    return FinalStateParticles;
+    return result;
 }

@@ -12,6 +12,16 @@
 #include <string>
 #include <vector>
 
+enum class StruckNucleon {
+    Proton,
+    Neutron
+};
+
+struct HadronizationResult {
+    std::vector<Pythia8::Particle> particles;
+    StruckNucleon struck_nucleon;
+};
+
 /**
  * @brief Converts medium-modified eHIJING partonic events into final hadrons.
  *
@@ -42,10 +52,10 @@ public:
      * @param Ry Hard-vertex y coordinate used for production vertices.
      * @param Rz Hard-vertex z coordinate used for production vertices.
      *
-     * @return Final PYTHIA particles if fragmentation succeeds; otherwise
+     * @return Hadronization result if fragmentation succeeds; otherwise
      *         `std::nullopt`.
      */
-    std::optional<std::vector<Pythia8::Particle>> hadronize(Pythia8::Pythia& pythiaIn,
+    std::optional<HadronizationResult> hadronize(Pythia8::Pythia& pythiaIn,
                                              int atomic_number,
                                              int mass_number,
                                              double Rx,
