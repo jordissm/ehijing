@@ -72,27 +72,10 @@ void write_final_hadrons(
         // phadron.bstback(p_com);
         // local_pos.bstback(p_com);
 
-        // Vec4 formation_4{
-        //     constants::numeric::formation_epsilon_fm * phadron.px() /
-        //         phadron.e() + local_pos.px(),
-        //     constants::numeric::formation_epsilon_fm * phadron.py() /
-        //         phadron.e() + local_pos.py(),
-        //     constants::numeric::formation_epsilon_fm * phadron.pz() /
-        //         phadron.e() + local_pos.pz(),
-        //     constants::numeric::formation_epsilon_fm + local_pos.e()
-        // };
-
-        // formation_4.bst(p_com);
-
-        // const double t_hadron = formation_4.e();
-        // const double x_hadron = formation_4.px();
-        // const double y_hadron = formation_4.py();
-        // const double z_hadron = formation_4.pz();
-
         const double t_hadron = local_pos.e();
-        const double x_hadron = local_pos.px();
-        const double y_hadron = local_pos.py();
-        const double z_hadron = local_pos.pz();
+        double x_hadron = local_pos.px();
+        double y_hadron = local_pos.py();
+        double z_hadron = local_pos.pz();
 
         const double mass = p.m();
         const double e = p.e();
@@ -100,11 +83,21 @@ void write_final_hadrons(
         const int pid = particle_index;
         const int charge = p.charge();
 
-        // Anti-freestream hadrons to t = 0.00 in the lab frame
-        // ...
+        // Freestream each hadron along its lab-frame velocity to t = 0.
+        // For t_hadron > 0 this moves it backward in time; for t_hadron < 0
+        // the same expression moves it forward in time.
+        if (std::isfinite(t_hadron) && std::isfinite(e) && e > 0.0) {
+            const double dt_to_zero = -t_hadron;
+            x_hadron += p.px() / e * dt_to_zero;
+            y_hadron += p.py() / e * dt_to_zero;
+            z_hadron += p.pz() / e * dt_to_zero;
+        }
 
-        // Smear positions of hadrons at production time to avoid numerical issues in downstream hadronic transport
-        // ...
+        // Smear transverse output positions to avoid exact spatial overlaps.
+        static thread_local std::mt19937 smear_gen(std::random_device{}());
+        std::normal_distribution<double> transverse_smear(0.0, 0.5);
+        x_hadron += transverse_smear(smear_gen);
+        y_hadron += transverse_smear(smear_gen);
 
         out << std::fixed << std::setprecision(2) << 0.00 << " "
             << std::fixed << std::setprecision(5)
