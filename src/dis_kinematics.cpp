@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cmath>
 #include <fstream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -61,10 +62,64 @@ double parse_double(const std::string& value,
         std::to_string(line_number) + ": " + value);
 }
 
-void require_key(bool present, const std::string& key, const std::string& path) {
-    if (!present) {
-        throw std::runtime_error("Missing required DIS cut `" + key + "` in " + path);
+void validate_range(const std::optional<double>& min_value,
+                    const std::optional<double>& max_value,
+                    const std::string& min_key,
+                    const std::string& max_key,
+                    const std::string& path) {
+    if (min_value && max_value && !(*min_value < *max_value)) {
+        throw std::runtime_error(
+            "DIS cuts require " + min_key + " < " + max_key + " in " + path);
     }
+}
+
+void validate_non_negative(const std::optional<double>& value,
+                           const std::string& key,
+                           const std::string& path) {
+    if (value && *value < 0.0) {
+        throw std::runtime_error("DIS cuts require non-negative " + key + " in " + path);
+    }
+}
+
+bool passes_min(double value, const std::optional<double>& min_value) {
+    return !min_value || (*min_value < value);
+}
+
+bool passes_max(double value, const std::optional<double>& max_value) {
+    return !max_value || (value < *max_value);
+}
+
+bool passes_range(double value,
+                  const std::optional<double>& min_value,
+                  const std::optional<double>& max_value) {
+    return passes_min(value, min_value) && passes_max(value, max_value);
+}
+
+bool assign_cut(const std::string& key, double parsed, DISCuts& cuts) {
+    if (key == "yMin") {
+        cuts.y_min = parsed;
+    } else if (key == "yMax") {
+        cuts.y_max = parsed;
+    } else if (key == "xBMin") {
+        cuts.bjorken_x_min = parsed;
+    } else if (key == "xBMax") {
+        cuts.bjorken_x_max = parsed;
+    } else if (key == "nuMin") {
+        cuts.nu_min_gev = parsed;
+    } else if (key == "nuMax") {
+        cuts.nu_max_gev = parsed;
+    } else if (key == "Q2Min") {
+        cuts.q2_min_gev2 = parsed;
+    } else if (key == "Q2Max") {
+        cuts.q2_max_gev2 = parsed;
+    } else if (key == "W2Min") {
+        cuts.w2_min_gev2 = parsed;
+    } else if (key == "W2Max") {
+        cuts.w2_max_gev2 = parsed;
+    } else {
+        return false;
+    }
+    return true;
 }
 
 } // namespace
@@ -76,12 +131,6 @@ DISCuts load_dis_cuts(const std::string& config_path) {
     }
 
     DISCuts cuts{};
-    bool has_y_min = false;
-    bool has_y_max = false;
-    bool has_x_min = false;
-    bool has_x_max = false;
-    bool has_q2_min = false;
-    bool has_w2_min = false;
 
     std::string line;
     int line_number = 0;
@@ -109,59 +158,33 @@ DISCuts load_dis_cuts(const std::string& config_path) {
         const std::string value = trim(line.substr(separator_position + 1));
         const double parsed = parse_double(value, key, config_path, line_number);
 
-        if (key == "yMin") {
-            cuts.y_min = parsed;
-            has_y_min = true;
-        } else if (key == "yMax") {
-            cuts.y_max = parsed;
-            has_y_max = true;
-        } else if (key == "xBMin") {
-            cuts.bjorken_x_min = parsed;
-            has_x_min = true;
-        } else if (key == "xBMax") {
-            cuts.bjorken_x_max = parsed;
-            has_x_max = true;
-        } else if (key == "Q2Min") {
-            cuts.q2_min_gev2 = parsed;
-            has_q2_min = true;
-        } else if (key == "W2Min") {
-            cuts.w2_min_gev2 = parsed;
-            has_w2_min = true;
-        } else {
+        if (!assign_cut(key, parsed, cuts)) {
             throw std::runtime_error(
                 "Unknown DIS cut key `" + key + "` in " + config_path + ":" +
                 std::to_string(line_number));
         }
     }
 
-    require_key(has_y_min, "yMin", config_path);
-    require_key(has_y_max, "yMax", config_path);
-    require_key(has_x_min, "xBMin", config_path);
-    require_key(has_x_max, "xBMax", config_path);
-    require_key(has_q2_min, "Q2Min", config_path);
-    require_key(has_w2_min, "W2Min", config_path);
+    validate_range(cuts.y_min, cuts.y_max, "yMin", "yMax", config_path);
+    validate_range(cuts.bjorken_x_min, cuts.bjorken_x_max, "xBMin", "xBMax", config_path);
+    validate_range(cuts.nu_min_gev, cuts.nu_max_gev, "nuMin", "nuMax", config_path);
+    validate_range(cuts.q2_min_gev2, cuts.q2_max_gev2, "Q2Min", "Q2Max", config_path);
+    validate_range(cuts.w2_min_gev2, cuts.w2_max_gev2, "W2Min", "W2Max", config_path);
 
-    if (!(cuts.y_min < cuts.y_max)) {
-        throw std::runtime_error("DIS cuts require yMin < yMax in " + config_path);
-    }
-    if (!(cuts.bjorken_x_min < cuts.bjorken_x_max)) {
-        throw std::runtime_error("DIS cuts require xBMin < xBMax in " + config_path);
-    }
-    if (cuts.q2_min_gev2 < 0.0 || cuts.w2_min_gev2 < 0.0) {
-        throw std::runtime_error("DIS cuts require non-negative Q2Min and W2Min in " +
-                                 config_path);
-    }
+    validate_non_negative(cuts.q2_min_gev2, "Q2Min", config_path);
+    validate_non_negative(cuts.q2_max_gev2, "Q2Max", config_path);
+    validate_non_negative(cuts.w2_min_gev2, "W2Min", config_path);
+    validate_non_negative(cuts.w2_max_gev2, "W2Max", config_path);
 
     return cuts;
 }
 
 bool is_valid_dis_event(const DISKinematics& kin, const DISCuts& cuts) {
-    return (cuts.y_min < kin.y) &&
-           (kin.y < cuts.y_max) &&
-           (cuts.bjorken_x_min < kin.bjorken_x) &&
-           (kin.bjorken_x < cuts.bjorken_x_max) &&
-           (cuts.w2_min_gev2 < kin.W2) &&
-           (cuts.q2_min_gev2 < kin.Q2);
+    return passes_range(kin.y, cuts.y_min, cuts.y_max) &&
+           passes_range(kin.bjorken_x, cuts.bjorken_x_min, cuts.bjorken_x_max) &&
+           passes_range(kin.nu, cuts.nu_min_gev, cuts.nu_max_gev) &&
+           passes_range(kin.Q2, cuts.q2_min_gev2, cuts.q2_max_gev2) &&
+           passes_range(kin.W2, cuts.w2_min_gev2, cuts.w2_max_gev2);
 }
 
 bool trigger(const Pythia8::Pythia& pythia, const DISCuts& cuts) {

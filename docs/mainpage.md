@@ -23,8 +23,9 @@ rather than recompilation-sensitive constants.
 - DIS event-selection cuts are loaded from `RunConfig::dis_cuts_config_path`.
 - Tabulated eHIJING data are read from `RunConfig::tabulation_path`.
 
-The DIS cuts file is parsed by `load_dis_cuts()` and expects the keys `yMin`,
-`yMax`, `xBMin`, `xBMax`, `Q2Min`, and `W2Min`.
+The DIS cuts file is parsed by `load_dis_cuts()` and supports the optional keys
+`yMin`, `yMax`, `xBMin`, `xBMax`, `nuMin`, `nuMax`, `Q2Min`, `Q2Max`, `W2Min`,
+and `W2Max`.
 
 ## Public API Map
 

@@ -7,6 +7,7 @@
 
 #include "Pythia8/Pythia.h"
 
+#include <optional>
 #include <string>
 
 /**
@@ -65,29 +66,42 @@ struct DISKinematics {
  */
 struct DISCuts {
     /// Minimum DIS inelasticity.
-    double y_min;
+    std::optional<double> y_min;
 
     /// Maximum DIS inelasticity.
-    double y_max;
+    std::optional<double> y_max;
 
     /// Minimum Bjorken scaling variable.
-    double bjorken_x_min;
+    std::optional<double> bjorken_x_min;
 
     /// Maximum Bjorken scaling variable.
-    double bjorken_x_max;
+    std::optional<double> bjorken_x_max;
+
+    /// Minimum target-rest-frame energy transfer in GeV.
+    std::optional<double> nu_min_gev;
+
+    /// Maximum target-rest-frame energy transfer in GeV.
+    std::optional<double> nu_max_gev;
 
     /// Minimum photon virtuality in \f$ \mathrm{GeV}^2 \f$.
-    double q2_min_gev2;
+    std::optional<double> q2_min_gev2;
+
+    /// Maximum photon virtuality in \f$ \mathrm{GeV}^2 \f$.
+    std::optional<double> q2_max_gev2;
 
     /// Minimum photon-target invariant mass squared in \f$ \mathrm{GeV}^2 \f$.
-    double w2_min_gev2;
+    std::optional<double> w2_min_gev2;
+
+    /// Maximum photon-target invariant mass squared in \f$ \mathrm{GeV}^2 \f$.
+    std::optional<double> w2_max_gev2;
 };
 
 /**
  * @brief Load DIS event-selection cuts from a key/value input file.
  *
- * Expected keys are `yMin`, `yMax`, `xBMin`, `xBMax`, `Q2Min`, and `W2Min`.
- * Blank lines and `#` comments are ignored.
+ * Supported optional keys are `yMin`, `yMax`, `xBMin`, `xBMax`, `nuMin`,
+ * `nuMax`, `Q2Min`, `Q2Max`, `W2Min`, and `W2Max`. Blank lines and `#`
+ * comments are ignored.
  *
  * @param config_path Path to the DIS cuts input file.
  *
