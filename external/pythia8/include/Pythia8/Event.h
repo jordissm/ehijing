@@ -40,6 +40,8 @@ public:
     daughter1Save(0), daughter2Save(0), colSave(0), acolSave(0),
     pSave(Vec4(0.,0.,0.,0.)), mSave(0.), scaleSave(0.), polSave(9.),
     hasVertexSave(false), vProdSave(Vec4(0.,0.,0.,0.)), tauSave(0.),
+    hasProductionTimeSave(false), vBreakupFirstSave(Vec4(0.,0.,0.,0.)),
+    vBreakupSecondSave(Vec4(0.,0.,0.,0.)),
     Rx_(0.), Ry_(0.), Rz_(0.), collset_(false),
     pdePtr(0), evtPtr(0) { }
   Particle(int idIn, int statusIn = 0, int mother1In = 0,
@@ -52,7 +54,10 @@ public:
     daughter2Save(daughter2In), colSave(colIn), acolSave(acolIn),
     pSave(Vec4(pxIn, pyIn, pzIn, eIn)), mSave(mIn), scaleSave(scaleIn),
     polSave(polIn), hasVertexSave(false), vProdSave(Vec4(0.,0.,0.,0.)),
-    tauSave(0.), Rx_(0.), Ry_(0.), Rz_(0.), collset_(false),
+    tauSave(0.), hasProductionTimeSave(false),
+    vBreakupFirstSave(Vec4(0.,0.,0.,0.)),
+    vBreakupSecondSave(Vec4(0.,0.,0.,0.)),
+    Rx_(0.), Ry_(0.), Rz_(0.), collset_(false),
     pdePtr(0), evtPtr(0) { }
   Particle(int idIn, int statusIn, int mother1In, int mother2In,
     int daughter1In, int daughter2In, int colIn, int acolIn,
@@ -62,6 +67,8 @@ public:
     daughter2Save(daughter2In), colSave(colIn), acolSave(acolIn),
     pSave(pIn), mSave(mIn), scaleSave(scaleIn), polSave(polIn),
     hasVertexSave(false), vProdSave(Vec4(0.,0.,0.,0.)), tauSave(0.),
+    hasProductionTimeSave(false), vBreakupFirstSave(Vec4(0.,0.,0.,0.)),
+    vBreakupSecondSave(Vec4(0.,0.,0.,0.)),
     Rx_(0.), Ry_(0.), Rz_(0.), collset_(false),
     pdePtr(0), evtPtr(0) { }
   Particle(const Particle& pt) : idSave(pt.idSave),
@@ -71,7 +78,9 @@ public:
     acolSave(pt.acolSave), pSave(pt.pSave), mSave(pt.mSave),
     scaleSave(pt.scaleSave), polSave(pt.polSave),
     hasVertexSave(pt.hasVertexSave), vProdSave(pt.vProdSave),
-    tauSave(pt.tauSave), collset_(pt.collset_),
+    tauSave(pt.tauSave), hasProductionTimeSave(pt.hasProductionTimeSave),
+    vBreakupFirstSave(pt.vBreakupFirstSave),
+    vBreakupSecondSave(pt.vBreakupSecondSave), collset_(pt.collset_),
     Rx_(pt.Rx_), Ry_(pt.Ry_), Rz_(pt.Rz_),
     pdePtr(pt.pdePtr), evtPtr(pt.evtPtr),
     coll_ts_(pt.coll_ts_),
@@ -85,6 +94,9 @@ public:
     mSave = pt.mSave; scaleSave = pt.scaleSave; polSave = pt.polSave;
     hasVertexSave = pt.hasVertexSave; vProdSave = pt.vProdSave;
     tauSave = pt.tauSave; collset_ = pt.collset_;
+    hasProductionTimeSave = pt.hasProductionTimeSave;
+    vBreakupFirstSave = pt.vBreakupFirstSave;
+    vBreakupSecondSave = pt.vBreakupSecondSave;
     Rx_ = pt.Rx_; Ry_ = pt.Ry_; Rz_ = pt.Rz_;
     pdePtr = pt.pdePtr; evtPtr = pt.evtPtr;
     coll_ts_ = pt.coll_ts_;
@@ -134,6 +146,12 @@ public:
   void tProd(double tProdIn) {vProdSave.e(tProdIn); hasVertexSave = true;}
   void tau(double tauIn) {tauSave = tauIn;}
 
+  // Breakup pair defining the separate hadron production time. Keep both
+  // vertices so that the earlier time can be selected in any boosted frame.
+  void productionVertices(Vec4 vFirstIn, Vec4 vSecondIn) {
+    vBreakupFirstSave = vFirstIn; vBreakupSecondSave = vSecondIn;
+    hasProductionTimeSave = true;}
+
   // Member functions for output.
   int    id()        const {return idSave;}
   int    status()    const {return statusSave;}
@@ -158,6 +176,10 @@ public:
   double zProd()     const {return vProdSave.pz();}
   double tProd()     const {return vProdSave.e();}
   double tau()       const {return tauSave;}
+  bool   hasProductionTime() const {return hasProductionTimeSave;}
+  // Coordinate time in mm/c; zero when no breakup pair has been stored.
+  double tProduction() const {return hasProductionTimeSave
+    ? min(vBreakupFirstSave.e(), vBreakupSecondSave.e()) : 0.;}
 
   // Member functions for output; derived int and bool quantities.
   int    idAbs()     const {return abs(idSave);}
@@ -277,23 +299,44 @@ public:
   void rescale4(double fac) {pSave.rescale4(fac);}
   void rescale5(double fac) {pSave.rescale4(fac); mSave *= fac;}
   void rot(double thetaIn, double phiIn) {pSave.rot(thetaIn, phiIn);
-    if (hasVertexSave) vProdSave.rot(thetaIn, phiIn);}
+    if (hasVertexSave) vProdSave.rot(thetaIn, phiIn);
+    if (hasProductionTimeSave) {
+      vBreakupFirstSave.rot(thetaIn, phiIn);
+      vBreakupSecondSave.rot(thetaIn, phiIn);}}
   void bst(double betaX, double betaY, double betaZ) {
     pSave.bst(betaX, betaY, betaZ);
-    if (hasVertexSave) vProdSave.bst(betaX, betaY, betaZ);}
+    if (hasVertexSave) vProdSave.bst(betaX, betaY, betaZ);
+    if (hasProductionTimeSave) {
+      vBreakupFirstSave.bst(betaX, betaY, betaZ);
+      vBreakupSecondSave.bst(betaX, betaY, betaZ);}}
   void bst(double betaX, double betaY, double betaZ, double gamma) {
     pSave.bst(betaX, betaY, betaZ, gamma);
-    if (hasVertexSave) vProdSave.bst(betaX, betaY, betaZ, gamma);}
+    if (hasVertexSave) vProdSave.bst(betaX, betaY, betaZ, gamma);
+    if (hasProductionTimeSave) {
+      vBreakupFirstSave.bst(betaX, betaY, betaZ, gamma);
+      vBreakupSecondSave.bst(betaX, betaY, betaZ, gamma);}}
   void bst(const Vec4& pBst) {pSave.bst(pBst);
-    if (hasVertexSave) vProdSave.bst(pBst);}
+    if (hasVertexSave) vProdSave.bst(pBst);
+    if (hasProductionTimeSave) {
+      vBreakupFirstSave.bst(pBst); vBreakupSecondSave.bst(pBst);}}
   void bst(const Vec4& pBst, double mBst) {pSave.bst(pBst, mBst);
-    if (hasVertexSave) vProdSave.bst(pBst, mBst);}
+    if (hasVertexSave) vProdSave.bst(pBst, mBst);
+    if (hasProductionTimeSave) {
+      vBreakupFirstSave.bst(pBst, mBst);
+      vBreakupSecondSave.bst(pBst, mBst);}}
   void bstback(const Vec4& pBst) {pSave.bstback(pBst);
-    if (hasVertexSave) vProdSave.bstback(pBst);}
+    if (hasVertexSave) vProdSave.bstback(pBst);
+    if (hasProductionTimeSave) {
+      vBreakupFirstSave.bstback(pBst); vBreakupSecondSave.bstback(pBst);}}
   void bstback(const Vec4& pBst, double mBst) {pSave.bstback(pBst, mBst);
-    if (hasVertexSave) vProdSave.bstback(pBst, mBst);}
+    if (hasVertexSave) vProdSave.bstback(pBst, mBst);
+    if (hasProductionTimeSave) {
+      vBreakupFirstSave.bstback(pBst, mBst);
+      vBreakupSecondSave.bstback(pBst, mBst);}}
   void rotbst(const RotBstMatrix& M) {pSave.rotbst(M);
-    if (hasVertexSave) vProdSave.rotbst(M);}
+    if (hasVertexSave) vProdSave.rotbst(M);
+    if (hasProductionTimeSave) {
+      vBreakupFirstSave.rotbst(M); vBreakupSecondSave.rotbst(M);}}
   void offsetHistory( int minMother, int addMother, int minDaughter,
     int addDaughter);
   void offsetCol( int addCol);
@@ -366,6 +409,8 @@ protected:
   bool   hasVertexSave, collset_; // WK:
   Vec4   vProdSave;
   double tauSave;
+  bool   hasProductionTimeSave;
+  Vec4   vBreakupFirstSave, vBreakupSecondSave;
   double Rx_, Ry_, Rz_; // WK:
 
   // Pointer to properties of the particle species.

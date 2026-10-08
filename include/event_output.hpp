@@ -27,6 +27,12 @@ void write_event_headers(std::ostream& out);
  * hadrons and spectator nucleons.  The metadata stream receives a compact JSON
  * record with the event ID, target, and reconstructed DIS kinematics.
  *
+ * Hadron positions are freestreamed from the saved vertex to t = 0. With
+ * HadronVertex:mode = 2, form_time records the late formation time from
+ * Particle::tProd(), and prod_time records the earlier breakup time from
+ * Particle::tProduction(). A missing breakup pair gives prod_time = 0.
+ * Spectator nucleons have both times set to zero.
+ *
  * @param event_number Global event ID.
  * @param atomic_number Atomic number \f$ Z \f$ of the target nucleus.
  * @param mass_number Mass number \f$ A \f$ of the target nucleus.

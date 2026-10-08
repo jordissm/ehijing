@@ -363,6 +363,32 @@ the production vertex coordinates, in mm or mm/c.
 The production vertex four-vector. Note that the components of a 
 <code>Vec4</code> are named <code>px(), py(), pz() and e()</code> 
 which of course then should be reinterpreted as above. 
+For <code>HadronVertex:mode = 2</code>, this is the late-prescription
+formation vertex, and <code>tProd()</code> gives the formation time.
+</method>
+
+<method name="bool Particle::hasProductionTime()">
+Whether a breakup pair defining a separate hadron production time is stored.
+It is set by <code>HadronVertex:mode = 2</code> when fragmentation reconstructs
+the two adjacent breakup vertices. It is false for one-hadron mini-string
+collapses, for other vertex modes, and when vertex reconstruction is off.
+</method>
+
+<method name="double Particle::tProduction()">
+The smaller time component of the two stored breakup vertices, in mm/c,
+including the vertex origin offset. The pair is preserved by particle copies,
+rotations, and boosts; the minimum is evaluated in the current frame.
+Returns zero when no pair has been stored; check
+<code>hasProductionTime()</code> to distinguish this from a physical zero time.
+This coordinate time is independent of the proper lifetime <code>tau()</code>.
+</method>
+
+<method name="void Particle::productionVertices(Vec4 vFirst, Vec4 vSecond)">
+Store the two absolute breakup vertices used to define
+<code>tProduction()</code>. Their coordinates have the same units as
+<code>vProd()</code>: mm and mm/c. This also sets
+<code>hasProductionTime()</code> to true and leaves the formation vertex and
+proper lifetime untouched.
 </method> 
  
 <method name="double Particle::tau()"> 

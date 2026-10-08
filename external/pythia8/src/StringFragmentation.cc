@@ -1396,7 +1396,7 @@ void StringFragmentation::setHadronVertices( Event& event) {
       int id =  event[iPartonNow.front()].idAbs();
 
       // Calculate hadron production points from breakup vertices
-      // using one of the three definitions.
+      // using the selected definition.
       for (int i = 0; i < int(finalLocation.size()) - 1; ++i) {
         Vec4 middlePoint =  0.5 * (finalLocation[i] + finalLocation[i + 1]);
         int iHad = i + hadSoFar + event.size() - hadrons.size();
@@ -1410,7 +1410,7 @@ void StringFragmentation::setHadronVertices( Event& event) {
 
         // Hadron production points calculation depending on definition.
         if (hadronVertex == 0) prodPoints = middlePoint;
-        else if (hadronVertex == 1)
+        else if (hadronVertex == 1 || hadronVertex == 2)
           prodPoints = middlePoint + 0.5 * redOsc * pHad / kappaVtx;
         else {
           prodPoints = middlePoint - 0.5 * redOsc * pHad / kappaVtx;
@@ -1423,6 +1423,12 @@ void StringFragmentation::setHadronVertices( Event& event) {
               / kappaVtx;
           }
         }
+        // In mode 2, vProd is the late formation point. Store the breakup
+        // pair with the same origin offset for the separate production time.
+        if (hadronVertex == 2)
+          event[iHad].productionVertices(
+            event[iHad].vProd() + finalLocation[i] * FM2MM,
+            event[iHad].vProd() + finalLocation[i + 1] * FM2MM);
         event[iHad].vProd( event[iHad].vProd() + prodPoints * FM2MM );
       }
       // End of the two legs loop. Number of hadrons with stored vertices.
@@ -1431,7 +1437,7 @@ void StringFragmentation::setHadronVertices( Event& event) {
   }
 
   // Normal string system or last leg: calculate hadron production points
-  // from breakup vertices using one of the three definitions.
+  // from breakup vertices using the selected definition.
   for (int i = 0; i < int(spaceTime.size()) - 1; ++i) {
     Vec4 middlePoint = 0.5 * (spaceTime[i] + spaceTime[i + 1]);
     int iHad = i + iHadJunc + event.size() - hadrons.size();
@@ -1448,7 +1454,7 @@ void StringFragmentation::setHadronVertices( Event& event) {
 
     // Hadron production points calculation depending on definition.
     if (hadronVertex == 0) prodPoints = middlePoint;
-    else if (hadronVertex == 1)
+    else if (hadronVertex == 1 || hadronVertex == 2)
       prodPoints = middlePoint + 0.5 * redOsc * pHad / kappaVtx;
     else {
       prodPoints = middlePoint - 0.5 * redOsc * pHad / kappaVtx;
@@ -1459,6 +1465,11 @@ void StringFragmentation::setHadronVertices( Event& event) {
         prodPoints = middlePoint - 0.5 * tau0fac *  redOsc * pHad / kappaVtx;
       }
     }
+    // In mode 2, retain the breakup pair before setting the formation point.
+    if (hadronVertex == 2)
+      event[iHad].productionVertices(
+        event[iHad].vProd() + spaceTime[i] * FM2MM,
+        event[iHad].vProd() + spaceTime[i + 1] * FM2MM);
     event[iHad].vProd( event[iHad].vProd() + prodPoints * FM2MM );
   }
 

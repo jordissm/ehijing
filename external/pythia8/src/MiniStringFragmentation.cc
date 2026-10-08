@@ -381,7 +381,7 @@ bool MiniStringFragmentation::ministring2one( int iSub,
   colConfig[iMax].isCollected = true;
 
   // Calculate hadron production points from breakup vertices
-  // using one of the three definitions.
+  // using the selected definition.
   if (setVertices) {
     Vec4 prodPoint = Vec4( 0., 0., 0., 0.);
     Vec4 pHadron = event[iHad].p();
@@ -416,7 +416,10 @@ bool MiniStringFragmentation::ministring2one( int iSub,
 
     // Find hadron production points according to chosen definition.
     if (hadronVertex == 0) prodPoint += 0.5 * redOsc * pHadron / kappaVtx;
-    else if (hadronVertex == 1) prodPoint += redOsc * pHadron / kappaVtx;
+    else if (hadronVertex == 1 || hadronVertex == 2)
+      prodPoint += redOsc * pHadron / kappaVtx;
+    // A one-hadron collapse has no breakup pair. In mode 2 use the late
+    // formation point, but leave hasProductionTime() false.
     event[iHad].vProd( event[iHad].vProd() + prodPoint * FM2MM );
   }
 
@@ -547,7 +550,7 @@ void MiniStringFragmentation::setHadronVertices(Event& event,
 
     // Set production point according to chosen definition.
     if (hadronVertex == 0) prodPoints[i] = middlePoint;
-    else if (hadronVertex == 1)
+    else if (hadronVertex == 1 || hadronVertex == 2)
       prodPoints[i] = middlePoint + 0.5 * redOsc * pHad / kappaVtx;
     else {
       prodPoints[i] = middlePoint - 0.5 * redOsc * pHad / kappaVtx;
@@ -558,6 +561,11 @@ void MiniStringFragmentation::setHadronVertices(Event& event,
         prodPoints[i] = middlePoint - 0.5 * tau0fac * redOsc * pHad / kappaVtx;
       }
     }
+    // In mode 2, store the breakup pair with the existing origin offset.
+    if (hadronVertex == 2)
+      event[iHad].productionVertices(
+        event[iHad].vProd() + spaceTime[i] * FM2MM,
+        event[iHad].vProd() + spaceTime[i + 1] * FM2MM);
     event[iHad].vProd( event[iHad].vProd() + prodPoints[i] * FM2MM );
   }
 

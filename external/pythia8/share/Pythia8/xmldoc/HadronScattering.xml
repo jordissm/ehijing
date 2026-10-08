@@ -272,10 +272,11 @@ on they are. In the latter case the further switches and parameters
 below provide more detailed choices. 
 </flag> 
  
-<modepick name="HadronVertex:mode" default="0" min="-1" max="1"> 
+<modepick name="HadronVertex:mode" default="0" min="-1" max="2">
 The definition of hadron production points is not unique, and here 
-three alternatives are considered: one early, one late and one in the 
-middle. Further expressions below are written for a hadron <ei>i</ei> 
+four alternatives are considered: one early, one late, one in the
+middle, and one that stores formation and production information separately.
+Further expressions below are written for a hadron <ei>i</ei>
 produced between two string vertices <ei>i</ei> and <ei>i+1</ei>. 
 <option value="0">A hadron production point is defined as the middle 
 point between the two breakup vertices, 
@@ -302,6 +303,22 @@ option,
 + p<sup>h</sup><sub>i</sub> / (2 kappa)</ei>, 
 and there is no problem with negative squared proper times. 
 </option> 
+<option value="2">Store the same late-prescription vertex as option 1 in
+<code>Particle::vProd()</code>, interpreting it as the hadron formation point.
+Separately retain the two adjacent breakup vertices, including their smearing,
+massive-quark corrections, and the existing vertex origin offset. The production
+time is <ei>min(t(v_i), t(v_{i+1}))</ei>, accessed through
+<code>Particle::tProduction()</code> in mm/c. The breakup pair follows particle
+rotations and boosts, so the minimum is evaluated in the current event frame.
+Equal breakup times give the same production time without a vertex tie rule.
+This applies to ordinary strings, junction legs, and two-hadron mini-strings.
+A one-hadron mini-string collapse has no reconstructed breakup pair: its
+<code>vProd()</code> still uses the late prescription, but
+<code>Particle::hasProductionTime()</code> is false. This flag is also false in
+the other modes or when <code>Fragmentation:setVertices</code> is off.
+The separate production time does not change the particle lifetime or the
+event listing/output format.
+</option>
 </modepick> 
  
 <parm name="HadronVertex:kappa" default="1." min="0.5" max="10."> 

@@ -72,7 +72,9 @@ void write_final_hadrons(
         // phadron.bstback(p_com);
         // local_pos.bstback(p_com);
 
-        const double t_hadron = local_pos.e();
+        const double form_time = local_pos.e();
+        // One-hadron collapses have no reconstructed breakup pair.
+        const double prod_time = p.hasProductionTime() ? p.tProduction() : 0.0;
         double x_hadron = local_pos.px();
         double y_hadron = local_pos.py();
         double z_hadron = local_pos.pz();
@@ -83,11 +85,11 @@ void write_final_hadrons(
         const int pid = particle_index;
         const int charge = p.charge();
 
-        // Freestream each hadron along its lab-frame velocity to t = 0.
-        // For t_hadron > 0 this moves it backward in time; for t_hadron < 0
+        // Freestream from the saved formation point to t = 0.
+        // For form_time > 0 this moves it backward in time; for form_time < 0
         // the same expression moves it forward in time.
-        if (std::isfinite(t_hadron) && std::isfinite(e) && e > 0.0) {
-            const double dt_to_zero = -t_hadron;
+        if (std::isfinite(form_time) && std::isfinite(e) && e > 0.0) {
+            const double dt_to_zero = -form_time;
             x_hadron += p.px() / e * dt_to_zero;
             y_hadron += p.py() / e * dt_to_zero;
             z_hadron += p.pz() / e * dt_to_zero;
@@ -112,7 +114,8 @@ void write_final_hadrons(
             << pdgid << " "
             << pid << " "
             << charge << " "
-            << t_hadron << " "
+            << prod_time << " "
+            << form_time << " "
             << 0.0 << '\n';
 
         ++particle_index;
@@ -166,6 +169,7 @@ void write_spectator_nucleons(
             << particle_index << " "
             << 1 << " "
             << 0.0 << " "
+            << 0.0 << " "
             << 1.0 << '\n';
 
         ++particle_index;
@@ -206,6 +210,7 @@ void write_spectator_nucleons(
             << particle_index << " "
             << 0 << " "
             << 0.0 << " "
+            << 0.0 << " "
             << 1.0 << '\n';
 
         ++particle_index;
@@ -215,8 +220,8 @@ void write_spectator_nucleons(
 } // namespace
 
 void write_event_headers(std::ostream& out) {
-    out << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge begin_form_time xsecfac\n";
-    out << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none fm none\n";
+    out << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge prod_time form_time xsecfac\n";
+    out << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none fm fm none\n";
 }
 
 void write_event_output(
