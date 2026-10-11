@@ -23,6 +23,12 @@ inline constexpr double two_pi = 2.0 * pi;
 namespace units {
 /// \f$ \hbar c \f$ in GeV fm.
 inline constexpr double hbarc_gev_fm = 0.19732698;
+
+/// Multiply a length in fm to obtain mm; also converts fm/c to mm/c.
+inline constexpr double fm_to_mm = 1.0e-12;
+
+/// Multiply a length in mm to obtain fm; also converts mm/c to fm/c.
+inline constexpr double mm_to_fm = 1.0e12;
 } // namespace units
 
 /// PDG Monte Carlo particle IDs used by the eHIJING workflow.
