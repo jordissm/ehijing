@@ -65,7 +65,9 @@ void write_final_hadrons(
             continue;
         }
 
-        Vec4 local_pos{p.xProd(), p.yProd(), p.zProd(), p.tProd()};
+        // Convert the complete formation vertex from PYTHIA's mm to output fm
+        // before freestreaming or adding spatial smearing.
+        Vec4 local_pos = p.vProd() * constants::units::mm_to_fm;
         // Vec4 p_com = p.p();
         // Vec4 phadron = p.p();
 
@@ -74,7 +76,9 @@ void write_final_hadrons(
 
         const double form_time = local_pos.e();
         // One-hadron collapses have no reconstructed breakup pair.
-        const double prod_time = p.hasProductionTime() ? p.tProduction() : 0.0;
+        const double prod_time = p.hasProductionTime()
+            ? p.tProduction() * constants::units::mm_to_fm
+            : 0.0;
         double x_hadron = local_pos.px();
         double y_hadron = local_pos.py();
         double z_hadron = local_pos.pz();

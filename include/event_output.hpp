@@ -33,12 +33,20 @@ void write_event_headers(std::ostream& out);
  * Particle::tProduction(). A missing breakup pair gives prod_time = 0.
  * Spectator nucleons have both times set to zero.
  *
+ * Units: input particle vertices in mm and coordinate times in mm/c;
+ * output positions in fm and t, prod_time and form_time in fm/c. Momentum,
+ * energy and mass remain in GeV. Coordinate times refer to the input particle
+ * frame and are distinct from proper-time intervals. The complete saved vertex
+ * and the separate production time are converted to fm before freestreaming
+ * and spatial smearing.
+ *
  * @param event_number Global event ID.
  * @param atomic_number Atomic number \f$ Z \f$ of the target nucleus.
  * @param mass_number Mass number \f$ A \f$ of the target nucleus.
  * @param struck_nucleon Nucleon assigned by the hadronizer remnant model.
  * @param kin Reconstructed DIS kinematics for the event.
- * @param particles PYTHIA particles returned by the hadronizer.
+ * @param particles PYTHIA particles returned by the hadronizer; vertex
+ *        units are mm, with coordinate times in mm/c.
  * @param event_out Stream that receives the OSCAR2013 particle list.
  * @param meta_out Stream that receives the JSON metadata record.
  */
