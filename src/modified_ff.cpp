@@ -634,12 +634,14 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
                             new_particle.m());
         
         auto& appended = pythia.event.back();
+        // Store the displacement from the hard interaction in PYTHIA's mm
+        // units. The hadronizer adds the nuclear origin once during import.
         appended.vProd(Vec4(
-            x_arr[ixyz] + Rx * hbarc,
-            y_arr[ixyz] + Ry * hbarc,
-            z_arr[ixyz] + Rz * hbarc,
+            x_arr[ixyz],
+            y_arr[ixyz],
+            z_arr[ixyz],
             t_arr[ixyz]
-        ));
+        ) * constants::units::fm_to_mm);
 
         ixyz++;
     }

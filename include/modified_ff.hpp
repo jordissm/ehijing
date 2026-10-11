@@ -48,11 +48,17 @@ public:
      * This mutates the PYTHIA event record in place and updates the hard-vertex
      * coordinates used later by hadronization/output.
      *
+     * Hard-vertex coordinates retain the eHIJING natural-unit convention,
+     * GeV^{-1}. Multiplying them by hbarc_gev_fm gives coordinates in fm.
+     * Newly appended particle vertices are displacements from the hard
+     * interaction, converted onsite to mm (mm/c for time). They exclude the
+     * nuclear origin, which the hadronizer adds once during import.
+     *
      * @param pythia PYTHIA generator containing the current partonic event.
      * @param kinematics Reconstructed DIS kinematics for the event.
-     * @param Rx Output hard-vertex x coordinate.
-     * @param Ry Output hard-vertex y coordinate.
-     * @param Rz Output hard-vertex z coordinate.
+     * @param Rx Output hard-vertex x coordinate in GeV^{-1}.
+     * @param Ry Output hard-vertex y coordinate in GeV^{-1}.
+     * @param Rz Output hard-vertex z coordinate in GeV^{-1}.
      */
     void sample_ff_partons(Pythia8::Pythia& pythia,
                            const DISKinematics& kinematics,
