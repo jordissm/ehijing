@@ -2,6 +2,9 @@
 
 The eHIJING headers and sources are documented with Doxygen.
 
+[Unit conventions](docs/units.md) describe spacetime units, conversion factors,
+interface requirements, and remaining review items.
+
 Install Doxygen first. Installing Graphviz is also recommended because the
 configuration enables class diagrams through `dot`.
 

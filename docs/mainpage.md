@@ -52,6 +52,9 @@ The code relies on a few explicit PYTHIA/eHIJING conventions:
   in `ehijing::constants::mass`, `ehijing::constants::numeric`, and related
   namespaces.
 
+See @ref unit_conventions for spacetime units, conversion factors, interface
+requirements, and remaining review items.
+
 ## Generating The HTML
 
 From `src/ehijing`, either run Doxygen directly:
