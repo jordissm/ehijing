@@ -177,6 +177,9 @@ public:
   double tProd()     const {return vProdSave.e();}
   double tau()       const {return tauSave;}
   bool   hasProductionTime() const {return hasProductionTimeSave;}
+  // Absolute breakup vertices in mm; meaningful when hasProductionTime().
+  Vec4   vBreakupFirst() const {return vBreakupFirstSave;}
+  Vec4   vBreakupSecond() const {return vBreakupSecondSave;}
   // Coordinate time in mm/c; zero when no breakup pair has been stored.
   double tProduction() const {return hasProductionTimeSave
     ? min(vBreakupFirstSave.e(), vBreakupSecondSave.e()) : 0.;}

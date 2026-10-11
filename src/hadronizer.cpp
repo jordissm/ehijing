@@ -1,9 +1,12 @@
 #include "hadronizer.hpp"
 #include "ehijing_constants.hpp"
+#include "Pythia8/HadronVertexTrace.h"
 
 #include <cmath>
 #include <iostream>
+#include <iomanip>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 
 using namespace Pythia8;
@@ -101,7 +104,7 @@ namespace {
 } // namespace
 
 Hadronizer::Hadronizer(const std::string& hadronization_config_path)
-    : pythia(), rd(), gen(rd()), dist(0., 1.) {
+    : pythia(), trace_vertices(false), rd(), gen(rd()), dist(0., 1.) {
 
     if (!pythia.readFile(hadronization_config_path)) {
         throw std::runtime_error("Hadronizer: failed to read config file: " +
@@ -117,6 +120,19 @@ Hadronizer::Hadronizer(const std::string& hadronization_config_path)
     apply_smash_particle_data_overrides(pythia);
 
     pythia.init();
+    trace_vertices = pythia.settings.flag("HadronVertex:trace");
+    if (trace_vertices) {
+        std::ostringstream out;
+        out << std::scientific << std::setprecision(16)
+            << "[hadronization] config=" << hadronization_config_path
+            << " mode=" << pythia.settings.mode("HadronVertex:mode")
+            << " vertices=" << pythia.settings.flag("Fragmentation:setVertices")
+            << " smear=" << pythia.settings.flag("HadronVertex:smearOn")
+            << " constantTau=" << pythia.settings.flag("HadronVertex:constantTau")
+            << " kappa_GeV_per_fm=" << pythia.settings.parm("HadronVertex:kappa")
+            << " decay=" << pythia.settings.flag("HadronLevel:Decay") << '\n';
+        std::cerr << out.str();
+    }
 }
 
 /*
@@ -128,7 +144,11 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
                                                       int mass_number,
                                                       double Rx,
                                                       double Ry,
-                                                      double Rz) {
+                                                      double Rz,
+                                                      int64_t event_id,
+                                                      int attempt) {
+
+    HadronVertexTrace::EventScope trace_scope(trace_vertices, event_id, attempt);
 
     // Define charge fraction
     double charge_fraction = atomic_number * 1.0 / mass_number;
@@ -137,6 +157,13 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
     // This origin is added once to each imported parton's displacement.
     const Vec4 origin = Vec4(Rx, Ry, Rz, 0.0)
                       * hbarc * constants::units::fm_to_mm;
+    if (trace_vertices) {
+        std::ostringstream out;
+        HadronVertexTrace::prefix(out);
+        HadronVertexTrace::vertex(out, "nuclear_origin", origin);
+        out << '\n';
+        std::cerr << out.str();
+    }
 
     // This result will store the final hadrons after hadronization, and will be
     // returned to the main function
@@ -225,6 +252,19 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
         auto& appended = pythia.event.back();
         // Input vertices are displacements from the hard interaction in mm.
         appended.vProd(particle.vProd());
+        if (trace_vertices) {
+            std::ostringstream out;
+            HadronVertexTrace::prefix(out);
+            out << "IMPORT source_index=" << i
+                << " hadronizer_index=" << pythia.event.size() - 1
+                << " pdg=" << particle.id()
+                << " source_status=" << particle.status()
+                << " source_mothers=" << particle.mother1() << ','
+                << particle.mother2() << ' ';
+            HadronVertexTrace::vertex(out, "relative_vertex", appended.vProd());
+            out << '\n';
+            std::cerr << out.str();
+        }
     }
 
     // Assign absolute space-time vertices to partons in mm.
@@ -462,6 +502,7 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
 
     // Perform hadronization
     const bool ok = pythia.next();
+    if (trace_vertices) HadronVertexTrace::dumpFinal(pythia.event, ok);
     if (!ok) {
         std::cerr << "Hadronizer: pythia.next() failed\n";
         return std::nullopt;

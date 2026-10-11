@@ -6,6 +6,7 @@
 // Function definitions (not found in the header) for the HadronLevel class.
 
 #include "Pythia8/HadronLevel.h"
+#include "Pythia8/HadronVertexTrace.h"
 
 namespace Pythia8 {
 
@@ -43,6 +44,7 @@ bool HadronLevel::init(Info* infoPtrIn, Settings& settings,
   doHadronScatter = settings.flag("hadronLevel:HadronScatter");
   doDecay         = settings.flag("HadronLevel:Decay");
   doBoseEinstein  = settings.flag("HadronLevel:BoseEinstein");
+  traceVertices  = settings.flag("HadronVertex:trace");
 
   // Boundary mass between string and ministring handling.
   mStringMin      = settings.parm("HadronLevel:mStringMin");
@@ -125,6 +127,8 @@ bool HadronLevel::init(Info* infoPtrIn, Settings& settings,
 
 bool HadronLevel::next( Event& event) {
 
+  HadronVertexTrace::PassScope traceScope(traceVertices, event);
+
   // Store current event size to mark Parton Level content.
   event.savePartonLevelSize();
 
@@ -149,8 +153,11 @@ bool HadronLevel::next( Event& event) {
   // Hadron scattering, first pass only --rjc
   bool moreToDo, firstPass = true;
   bool doBoseEinsteinNow = doBoseEinstein;
+  int traceIteration = 0;
   do {
     moreToDo = false;
+    if (traceVertices && traceIteration++ > 0)
+      ++HadronVertexTrace::context().pass;
 
     // First part: string fragmentation.
     if (doHadronize) {
@@ -216,8 +223,14 @@ bool HadronLevel::next( Event& event) {
         // Collect sequentially all partons in a colour singlet subsystem.
         colConfig.collect(iSub, event);
 
+        const bool ordinary = colConfig[iSub].massExcess > mStringMin;
+        const int beforeFragmentation = event.size();
+        if (traceVertices)
+          HadronVertexTrace::beginString(iSub, colConfig[iSub], event,
+            ordinary ? "ordinary" : "mini-string");
+
         // String fragmentation of each colour singlet (sub)system.
-        if ( colConfig[iSub].massExcess > mStringMin ) {
+        if (ordinary) {
           if (!stringFrag.fragment( iSub, colConfig, event)) return false;
 
         // Low-mass string treated separately. Tell if diffractive system.
@@ -225,6 +238,14 @@ bool HadronLevel::next( Event& event) {
           bool isDiff = infoPtr->isDiffractiveA() || infoPtr->isDiffractiveB();
           if (!ministringFrag.fragment( iSub, colConfig, event, isDiff))
             return false;
+        }
+        if (traceVertices) {
+          for (int i = beforeFragmentation; i < event.size(); ++i)
+            if (event[i].isHadron()
+                && HadronVertexTrace::context().tags.count(i) == 0)
+              HadronVertexTrace::recordHadron(event, i,
+                ordinary ? "ordinary(no_vertex_trace)"
+                         : "mini-string(no_vertex_trace)");
         }
       }
     }

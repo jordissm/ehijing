@@ -7,6 +7,7 @@
 // StringFragmentation classes.
 
 #include "Pythia8/StringFragmentation.h"
+#include "Pythia8/HadronVertexTrace.h"
 
 namespace Pythia8 {
 
@@ -608,6 +609,7 @@ void StringFragmentation::init(Info* infoPtrIn, Settings& settings,
   // Calculation and definition of hadron space-time production vertices.
   hadronVertex    = settings.mode("HadronVertex:mode");
   setVertices     = settings.flag("Fragmentation:setVertices");
+  traceVertices   = settings.flag("HadronVertex:trace");
   kappaVtx        = settings.parm("HadronVertex:kappa");
   smearOn         = settings.flag("HadronVertex:smearOn");
   xySmear         = settings.parm("HadronVertex:xySmear");
@@ -1394,6 +1396,8 @@ void StringFragmentation::setHadronVertices( Event& event) {
         : legMidSpaceTime;
       vector<int> iPartonNow = (legLoop == 0) ? iPartonMinLeg : iPartonMidLeg;
       int id =  event[iPartonNow.front()].idAbs();
+      const char* traceLeg = legLoop == 0 ? "junction-leg-0" : "junction-leg-1";
+      if (traceVertices) HadronVertexTrace::breakups(traceLeg, finalLocation);
 
       // Calculate hadron production points from breakup vertices
       // using the selected definition.
@@ -1425,11 +1429,16 @@ void StringFragmentation::setHadronVertices( Event& event) {
         }
         // In mode 2, vProd is the late formation point. Store the breakup
         // pair with the same origin offset for the separate production time.
+        Vec4 traceOrigin = event[iHad].vProd();
         if (hadronVertex == 2)
           event[iHad].productionVertices(
             event[iHad].vProd() + finalLocation[i] * FM2MM,
             event[iHad].vProd() + finalLocation[i + 1] * FM2MM);
         event[iHad].vProd( event[iHad].vProd() + prodPoints * FM2MM );
+        if (traceVertices)
+          HadronVertexTrace::hadron(event, iHad, traceLeg, i, i + 1,
+            traceOrigin, finalLocation[i], finalLocation[i + 1], prodPoints,
+            redOsc, kappaVtx);
       }
       // End of the two legs loop. Number of hadrons with stored vertices.
       hadSoFar = hadSoFar + finalLocation.size() - 1;
@@ -1438,6 +1447,8 @@ void StringFragmentation::setHadronVertices( Event& event) {
 
   // Normal string system or last leg: calculate hadron production points
   // from breakup vertices using the selected definition.
+  const char* traceLeg = hasJunction ? "junction-leg-2" : "ordinary";
+  if (traceVertices) HadronVertexTrace::breakups(traceLeg, spaceTime);
   for (int i = 0; i < int(spaceTime.size()) - 1; ++i) {
     Vec4 middlePoint = 0.5 * (spaceTime[i] + spaceTime[i + 1]);
     int iHad = i + iHadJunc + event.size() - hadrons.size();
@@ -1466,11 +1477,15 @@ void StringFragmentation::setHadronVertices( Event& event) {
       }
     }
     // In mode 2, retain the breakup pair before setting the formation point.
+    Vec4 traceOrigin = event[iHad].vProd();
     if (hadronVertex == 2)
       event[iHad].productionVertices(
         event[iHad].vProd() + spaceTime[i] * FM2MM,
         event[iHad].vProd() + spaceTime[i + 1] * FM2MM);
     event[iHad].vProd( event[iHad].vProd() + prodPoints * FM2MM );
+    if (traceVertices)
+      HadronVertexTrace::hadron(event, iHad, traceLeg, i, i + 1,
+        traceOrigin, spaceTime[i], spaceTime[i + 1], prodPoints, redOsc, kappaVtx);
   }
 
 }

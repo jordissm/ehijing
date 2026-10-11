@@ -272,6 +272,16 @@ on they are. In the latter case the further switches and parameters
 below provide more detailed choices. 
 </flag> 
  
+<flag name="HadronVertex:trace" default="off">
+Print a detailed hadronization spacetime trace to standard error. The trace
+identifies each colour-singlet subsystem and its partons, breakup vertices,
+hadron vertex prescription, and one-hadron collapses. Coordinates are printed
+as (t,x,y,z) in fm/c and fm, with momenta in GeV. This diagnostic does not
+enable vertex generation: use <code>Fragmentation:setVertices = on</code> to
+compute vertices. With <code>HadronVertex:mode = 2</code>, the saved vertex is
+the formation point and the separate breakup pair defines production time.
+</flag>
+
 <modepick name="HadronVertex:mode" default="0" min="-1" max="2">
 The definition of hadron production points is not unique, and here 
 four alternatives are considered: one early, one late, one in the

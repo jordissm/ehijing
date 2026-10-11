@@ -174,7 +174,9 @@ int main(int argc, char* argv[]) {
             modified_ff.sample_ff_partons(pythia, kinematics, Rx, Ry, Rz);
             
             // Put the parton-level event into the separate hadronizer
-            auto hadronized_event_opt = hadronizer.hadronize(pythia, atomic_number, mass_number, Rx, Ry, Rz);
+            auto hadronized_event_opt = hadronizer.hadronize(
+                pythia, atomic_number, mass_number, Rx, Ry, Rz,
+                first_event_id + n_written, attempt + 1);
             if (!hadronized_event_opt) {
                 std::cerr << "WARNING: hadronization failed for event " << (first_event_id + n_written) << " on attempt " << (attempt + 1) << "/" << hadronization_retries_max << "\n";
                 n_hadronization_failed++;

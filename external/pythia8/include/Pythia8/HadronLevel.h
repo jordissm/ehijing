@@ -65,7 +65,8 @@ private:
   static const double MTINY;
 
   // Initialization data, read from Settings.
-  bool   doHadronize, doDecay, doBoseEinstein, allowRH, closePacking;
+  bool   doHadronize, doDecay, doBoseEinstein, allowRH, closePacking,
+         traceVertices;
   double mStringMin, eNormJunction, widthSepBE;
 
   // Settings for hadron scattering.

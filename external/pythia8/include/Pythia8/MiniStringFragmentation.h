@@ -62,7 +62,7 @@ private:
   StringZ*      zSelPtr;
 
   // Initialization data, read from Settings.
-  bool   setVertices, constantTau, smearOn;
+  bool   setVertices, constantTau, smearOn, traceVertices;
   int    nTryMass, hadronVertex;
   double bLund, xySmear, kappaVtx, mc, mb;
 

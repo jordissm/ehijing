@@ -7,6 +7,7 @@
 
 #include "Pythia8/Pythia.h"
 
+#include <cstdint>
 #include <optional>
 #include <random>
 #include <string>
@@ -63,6 +64,8 @@ public:
      * @param Rx Hard-vertex x coordinate in GeV^{-1} used for production vertices.
      * @param Ry Hard-vertex y coordinate in GeV^{-1} used for production vertices.
      * @param Rz Hard-vertex z coordinate in GeV^{-1} used for production vertices.
+     * @param event_id Global event ID used to label the optional spacetime trace.
+     * @param attempt One-based generation attempt used to label the trace.
      *
      * @return Hadronization result if fragmentation succeeds; otherwise
      *         `std::nullopt`.
@@ -72,11 +75,16 @@ public:
                                              int mass_number,
                                              double Rx,
                                              double Ry,
-                                             double Rz);
+                                             double Rz,
+                                             int64_t event_id = -1,
+                                             int attempt = 0);
 
 private:
     /// Dedicated PYTHIA instance used only for hadronization.
     Pythia8::Pythia pythia;
+
+    /// Enable detailed stderr diagnostics through HadronVertex:trace.
+    bool trace_vertices;
 
     /// Entropy source for initializing the local random-number engine.
     std::random_device rd;

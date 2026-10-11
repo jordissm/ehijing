@@ -7,6 +7,7 @@
 // MiniStringFragmentation class
 
 #include "Pythia8/MiniStringFragmentation.h"
+#include "Pythia8/HadronVertexTrace.h"
 
 namespace Pythia8 {
 
@@ -47,6 +48,7 @@ void MiniStringFragmentation::init(Info* infoPtrIn, Settings& settings,
   // Calculation and definition of hadron space-time production vertices.
   hadronVertex    = settings.mode("HadronVertex:mode");
   setVertices     = settings.flag("Fragmentation:setVertices");
+  traceVertices   = settings.flag("HadronVertex:trace");
   kappaVtx        = settings.parm("HadronVertex:kappa");
   smearOn         = settings.flag("HadronVertex:smearOn");
   xySmear         = settings.parm("HadronVertex:xySmear");
@@ -269,6 +271,10 @@ bool MiniStringFragmentation::ministring2two( int nTry, Event& event) {
     // Store hadron production space-time vertices.
     setHadronVertices( event, region, iFirst, iLast);
   }
+  if (traceVertices && !setVertices) {
+    HadronVertexTrace::recordHadron(event, iFirst, "two-hadron-mini-string");
+    HadronVertexTrace::recordHadron(event, iLast, "two-hadron-mini-string");
+  }
 
   // Successfully done.
   return true;
@@ -382,6 +388,7 @@ bool MiniStringFragmentation::ministring2one( int iSub,
 
   // Calculate hadron production points from breakup vertices
   // using the selected definition.
+  Vec4 traceOrigin = event[iHad].vProd();
   if (setVertices) {
     Vec4 prodPoint = Vec4( 0., 0., 0., 0.);
     Vec4 pHadron = event[iHad].p();
@@ -422,6 +429,8 @@ bool MiniStringFragmentation::ministring2one( int iSub,
     // formation point, but leave hasProductionTime() false.
     event[iHad].vProd( event[iHad].vProd() + prodPoint * FM2MM );
   }
+  if (traceVertices)
+    HadronVertexTrace::collapse(event, iHad, iMax, traceOrigin);
 
   // Successfully done.
   return true;
@@ -536,6 +545,8 @@ void MiniStringFragmentation::setHadronVertices(Event& event,
   }
 
   // Find hadron production points according to chosen definition.
+  if (traceVertices)
+    HadronVertexTrace::breakups("two-hadron-mini-string", spaceTime);
   vector<Vec4> prodPoints(2);
   for(int i = 0; i < 2; ++i) {
     Vec4 middlePoint = 0.5 * (spaceTime[i] + spaceTime[i+1]);
@@ -562,11 +573,15 @@ void MiniStringFragmentation::setHadronVertices(Event& event,
       }
     }
     // In mode 2, store the breakup pair with the existing origin offset.
+    Vec4 traceOrigin = event[iHad].vProd();
     if (hadronVertex == 2)
       event[iHad].productionVertices(
         event[iHad].vProd() + spaceTime[i] * FM2MM,
         event[iHad].vProd() + spaceTime[i + 1] * FM2MM);
     event[iHad].vProd( event[iHad].vProd() + prodPoints[i] * FM2MM );
+    if (traceVertices)
+      HadronVertexTrace::hadron(event, iHad, "two-hadron-mini-string", i, i + 1,
+        traceOrigin, spaceTime[i], spaceTime[i + 1], prodPoints[i], redOsc, kappaVtx);
   }
 
 }

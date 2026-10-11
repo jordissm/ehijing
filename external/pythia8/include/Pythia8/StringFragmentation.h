@@ -143,7 +143,8 @@ private:
   UserHooks*    userHooksPtr;
 
   // Initialization data, read from Settings.
-  bool   closePacking, doFlavRope, setVertices, constantTau, smearOn;
+  bool   closePacking, doFlavRope, setVertices, constantTau, smearOn,
+         traceVertices;
   int    hadronVertex;
   double stopMass, stopNewFlav, stopSmear, eNormJunction,
          eBothLeftJunction, eMaxLeftJunction, eMinLeftJunction,
