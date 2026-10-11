@@ -38,6 +38,8 @@ PDF:pset = 12
 PDF:useHard = on
 PDF:useHardNPDFA = on
 
+PartonVertex:setVertex = off
+
 # <<<<<< Do not change the above without a good reason.
 
 # eHIJING Switch
