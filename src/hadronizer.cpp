@@ -133,6 +133,10 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
     // Define charge fraction
     double charge_fraction = atomic_number * 1.0 / mass_number;
     const double hbarc = constants::units::hbarc_gev_fm;
+    // eHIJING geometry is in GeV^{-1}; standard PYTHIA vertices use mm.
+    // This origin is added once to each imported parton's displacement.
+    const Vec4 origin = Vec4(Rx, Ry, Rz, 0.0)
+                      * hbarc * constants::units::fm_to_mm;
 
     // This result will store the final hadrons after hadronization, and will be
     // returned to the main function
@@ -219,10 +223,11 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
                             particle.m());
 
         auto& appended = pythia.event.back();
-        appended.vProd( particle.vProd() );
+        // Input vertices are displacements from the hard interaction in mm.
+        appended.vProd(particle.vProd());
     }
 
-    // Assign the space-time to partons
+    // Assign absolute space-time vertices to partons in mm.
     // Loop over the partons in the hadronizer
     for (int i = 0; i < pythia.event.size(); ++i) {
 
@@ -449,11 +454,9 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
             }
 
             particle.vProd(
-                particle.vProd() +
-                Vec4(position[0] + Rx * hbarc,
-                     position[1] + Ry * hbarc,
-                     position[2] + Rz * hbarc,
-                     timeplus));
+                particle.vProd() + origin +
+                Vec4(position[0], position[1], position[2], timeplus)
+                    * constants::units::fm_to_mm);
         }
     }
 

@@ -18,6 +18,8 @@ enum class StruckNucleon {
 };
 
 struct HadronizationResult {
+    /// Momentum, energy and mass in GeV; absolute vertices in mm and coordinate
+    /// times in mm/c, including breakup metadata.
     std::vector<Pythia8::Particle> particles;
     StruckNucleon struck_nucleon;
 };
@@ -44,13 +46,23 @@ public:
     /**
      * @brief Hadronize one medium-modified PYTHIA event record.
      *
+     * Rx/Ry/Rz retain the eHIJING natural-unit convention, GeV^{-1}.
+     * Imported particle vertices must be displacements from the hard
+     * interaction in mm (mm/c for time). The nuclear origin and reconstructed
+     * displacements are converted onsite to mm and added before fragmentation.
+     * The nuclear origin is added exactly once by this method.
+     *
+     * The source shower must have PartonVertex:setVertex disabled: that
+     * subsystem assigns fm vertices in this PYTHIA version and would require
+     * a separate import conversion. See the unit conventions document.
+     *
      * @param pythiaIn Source PYTHIA generator containing the partonic event to
      *        fragment.
      * @param atomic_number Atomic number \f$ Z \f$ of the target nucleus.
      * @param mass_number Mass number \f$ A \f$ of the target nucleus.
-     * @param Rx Hard-vertex x coordinate used for production vertices.
-     * @param Ry Hard-vertex y coordinate used for production vertices.
-     * @param Rz Hard-vertex z coordinate used for production vertices.
+     * @param Rx Hard-vertex x coordinate in GeV^{-1} used for production vertices.
+     * @param Ry Hard-vertex y coordinate in GeV^{-1} used for production vertices.
+     * @param Rz Hard-vertex z coordinate in GeV^{-1} used for production vertices.
      *
      * @return Hadronization result if fragmentation succeeds; otherwise
      *         `std::nullopt`.
