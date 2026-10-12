@@ -1,5 +1,6 @@
 // Optional hadronization spacetime diagnostics for the eHIJING PYTHIA fork.
 // Coordinates are printed as (t, x, y, z), in fm/c and fm respectively.
+// Callers supply an output stream; diagnostics never fall back to stderr.
 #ifndef Pythia8_HadronVertexTrace_H
 #define Pythia8_HadronVertexTrace_H
 
@@ -7,7 +8,7 @@
 #include "Pythia8/FragmentationSystems.h"
 #include <algorithm>
 #include <iomanip>
-#include <iostream>
+#include <ostream>
 #include <map>
 #include <set>
 #include <sstream>
@@ -31,6 +32,7 @@ struct Snapshot {
 
 struct Context {
   bool active = false;
+  std::ostream* output = nullptr;
   long long event = -1;
   int attempt = 0, pass = 0, string = -1;
   std::map<int, Tag> tags;
@@ -45,9 +47,12 @@ inline Context& context() {
 
 inline void prefix(std::ostream& out) {
   const Context& c = context();
-  out << std::scientific << std::setprecision(16)
-      << "[hadronization event=" << c.event << " attempt=" << c.attempt
-      << " pass=" << c.pass << " string=" << c.string << "] ";
+  out << std::defaultfloat << std::setprecision(12) << std::boolalpha
+      << "[pass=" << c.pass << " string=" << c.string << "] ";
+}
+
+inline void write(const std::string& text) {
+  if (context().active && context().output) *context().output << text;
 }
 
 inline void vertex(std::ostream& out, const char* label, const Vec4& v,
@@ -66,44 +71,51 @@ inline bool sameVertex(const Vec4& a, const Vec4& b) {
       && a.pz() == b.pz();
 }
 
-inline void beginEvent(long long event, int attempt) {
+inline void beginEvent(long long event, int attempt, std::ostream& output) {
   Context& c = context();
   c = Context();
   c.active = true;
+  c.output = &output;
   c.event = event;
   c.attempt = attempt;
   std::ostringstream out;
-  prefix(out);
-  out << "BEGIN coordinates=(t,x,y,z), time=fm/c, position=fm, momentum=GeV\n";
-  std::cerr << out.str();
+  out << "# eHIJING fragmentation trace v2\n"
+      << "Event: " << event << "   Attempt: " << attempt << '\n'
+      << "Coordinates: (t, x, y, z); time in fm/c; position in fm; momentum in GeV.\n"
+      << "Breakup B labels are local to each string leg.\n"
+      << "Absolute breakup points include the inherited origin.\n"
+      << "saved_vertex is the formation point in HadronVertex:mode = 2.\n"
+      << "output_ID matches the OSCAR hadron row; spectators are not traced.\n"
+      << "An unavailable production time is not a measured zero.\n\n";
+  write(out.str());
 }
 
 class EventScope {
 public:
-  EventScope(bool enabledIn, long long event, int attempt)
-    : enabled(enabledIn) {
-    if (enabled) beginEvent(event, attempt);
+  EventScope(bool enabledIn, long long event, int attempt,
+    std::ostream* output = nullptr)
+    : enabled(enabledIn && output != nullptr) {
+    if (enabled) beginEvent(event, attempt, *output);
   }
-  ~EventScope() {
+  ~EventScope() { finish(); }
+  EventScope(const EventScope&) = delete;
+  EventScope& operator=(const EventScope&) = delete;
+  void finish() {
     if (!enabled) return;
-    std::ostringstream out;
-    prefix(out);
-    out << "END\n";
-    std::cerr << out.str();
+    write("\nEnd of fragmentation trace.\n");
     context() = Context();
+    enabled = false;
   }
 private:
   bool enabled;
 };
 
-// Also support direct PYTHIA callers without an eHIJING event label.
+// Direct PYTHIA callers can supply their own stream through EventScope.
 class PassScope {
 public:
   PassScope(bool enabledIn, const Event& event)
-    : enabled(enabledIn), ownsEvent(false) {
+    : enabled(enabledIn && context().active) {
     if (!enabled) return;
-    ownsEvent = !context().active;
-    if (ownsEvent) beginEvent(-1, 0);
     // A failed attempt may have been rolled back by PYTHIA. Drop tags for
     // entries no longer present before their event indices can be reused.
     context().tags.erase(context().tags.lower_bound(event.size()),
@@ -113,17 +125,16 @@ public:
     ++context().pass;
     context().string = -1;
   }
-  ~PassScope() {
-    if (ownsEvent) context() = Context();
-  }
 private:
-  bool enabled, ownsEvent;
+  bool enabled;
 };
 
 inline void beginString(int index, const ColSinglet& system,
   const Event& event, const char* branch) {
+  if (!context().active) return;
   context().string = index;
   std::ostringstream out;
+  out << "\n--- String " << index << " / pass " << context().pass << " ---\n";
   prefix(out);
   out << "STRING branch=" << branch << " topology="
       << (system.hasJunction ? "junction" : system.isClosed ? "closed" : "open")
@@ -148,10 +159,11 @@ inline void beginString(int index, const ColSinglet& system,
     vertex(out, "absolute_vertex", p.vProd());
     out << '\n';
   }
-  std::cerr << out.str();
+  write(out.str());
 }
 
 inline void recordHadron(const Event& event, int index, const char* branch) {
+  if (!context().active) return;
   Context& c = context();
   c.tags[index] = Tag{c.pass, c.string, branch};
   const Particle& p = event[index];
@@ -160,28 +172,32 @@ inline void recordHadron(const Event& event, int index, const char* branch) {
 }
 
 inline void breakups(const char* leg, const std::vector<Vec4>& points) {
+  if (!context().active) return;
   std::ostringstream out;
+  out << "\n  Breakup chain (relative to the inherited origin):\n";
   for (int i = 0; i < int(points.size()); ++i) {
     prefix(out);
     out << "BREAKUP leg=" << leg << " B" << i << ' ';
     vertex(out, "relative_vertex", points[i], 1.);
     out << '\n';
   }
-  std::cerr << out.str();
+  write(out.str());
 }
 
 inline void hadron(const Event& event, int index, const char* branch,
   int firstIndex, int secondIndex, const Vec4& origin,
   const Vec4& first, const Vec4& second, const Vec4& displacement,
   double redOsc, double kappa) {
+  if (!context().active) return;
   recordHadron(event, index, branch);
   const Particle& p = event[index];
   Vec4 a = origin * MM2FM + first;
   Vec4 b = origin * MM2FM + second;
   double earliest = std::min(a.e(), b.e());
   std::ostringstream out;
-  prefix(out);
+  out << '\n'; prefix(out);
   out << "HADRON index=" << index << " pdg=" << p.id()
+      << " name=\"" << p.name() << '"'
       << " status=" << p.status() << " branch=" << branch
       << " breaks=B" << firstIndex << ",B" << secondIndex
       << " redOsc=" << redOsc << " kappa_GeV_per_fm=" << kappa << '\n';
@@ -190,22 +206,24 @@ inline void hadron(const Event& event, int index, const char* branch,
   out << "\n  "; vertex(out, "absolute_breakup_second", b, 1.);
   out << "\n  "; vertex(out, "prescription_displacement", displacement, 1.);
   out << "\n  "; vertex(out, "saved_vertex", p.vProd());
-  out << " computed_earliest_breakup=" << earliest
+  out << "\n  computed_earliest_breakup=" << earliest
       << " saved_minus_earliest=" << p.tProd() * MM2FM - earliest
       << " hasProductionTime=" << p.hasProductionTime();
   if (p.hasProductionTime()) out << " stored_prod_time=" << p.tProduction() * MM2FM;
   else out << " stored_prod_time=unavailable(no_stored_breakup_pair)";
   out << '\n';
-  std::cerr << out.str();
+  write(out.str());
 }
 
 inline void collapse(const Event& event, int index, int recoilString,
   const Vec4& origin) {
+  if (!context().active) return;
   recordHadron(event, index, "one-hadron-collapse");
   const Particle& p = event[index];
   std::ostringstream out;
-  prefix(out);
+  out << '\n'; prefix(out);
   out << "HADRON index=" << index << " pdg=" << p.id()
+      << " name=\"" << p.name() << '"'
       << " status=" << p.status()
       << " branch=one-hadron-collapse recoil_string=" << recoilString
       << " production_time=unavailable(no_reconstructed_breakup_pair)\n  ";
@@ -213,7 +231,7 @@ inline void collapse(const Event& event, int index, int recoilString,
   out << "\n  "; vertex(out, "prescription_displacement", p.vProd() - origin);
   out << "\n  "; vertex(out, "saved_vertex", p.vProd());
   out << '\n';
-  std::cerr << out.str();
+  write(out.str());
 }
 
 // Follow decay/copy ancestry for final hadrons created after fragmentation.
@@ -243,15 +261,40 @@ inline void ancestorStrings(std::ostream& out, const Event& event, int index) {
 }
 
 inline void dumpFinal(const Event& event, bool success) {
+  if (!context().active) return;
   context().string = -1;
   std::ostringstream out;
+  out << std::defaultfloat << std::setprecision(12);
+  out << "\n=== Exported hadrons: time summary [fm/c] ===\n"
+      << "Saved t is the formation time in mode 2. Missing production times are marked unavailable.\n"
+      << std::left << std::setw(8) << "ID" << std::setw(9) << "PYTHIA"
+      << std::setw(12) << "PDG" << std::setw(14) << "Pass/string"
+      << std::setw(22) << "prod_time" << std::setw(22) << "saved t" << "Particle\n";
+  int summaryIndex = 0;
+  for (int i = 0; success && i < event.size(); ++i) {
+    const Particle& p = event[i];
+    if (!p.isFinal()) continue;
+    const int id = summaryIndex++;
+    if (!p.isHadron()) continue;
+    auto tag = context().tags.find(i);
+    std::string source = tag == context().tags.end() ? "see ancestry"
+      : std::to_string(tag->second.pass) + "/" + std::to_string(tag->second.string);
+    out << std::setw(8) << id << std::setw(9) << i << std::setw(12) << p.id()
+        << std::setw(14) << source;
+    if (p.hasProductionTime()) out << std::setw(22) << p.tProduction() * MM2FM;
+    else out << std::setw(22) << "unavailable";
+    out << std::setw(22) << p.tProd() * MM2FM << p.name() << '\n';
+  }
+  out << "\n=== Final PYTHIA particle record ===\n";
   prefix(out);
   out << "FINAL_EVENT success=" << success << " size=" << event.size() << '\n';
   int outputIndex = 0;
   for (int i = 0; i < event.size(); ++i) {
     const Particle& p = event[i];
-    out << "  index=" << i << " pdg=" << p.id() << " status=" << p.status()
-        << " mothers=" << p.mother1() << ',' << p.mother2()
+    out << "\n  PARTICLE index=" << i << " pdg=" << p.id()
+        << " name=\"" << p.name() << '"' << " status=" << p.status()
+        << " final=" << p.isFinal() << " hadron=" << p.isHadron()
+        << "\n    mothers=" << p.mother1() << ',' << p.mother2()
         << " daughters=" << p.daughter1() << ',' << p.daughter2();
     if (success && p.isFinal()) out << " output_ID=" << outputIndex++;
     auto tag = context().tags.find(i);
@@ -260,22 +303,23 @@ inline void dumpFinal(const Event& event, bool success) {
           << " source_string=" << tag->second.string
           << " branch=" << tag->second.branch;
     else if (p.isFinal() && p.isHadron()) ancestorStrings(out, event, i);
-    out << " colors=" << p.col() << ',' << p.acol() << ' ';
+    out << "\n    colors=" << p.col() << ',' << p.acol() << ' ';
     momentum(out, p.p());
-    out << " mass_GeV=" << p.m() << " hasVertex=" << p.hasVertex() << ' ';
+    out << " mass_GeV=" << p.m() << " hasVertex=" << p.hasVertex() << "\n    ";
     vertex(out, "saved_vertex", p.vProd());
-    out << " raw_saved_time_mm_per_c=" << p.tProd()
+    out << "\n    raw_saved_time_mm_per_c=" << p.tProd()
         << " hasProductionTime=" << p.hasProductionTime();
     if (p.hasProductionTime()) {
-      out << " prod_time=" << p.tProduction() * MM2FM
+      out << "\n    prod_time=" << p.tProduction() * MM2FM
           << " raw_prod_time_mm_per_c=" << p.tProduction() << ' ';
+      out << "\n    ";
       vertex(out, "stored_breakup_first", p.vBreakupFirst());
-      out << ' '; vertex(out, "stored_breakup_second", p.vBreakupSecond());
-    } else out << " prod_time=unavailable(no_stored_breakup_pair)";
+      out << "\n    "; vertex(out, "stored_breakup_second", p.vBreakupSecond());
+    } else out << "\n    prod_time=unavailable(no_stored_breakup_pair)";
     auto snapshot = context().snapshots.find(i);
     if (snapshot != context().snapshots.end()) {
       const Snapshot& s = snapshot->second;
-      out << " vertex_changed_after_fragmentation=" << !sameVertex(s.vertex, p.vProd())
+      out << "\n    vertex_changed_after_fragmentation=" << !sameVertex(s.vertex, p.vProd())
           << " breakup_metadata_changed_after_fragmentation="
           << (s.hasPair != p.hasProductionTime()
               || !sameVertex(s.first, p.vBreakupFirst())
@@ -283,7 +327,7 @@ inline void dumpFinal(const Event& event, bool success) {
     }
     out << '\n';
   }
-  std::cerr << out.str();
+  write(out.str());
 }
 
 } // namespace HadronVertexTrace

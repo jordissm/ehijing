@@ -188,7 +188,7 @@ int main(int argc, char* argv[]) {
             // Set event ID
             const int64_t event_id = first_event_id + n_written;
             
-            // Define output paths for the OSCAR event file and the metadata file based on the event ID and chunk size
+            // All event outputs share the same event ID and shard directory.
             const EventPaths paths = make_event_paths(std::filesystem::path(run_path), event_id, chunk_size);
 
             // Open OSCAR output file
@@ -203,6 +203,18 @@ int main(int argc, char* argv[]) {
             if (!meta_out) {
                 std::cerr << "ERROR: cannot open metadata file: " << paths.metaPath << std::endl;
                 return 1;
+            }
+
+            // Only the successful hadronization attempt is paired with this OSCAR event.
+            if (!hadronization_result.fragmentation_trace.empty()) {
+                std::ofstream fragmentation_out(paths.fragmentationPath);
+                fragmentation_out << hadronization_result.fragmentation_trace;
+                fragmentation_out.close();
+                if (!fragmentation_out) {
+                    std::cerr << "ERROR: cannot write fragmentation file: "
+                              << paths.fragmentationPath << std::endl;
+                    return 1;
+                }
             }
 
             // Write the event data and metadata to the respective files

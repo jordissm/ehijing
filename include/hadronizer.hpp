@@ -23,6 +23,8 @@ struct HadronizationResult {
     /// times in mm/c, including breakup metadata.
     std::vector<Pythia8::Particle> particles;
     StruckNucleon struck_nucleon;
+    /// Human-readable spacetime trace for this successful attempt; empty when off.
+    std::string fragmentation_trace;
 };
 
 /**
@@ -83,8 +85,9 @@ private:
     /// Dedicated PYTHIA instance used only for hadronization.
     Pythia8::Pythia pythia;
 
-    /// Enable detailed stderr diagnostics through HadronVertex:trace.
+    /// Enable per-event diagnostics through HadronVertex:trace.
     bool trace_vertices;
+    std::string trace_config_path;
 
     /// Entropy source for initializing the local random-number engine.
     std::random_device rd;

@@ -48,6 +48,9 @@ struct EventPaths {
 
     /// Per-event JSON metadata output path.
     std::filesystem::path metaPath;
+
+    /// Optional per-event hadronization spacetime trace output path.
+    std::filesystem::path fragmentationPath;
 };
 
 /**
@@ -60,7 +63,7 @@ struct EventPaths {
  * @param event_id Event ID used for sharding and file naming.
  * @param chunk_size Number of events per shard directory.
  *
- * @return Paths for the shard directory, OSCAR output, and metadata output.
+ * @return Paths for the shard directory, OSCAR, metadata, and fragmentation output.
  */
 EventPaths make_event_paths(const std::filesystem::path& base_events_dir,
                             int64_t event_id,

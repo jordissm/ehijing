@@ -18,7 +18,7 @@ PDF:nPDFSetA = 0
 PDF:nPDFSetB = 0
 
 # Vertex information.
-# Uncomment for a detailed spacetime dump to stderr (off by default).
+# Uncomment to save a spacetime trace beside each OSCAR event (off by default).
 # HadronVertex:trace = on
 PartonVertex:setVertex = on
 PartonVertex:modeVertex = 2
