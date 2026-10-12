@@ -277,6 +277,9 @@ Record a detailed hadronization spacetime trace in a caller-supplied stream.
 The eHIJING driver saves a matching <code>event_XXXXXXXX.fragmentation</code>
 file beside each successful OSCAR event. Direct PYTHIA callers can supply
 their own stream using <code>HadronVertexTrace::EventScope</code>. The trace
+includes longitudinal massless-reference parameter-plane regions for constituent
+worldlines, separately from the saved smeared vertices. Transverse tunnelling
+and heavy-endpoint trajectories are not reconstructed by this diagnostic. It
 identifies each colour-singlet subsystem and its partons, breakup vertices,
 hadron vertex prescription, and one-hadron collapses. Coordinates are printed
 as (t,x,y,z) in fm/c and fm, with momenta in GeV. This diagnostic does not

@@ -1397,7 +1397,12 @@ void StringFragmentation::setHadronVertices( Event& event) {
       vector<int> iPartonNow = (legLoop == 0) ? iPartonMinLeg : iPartonMidLeg;
       int id =  event[iPartonNow.front()].idAbs();
       const char* traceLeg = legLoop == 0 ? "junction-leg-0" : "junction-leg-1";
-      if (traceVertices) HadronVertexTrace::breakups(traceLeg, finalLocation);
+      if (traceVertices) {
+        HadronVertexTrace::geometry(traceLeg, legLoop == 0 ? systemMin : systemMid,
+          iPartonNow, event, legLoop == 0 ? legMinVertices : legMidVertices,
+          kappaVtx, &MtoJRF, &MfromJRF);
+        HadronVertexTrace::breakups(traceLeg, finalLocation);
+      }
 
       // Calculate hadron production points from breakup vertices
       // using the selected definition.
@@ -1448,7 +1453,11 @@ void StringFragmentation::setHadronVertices( Event& event) {
   // Normal string system or last leg: calculate hadron production points
   // from breakup vertices using the selected definition.
   const char* traceLeg = hasJunction ? "junction-leg-2" : "ordinary";
-  if (traceVertices) HadronVertexTrace::breakups(traceLeg, spaceTime);
+  if (traceVertices) {
+    HadronVertexTrace::geometry(traceLeg, system, iPartonIn, event,
+      orderedVertices, kappaVtx);
+    HadronVertexTrace::breakups(traceLeg, spaceTime);
+  }
   for (int i = 0; i < int(spaceTime.size()) - 1; ++i) {
     Vec4 middlePoint = 0.5 * (spaceTime[i] + spaceTime[i + 1]);
     int iHad = i + iHadJunc + event.size() - hadrons.size();

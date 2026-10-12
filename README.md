@@ -32,8 +32,11 @@ saved vertices and the final complete event record. Coordinates are ordered
 `(t,x,y,z)`, with time in fm/c, position in fm, and momentum in GeV. Section
 headings, particle names and an exported-hadron time summary make the text easier
 to scan; values use 12 significant digits with scientific notation when needed.
-In mode 2 the saved vertex is the formation
-point. Other modes retain their existing interpretation.
+In mode 2 the saved vertex is the formation point. Other modes retain their
+existing interpretation. Version 3 adds fragmentation-side labels, momenta at
+fragmentation, and `GEOMETRY`, `REGION`, and `PARAMETER_BREAKUP` records. These
+describe PYTHIA's longitudinal massless-reference parameter plane; diagnostics
+fill unused regions in a copy of the system without changing the event or RNG.
 
 Final entries include the OSCAR `output_ID` for exported particles, the source
 string and branch, and indicators showing whether their saved vertex or breakup
@@ -42,9 +45,7 @@ list ancestor strings through their parent links; multiple sources are retained.
 One-hadron collapses explicitly report production time as unavailable because
 no breakup pair is reconstructed. The
 dump precedes the writer's freestreaming to t = 0 and output spatial smearing.
-It describes computed vertices and their connections, rather than reconstructing
-continuous string trajectories. Diagnostics do not change particle data or the
-OSCAR columns.
+Diagnostics do not change particle data or the OSCAR columns.
 
 ### Plotting a trace
 
@@ -55,21 +56,43 @@ From the ELECTRA repository root:
 python3 utils/plot_fragmentation.py /path/to/event_00000000.fragmentation
 python3 utils/plot_fragmentation.py /path/to/event_00000000.fragmentation \
     --string 0 --pass 1 --axis z -o string_0.pdf
+python3 utils/plot_fragmentation.py /path/to/event_00000000.fragmentation \
+    --string 0 --pass 1 --frame string-rest -o string_0_rest.pdf
 ```
 
 The default PDF sits beside the input file and includes a time-versus-z overview,
-individual string/pass diagrams and hadron time tables. Use `--axis x` or
+individual string/pass diagrams, longitudinal constituent worldline pages for
+v3 geometry records, and hadron time tables. Use `--axis x` or
 `--axis y` for other projections, `--no-labels` for crowded diagrams, or
-`--overview-only` for a single page. In the ELECTRA container the script is at
+`--overview-only` for a single page. `--frame string-rest` boosts both vertices
+and momenta to one selected string's rest frame, with the primary vertex as the
+coordinate origin. `--duration 5` extends outgoing hadron worldlines to 5 fm/c
+after the latest formation point in the plot frame. In the ELECTRA container the script is at
 `/opt/electra/share/utils/plot_fragmentation.py`.
 
-Plots use absolute breakup and saved coordinates before OSCAR freestreaming and
-transverse smearing. Lines connecting breakup and saved vertices are geometric
-guides, not particle worldlines. An earlier breakup is shown even when its
-production time was not stored; the time table marks missing values as
-`unavailable`. Faded hadrons were not exported, and changed final vertices have
-separate square markers. Later decay/copy hadrons use their ancestry when it
-identifies a single string; ambiguous ancestry is shown as unassigned.
+Breakup vertices are solid green circles, formation vertices solid purple
+circles, and the primary vertex a yellow star. Saved-vertex diagrams show
+free outgoing hadron worldlines with `dx/dt = p/E`, beginning at the stored
+formation point; they do not connect adjacent breakup points to that vertex.
+These lines are extrapolations without downstream interactions or decays.
+
+The separate longitudinal pages follow the classical massless-reference Lund
+constituent characteristics, splitting paths at gluon-region boundaries and
+including outward endpoint motion before the boundary turns. Their green and
+purple points, and outgoing longitudinal hadron slopes, belong to that reference
+picture. They exclude transverse tunnelling/smearing and heavy-endpoint
+corrections and can differ from the saved physical vertices. PYTHIA's smeared
+late prescription need not lie in both breakup vertices' future light cones;
+straight connections would therefore not give physical constituent worldlines.
+Missing final-two coordinates or discontinuous/invalid regions are reported
+instead of interpolated. One-hadron collapses have no reconstructed string paths.
+
+Old v2 files still plot saved vertices and hadron worldlines; regenerate traces
+after rebuilding PYTHIA/eHIJING to obtain the constituent pages. Time tables mark
+missing production times as `unavailable`. Faded hadrons were not exported,
+and changed final vertices have square markers. Later decay/copy hadrons use
+their ancestry when it identifies a single string; ambiguous ancestry is
+shown as unassigned. Nonfinal hadrons are not extrapolated with an invented lifetime.
 
 ## Generating documentation
 

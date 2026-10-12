@@ -79,14 +79,18 @@ inline void beginEvent(long long event, int attempt, std::ostream& output) {
   c.event = event;
   c.attempt = attempt;
   std::ostringstream out;
-  out << "# eHIJING fragmentation trace v2\n"
+  out << "# eHIJING fragmentation trace v3\n"
       << "Event: " << event << "   Attempt: " << attempt << '\n'
       << "Coordinates: (t, x, y, z); time in fm/c; position in fm; momentum in GeV.\n"
       << "Breakup B labels are local to each string leg.\n"
+      << "For an open reference string, B0 and the last B are endpoint turns, not pair creations.\n"
       << "Absolute breakup points include the inherited origin.\n"
       << "saved_vertex is the formation point in HadronVertex:mode = 2.\n"
       << "output_ID matches the OSCAR hadron row; spectators are not traced.\n"
       << "An unavailable production time is not a measured zero.\n\n";
+  out << "GEOMETRY records describe the longitudinal massless-reference Lund worldsheet.\n"
+      << "They exclude transverse tunnelling/smearing and heavy-endpoint corrections.\n"
+      << "Reference constituent meeting points can differ from saved_vertex.\n\n";
   write(out.str());
 }
 
@@ -151,6 +155,11 @@ inline void beginString(int index, const ColSinglet& system,
     }
     const Particle& p = event[i];
     out << "  parton index=" << i << " pdg=" << p.id()
+        << " name=\"" << p.name() << '"'
+        << " role=" << (system.hasJunction ? "junction_parton"
+          : system.isClosed ? "gluon_loop"
+          : i == system.iParton.front() ? "positive_endpoint"
+          : i == system.iParton.back() ? "negative_endpoint" : "gluon_kink")
         << " status=" << p.status() << " colors=" << p.col() << ','
         << p.acol() << " mothers=" << p.mother1() << ',' << p.mother2()
         << " hasVertex=" << p.hasVertex() << ' ';
@@ -184,6 +193,61 @@ inline void breakups(const char* leg, const std::vector<Vec4>& points) {
   write(out.str());
 }
 
+// Copy the parameter-plane geometry used by PYTHIA. Filling unused regions in
+// this diagnostic copy does not alter fragmentation, particle data or RNG state.
+// Null characteristics of this worldsheet give the classical longitudinal
+// constituent paths, including changes of direction at gluon-region boundaries.
+inline void geometry(const char* leg, const StringSystem& system,
+  std::vector<int> partons, Event& event,
+  const std::vector<StringVertex>& breaks, double kappa,
+  const RotBstMatrix* toJRF = nullptr, const RotBstMatrix* fromJRF = nullptr) {
+  if (!context().active) return;
+  StringSystem reference = system;
+  std::ostringstream out;
+  prefix(out);
+  out << "GEOMETRY leg=" << leg << " max_region=" << reference.iMax
+      << " kappa_GeV_per_fm=" << kappa
+      << " model=longitudinal_massless_reference\n";
+  for (int pos = 0; pos <= reference.iMax; ++pos) {
+    for (int neg = 0; neg <= reference.iMax - pos; ++neg) {
+      StringRegion region = reference.region(pos, neg);
+      if (!region.isSetUp) region.setUp(reference.regionLowPos(pos).pPos,
+        reference.regionLowNeg(neg).pNeg, true);
+      prefix(out);
+      out << "REGION leg=" << leg << " i_pos=" << pos << " i_neg=" << neg
+          << " available=" << !region.isEmpty;
+      if (!region.isEmpty) {
+        // Both offset and basis are recorded in the original event frame.
+        Vec4 offset = toJRF
+          ? region.gluonOffsetJRF(partons, event, pos, neg, *toJRF)
+          : region.gluonOffset(partons, event, pos, neg);
+        offset /= kappa;
+        Vec4 plus = region.pPos, minus = region.pNeg;
+        if (fromJRF) {
+          offset.rotbst(*fromJRF);
+          plus.rotbst(*fromJRF);
+          minus.rotbst(*fromJRF);
+        }
+        out << ' '; vertex(out, "offset_fm", offset, 1.);
+        out << ' '; vertex(out, "plus_GeV", plus, 1.);
+        out << ' '; vertex(out, "minus_GeV", minus, 1.);
+      }
+      out << '\n';
+    }
+  }
+  for (int i = 0; i < int(breaks.size()); ++i) {
+    const StringVertex& b = breaks[i];
+    prefix(out);
+    out << "PARAMETER_BREAKUP leg=" << leg << " index=" << i
+        << " i_pos=" << b.iRegPos << " i_neg=" << b.iRegNeg
+        << " x_pos=" << b.xRegPos << " x_neg=" << b.xRegNeg
+        << " sampled_from=" << (b.fromPos ? "positive" : "negative")
+        << " role=" << ((i == 0 || i == int(breaks.size()) - 1)
+          ? "boundary" : "pair_creation") << '\n';
+  }
+  write(out.str());
+}
+
 inline void hadron(const Event& event, int index, const char* branch,
   int firstIndex, int secondIndex, const Vec4& origin,
   const Vec4& first, const Vec4& second, const Vec4& displacement,
@@ -201,6 +265,11 @@ inline void hadron(const Event& event, int index, const char* branch,
       << " status=" << p.status() << " branch=" << branch
       << " breaks=B" << firstIndex << ",B" << secondIndex
       << " redOsc=" << redOsc << " kappa_GeV_per_fm=" << kappa << '\n';
+  out << "  fragmentation_side="
+      << ((p.statusAbs() == 83 || p.statusAbs() == 87) ? "positive"
+        : (p.statusAbs() == 84 || p.statusAbs() == 88) ? "negative" : "junction/mini")
+      << ' '; momentum(out, p.p());
+  out << '\n';
   out << "  "; vertex(out, "inherited_origin", origin);
   out << "\n  "; vertex(out, "absolute_breakup_first", a, 1.);
   out << "\n  "; vertex(out, "absolute_breakup_second", b, 1.);
@@ -227,6 +296,7 @@ inline void collapse(const Event& event, int index, int recoilString,
       << " status=" << p.status()
       << " branch=one-hadron-collapse recoil_string=" << recoilString
       << " production_time=unavailable(no_reconstructed_breakup_pair)\n  ";
+  momentum(out, p.p()); out << "\n  ";
   vertex(out, "inherited_origin", origin);
   out << "\n  "; vertex(out, "prescription_displacement", p.vProd() - origin);
   out << "\n  "; vertex(out, "saved_vertex", p.vProd());

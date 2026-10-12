@@ -545,8 +545,18 @@ void MiniStringFragmentation::setHadronVertices(Event& event,
   }
 
   // Find hadron production points according to chosen definition.
-  if (traceVertices)
+  if (traceVertices) {
+    StringSystem reference;
+    reference.sizePartons = 2;
+    reference.sizeStrings = reference.sizeRegions = 1;
+    reference.mJoin = reference.m2Join = 0.;
+    reference.iMax = 0;
+    reference.indxReg = 3;
+    reference.system.push_back(region);
+    HadronVertexTrace::geometry("two-hadron-mini-string", reference,
+      iParton, event, ministringVertices, kappaVtx);
     HadronVertexTrace::breakups("two-hadron-mini-string", spaceTime);
+  }
   vector<Vec4> prodPoints(2);
   for(int i = 0; i < 2; ++i) {
     Vec4 middlePoint = 0.5 * (spaceTime[i] + spaceTime[i+1]);
