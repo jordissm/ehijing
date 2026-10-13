@@ -27,5 +27,5 @@ PartonVertex:EmissionWidth = 0.1
 Fragmentation:setVertices = on
 # Store late formation vertices and retain the separate breakup production time.
 HadronVertex:mode = 2
-HadronVertex:smearOn = on
+HadronVertex:smearOn = off
 HadronVertex:xySmear = 0.7

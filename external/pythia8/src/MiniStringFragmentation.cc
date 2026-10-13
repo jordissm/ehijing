@@ -563,11 +563,12 @@ void MiniStringFragmentation::setHadronVertices(Event& event,
     int  iHad = (i == 0) ? iFirst : iLast;
     Vec4 pHad = event[iHad].p();
 
-    // Reduced oscillation period if hadron contains massive quarks.
+    // Light endpoints retain the full oscillation period, as in ordinary
+    // string fragmentation. Only charm and bottom reduce it.
     double mHad = event[iHad].m();
     int    idQ  = (i == 0) ? id1 : id2;
     double redOsc = (idQ == 4 || idQ == 5)
-      ? 1. - pow2(particleDataPtr->m0(idQ) / mHad) : 0.;
+      ? 1. - pow2(particleDataPtr->m0(idQ) / mHad) : 1.;
 
     // Set production point according to chosen definition.
     if (hadronVertex == 0) prodPoints[i] = middlePoint;

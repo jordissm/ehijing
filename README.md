@@ -76,6 +76,24 @@ free outgoing hadron worldlines with `dx/dt = p/E`, beginning at the stored
 formation point; they do not connect adjacent breakup points to that vertex.
 These lines are extrapolations without downstream interactions or decays.
 
+Saved-vertex pages also include massive original endpoint curves for two-parton
+open strings, including one-hadron collapses. The dash-dot curves integrate
+`dp_parallel/dt = +/- kappa` and `dx/dt = p/E` in the input string CM frame,
+using the recorded on-shell masses and momenta, and boost the spacetime paths
+back to the selected frame. Diamonds mark recorded endpoint starts; triangles
+mark model turns. Curves show one outward-and-return excursion and stop there.
+Individual string pages include an endpoint close-up when the motion is small
+compared with the formation-time scale, and diagram labels are spaced apart.
+This is an ideal unbroken constant-tension model, not an exact constituent
+history from PYTHIA. Each endpoint starts at its own recorded vertex with its
+own force clock; distinct birth vertices need not describe a single coherent
+straight string. Fragmentation/pair creation and collapse recoil exchange are
+not modelled, and the curves are not fitted to saved formation points. Massive
+paths through gluon kinks/junctions are omitted with a diagnostic message.
+The model uses [the straight-string equation of motion, Eq. (17)](https://arxiv.org/html/1808.04619v2#S2.SS2.SSS5).
+New traces explicitly record each input parton's `mass_GeV`; older v2/v3 files
+can recover that mass from the recorded four-momentum.
+
 The separate longitudinal pages follow the classical massless-reference Lund
 constituent characteristics, splitting paths at gluon-region boundaries and
 including outward endpoint motion before the boundary turns. Their green and
@@ -85,10 +103,15 @@ corrections and can differ from the saved physical vertices. PYTHIA's smeared
 late prescription need not lie in both breakup vertices' future light cones;
 straight connections would therefore not give physical constituent worldlines.
 Missing final-two coordinates or discontinuous/invalid regions are reported
-instead of interpolated. One-hadron collapses have no reconstructed string paths.
+instead of interpolated. A shared mean endpoint vertex (or mean origin for a
+leg without recorded endpoints) anchors all reference paths of a string/leg,
+so neighbouring paths join; saved hadron metadata is unchanged. One-hadron
+collapses have no parameter-plane paths for newly created constituents, but
+their original massive endpoints are shown by the model above.
 
-Old v2 files still plot saved vertices and hadron worldlines; regenerate traces
-after rebuilding PYTHIA/eHIJING to obtain the constituent pages. Time tables mark
+Old v2 files plot saved vertices, massive input endpoints and hadron worldlines;
+regenerate traces after rebuilding PYTHIA/eHIJING to obtain the parameter-plane
+constituent pages. Time tables mark
 missing production times as `unavailable`. Faded hadrons were not exported,
 and changed final vertices have square markers. Later decay/copy hadrons use
 their ancestry when it identifies a single string; ambiguous ancestry is

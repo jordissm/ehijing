@@ -90,7 +90,8 @@ inline void beginEvent(long long event, int attempt, std::ostream& output) {
       << "An unavailable production time is not a measured zero.\n\n";
   out << "GEOMETRY records describe the longitudinal massless-reference Lund worldsheet.\n"
       << "They exclude transverse tunnelling/smearing and heavy-endpoint corrections.\n"
-      << "Reference constituent meeting points can differ from saved_vertex.\n\n";
+      << "Reference constituent meeting points can differ from saved_vertex.\n"
+      << "STRING partons give input endpoint states, not sampled constituent histories.\n\n";
   write(out.str());
 }
 
@@ -156,6 +157,7 @@ inline void beginString(int index, const ColSinglet& system,
     const Particle& p = event[i];
     out << "  parton index=" << i << " pdg=" << p.id()
         << " name=\"" << p.name() << '"'
+        << " mass_GeV=" << p.m()
         << " role=" << (system.hasJunction ? "junction_parton"
           : system.isClosed ? "gluon_loop"
           : i == system.iParton.front() ? "positive_endpoint"
