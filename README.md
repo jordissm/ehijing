@@ -70,6 +70,16 @@ coordinate origin. `--duration 5` extends outgoing hadron worldlines to 5 fm/c
 after the latest formation point in the plot frame. In the ELECTRA container the script is at
 `/opt/electra/share/utils/plot_fragmentation.py`.
 
+The connected Lund boundary overlay is **enabled by default on the overview
+and saved-vertex pages**, including `--overview-only`. Bold solid lines show
+original endpoint boundaries, thin solid lines show breakup constituents, and
+shading shows surviving reference string. Filled circles show stored vertices;
+hollow `RB` and `RF` circles identify reference breakups/turns and constituent
+meetings. These may differ from the stored vertices. `--lund-boundaries`
+explicitly enables the default; `--no-lund-boundaries` omits this overlay from
+the overview and saved-vertex pages. Dedicated Lund reference pages remain in
+the multipage output.
+
 The Lund pages default to each string's own rest frame, with `z_parallel`
 aligned with the recorded positive light-cone direction. A two-hadron mini-string
 may choose this reference decay axis differently from its input parton axis.
@@ -83,8 +93,9 @@ free outgoing hadron worldlines with `dx/dt = p/E`, beginning at the stored
 formation point; they do not connect adjacent breakup points to that vertex.
 These lines are extrapolations without downstream interactions or decays.
 
-Saved-vertex pages also include massive original endpoint curves for two-parton
-open strings, including one-hadron collapses. The dash-dot curves integrate
+For groups without both connected reference endpoint boundaries, saved-vertex
+pages include the massive original endpoint model for two-parton open strings,
+including one-hadron collapses. The dash-dot curves integrate
 `dp_parallel/dt = +/- kappa` and `dx/dt = p/E` in the input string CM frame,
 using the recorded on-shell masses and momenta, and boost the spacetime paths
 back to the selected frame. Diamonds mark recorded endpoint starts; triangles
