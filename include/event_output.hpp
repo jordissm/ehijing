@@ -37,8 +37,8 @@ void write_event_headers(std::ostream& out);
  * output positions in fm and t, prod_time and form_time in fm/c. Momentum,
  * energy and mass remain in GeV. Coordinate times refer to the input particle
  * frame and are distinct from proper-time intervals. The complete saved vertex
- * and the separate production time are converted to fm before freestreaming
- * and spatial smearing.
+ * and the separate production time are converted to fm before freestreaming.
+ * The writer adds no spatial smearing to hadron positions.
  *
  * @param event_number Global event ID.
  * @param atomic_number Atomic number \f$ Z \f$ of the target nucleus.

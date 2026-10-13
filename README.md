@@ -49,7 +49,8 @@ list ancestor strings through their parent links; multiple sources are retained.
 One-hadron collapses use their inherited origin as the production point without
 constructing a breakup pair. Full production-reference vertices are recorded
 separately from geometric breakups/turns. The
-dump precedes the writer's freestreaming to t = 0 and output spatial smearing.
+dump precedes the writer's freestreaming to t = 0. The writer adds no spatial
+smearing to hadron positions.
 Diagnostics do not change particle data or the OSCAR columns.
 
 ### Plotting a trace
@@ -75,11 +76,10 @@ Lund boundaries are enabled by default on the overview and saved-vertex pages,
 including `--overview-only`. Solid bold lines show original endpoint boundaries,
 thin lines show breakup constituents, and verified reference string area is
 shaded. Filled green and purple circles show stored breakup and formation
-vertices. Boundary turns use green `T` triangles and are not pair creations.
-Hollow `RB`/`RF` circles show converted reference breakups/meetings; `RT`
-triangles show reference turns.
+vertices. Boundary turns remain in the curves without separate markers or
+labels. Hollow `RB`/`RF` circles show converted reference breakups/meetings.
 The primary vertex is a yellow star. Hadron worldlines use `dx/dt = p/E` from
-the saved formation point before OSCAR spatial smearing; they exclude later
+the saved formation point; they exclude later
 interactions. Nonfinal particles are not assigned an invented lifetime.
 
 Reference paths use the explicit inherited string/leg origin, never an average
@@ -105,7 +105,7 @@ input curves. The diamond uses the final hadron momentum after recoil exchange
 and closes at
 the stored late point `F = O + p_h/kappa` and uses the positive input endpoint
 direction in the final hadron rest frame as its axis convention. The proper
-model extent is `m_h/kappa`. `CT` triangles are model turns, not sampled breakups.
+model extent is `m_h/kappa`. Turns remain in the curves without markers or labels.
 This is a massless effective post-collapse string, not the physical evolution
 of the original massive partons. It is used when the assigned vertex satisfies
 that formula; smearing/heavy corrections can require the input-model fallback.
@@ -119,7 +119,7 @@ and recoil exchange, so it need not meet the saved hadron formation. See
 [the massive equation of motion, Eq. (17)](https://arxiv.org/html/1808.04619v2#S2.SS2.SSS5).
 
 Recorded starts (hollow diamonds) describe input constituent availability, not
-hadron formation. Neither input endpoint turns nor effective `CT` turns create
+hadron formation. Neither input endpoint turns nor effective diamond turns create
 constituents. The effective origin is an inherited model anchor, while the purple
 point is the assigned hadron formation. No recoil-exchange history is reconstructed.
 

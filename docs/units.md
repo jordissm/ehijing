@@ -67,7 +67,8 @@ a Lorentz transformation nor a translation.
    in mm. PYTHIA converts its local string breakup displacements from fm to mm
    before adding them to that inherited origin.
 4. The writer converts the complete formation vertex and the separate production
-    time from mm to fm before OSCAR freestreaming or spatial smearing. Production
+    time from mm to fm before OSCAR freestreaming. The writer adds no spatial
+    smearing to hadron positions. Production
     references can include the inherited string/collapse origin as well as breakup
     vertices; all are stored in mm and transformed as full four-vertices. Spectator
    coordinates generated in fm retain those units.

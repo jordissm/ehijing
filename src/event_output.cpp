@@ -66,7 +66,7 @@ void write_final_hadrons(
         }
 
         // Convert the complete formation vertex from PYTHIA's mm to output fm
-        // before freestreaming or adding spatial smearing.
+        // before freestreaming to t = 0.
         Vec4 local_pos = p.vProd() * constants::units::mm_to_fm;
         // Vec4 p_com = p.p();
         // Vec4 phadron = p.p();
@@ -98,12 +98,6 @@ void write_final_hadrons(
             y_hadron += p.py() / e * dt_to_zero;
             z_hadron += p.pz() / e * dt_to_zero;
         }
-
-        // Smear transverse output positions to avoid exact spatial overlaps.
-        static thread_local std::mt19937 smear_gen(std::random_device{}());
-        std::normal_distribution<double> transverse_smear(0.0, 0.5);
-        x_hadron += transverse_smear(smear_gen);
-        y_hadron += transverse_smear(smear_gen);
 
         out << std::fixed << std::setprecision(2) << 0.00 << " "
             << std::fixed << std::setprecision(5)
