@@ -171,12 +171,14 @@ int main(int argc, char* argv[]) {
             double Ry = pythia.event.Ry();
             double Rz = pythia.event.Rz();
             // Modify the final shower with low-Q^2 medium corrections
-            modified_ff.sample_ff_partons(pythia, kinematics, Rx, Ry, Rz);
+            Pythia8::ColourConnectionHistory colour_history;
+            auto* history = hadronizer.tracesVertices() ? &colour_history : nullptr;
+            modified_ff.sample_ff_partons(pythia, kinematics, Rx, Ry, Rz, history);
             
             // Put the parton-level event into the separate hadronizer
             auto hadronized_event_opt = hadronizer.hadronize(
                 pythia, atomic_number, mass_number, Rx, Ry, Rz,
-                first_event_id + n_written, attempt + 1);
+                first_event_id + n_written, attempt + 1, history);
             if (!hadronized_event_opt) {
                 std::cerr << "WARNING: hadronization failed for event " << (first_event_id + n_written) << " on attempt " << (attempt + 1) << "/" << hadronization_retries_max << "\n";
                 n_hadronization_failed++;

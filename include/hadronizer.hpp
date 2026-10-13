@@ -6,6 +6,7 @@
  */
 
 #include "Pythia8/Pythia.h"
+#include "Pythia8/ColourConnectionHistory.h"
 
 #include <cstdint>
 #include <optional>
@@ -45,6 +46,7 @@ public:
      *        for string fragmentation and particle-data options.
      */
     explicit Hadronizer(const std::string& hadronization_config_path);
+    bool tracesVertices() const { return trace_vertices; }
 
     /**
      * @brief Hadronize one medium-modified PYTHIA event record.
@@ -68,6 +70,8 @@ public:
      * @param Rz Hard-vertex z coordinate in GeV^{-1} used for production vertices.
      * @param event_id Global event ID used to label the optional spacetime trace.
      * @param attempt One-based generation attempt used to label the trace.
+     * @param colour_history Optional history from the same medium-modified
+     *        event/attempt; consumed only when spacetime tracing is enabled.
      *
      * @return Hadronization result if fragmentation succeeds; otherwise
      *         `std::nullopt`.
@@ -79,7 +83,8 @@ public:
                                              double Ry,
                                              double Rz,
                                              int64_t event_id = -1,
-                                             int attempt = 0);
+                                             int attempt = 0,
+                                             const Pythia8::ColourConnectionHistory* colour_history = nullptr);
 
 private:
     /// Dedicated PYTHIA instance used only for hadronization.

@@ -80,7 +80,7 @@ public:
     hasVertexSave(pt.hasVertexSave), vProdSave(pt.vProdSave),
     tauSave(pt.tauSave), hasProductionTimeSave(pt.hasProductionTimeSave),
     vBreakupFirstSave(pt.vBreakupFirstSave),
-    vBreakupSecondSave(pt.vBreakupSecondSave), collset_(pt.collset_),
+    vBreakupSecondSave(pt.vBreakupSecondSave), colourHistoryIdSave(pt.colourHistoryIdSave), collset_(pt.collset_),
     Rx_(pt.Rx_), Ry_(pt.Ry_), Rz_(pt.Rz_),
     pdePtr(pt.pdePtr), evtPtr(pt.evtPtr),
     coll_ts_(pt.coll_ts_),
@@ -97,6 +97,7 @@ public:
     hasProductionTimeSave = pt.hasProductionTimeSave;
     vBreakupFirstSave = pt.vBreakupFirstSave;
     vBreakupSecondSave = pt.vBreakupSecondSave;
+    colourHistoryIdSave = pt.colourHistoryIdSave;
     Rx_ = pt.Rx_; Ry_ = pt.Ry_; Rz_ = pt.Rz_;
     pdePtr = pt.pdePtr; evtPtr = pt.evtPtr;
     coll_ts_ = pt.coll_ts_;
@@ -145,6 +146,9 @@ public:
   void zProd(double zProdIn) {vProdSave.pz(zProdIn); hasVertexSave = true;}
   void tProd(double tProdIn) {vProdSave.e(tProdIn); hasVertexSave = true;}
   void tau(double tauIn) {tauSave = tauIn;}
+  // Diagnostic identity, independent of mutable colour tags and event indices.
+  // Zero means no medium-stage colour provenance was recorded.
+  void colourHistoryId(int idIn) {colourHistoryIdSave = idIn;}
 
   // Breakup pair defining the separate hadron production time. Keep both
   // vertices so that the earlier time can be selected in any boosted frame.
@@ -161,6 +165,7 @@ public:
   int    daughter2() const {return daughter2Save;}
   int    col()       const {return colSave;}
   int    acol()      const {return acolSave;}
+  int    colourHistoryId() const {return colourHistoryIdSave;}
   Vec4   p()         const {return pSave;}
   double px()        const {return pSave.px();}
   double py()        const {return pSave.py();}
@@ -414,6 +419,7 @@ protected:
   double tauSave;
   bool   hasProductionTimeSave;
   Vec4   vBreakupFirstSave, vBreakupSecondSave;
+  int    colourHistoryIdSave = 0;
   double Rx_, Ry_, Rz_; // WK:
 
   // Pointer to properties of the particle species.

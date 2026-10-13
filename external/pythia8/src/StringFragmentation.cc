@@ -1080,6 +1080,11 @@ void StringFragmentation::setHadronVertices( Event& event) {
       * pPosFinalReg + (xNegIn - r) * pNegFinalReg ) / kappaVtx;
   }
 
+  // Preserve the actual converted reference points, including finalTwo and
+  // nonphysical-fraction corrections, before heavy offsets and smearing.
+  vector<Vec4> referencePoints;
+  if (traceVertices) referencePoints = longitudinal;
+
   // Longitudinal offset of breakup points for massive quarks.
   for (int i = 0; i < vertexSize; ++i) {
     int iPosIn = orderedVertices[i].iRegPos;
@@ -1223,6 +1228,7 @@ void StringFragmentation::setHadronVertices( Event& event) {
 
   // Space-time location of the breakup points in two initial junction legs.
   vector<Vec4> legMinSpaceTime, legMidSpaceTime;
+  vector<Vec4> legMinReference, legMidReference;
   if (hasJunction) {
     int hadSoFar = 0;
     // Loop over the two lowest-energy legs.
@@ -1273,6 +1279,11 @@ void StringFragmentation::setHadronVertices( Event& event) {
         if (fromBreaks.m2Calc() < -CHECKPOS * max(1., pow2(fromBreaks.e())))
           infoPtr->errorMsg("Warning in StringFragmentation::setVertices: "
             "negative tau^2 from breaks");
+      }
+
+      if (traceVertices) {
+        if (legLoop == 0) legMinReference = longitudinalPos;
+        else legMidReference = longitudinalPos;
       }
 
       // Longitudinal offset of breakup points for massive quarks.
@@ -1398,9 +1409,12 @@ void StringFragmentation::setHadronVertices( Event& event) {
       int id =  event[iPartonNow.front()].idAbs();
       const char* traceLeg = legLoop == 0 ? "junction-leg-0" : "junction-leg-1";
       if (traceVertices) {
+        Vec4 referenceOrigin = event[hadSoFar + event.size()
+          - hadrons.size()].vProd();
         HadronVertexTrace::geometry(traceLeg, legLoop == 0 ? systemMin : systemMid,
           iPartonNow, event, legLoop == 0 ? legMinVertices : legMidVertices,
-          kappaVtx, &MtoJRF, &MfromJRF);
+          kappaVtx, &MtoJRF, &MfromJRF,
+          legLoop == 0 ? &legMinReference : &legMidReference, &referenceOrigin);
         HadronVertexTrace::breakups(traceLeg, finalLocation);
       }
 
@@ -1454,8 +1468,11 @@ void StringFragmentation::setHadronVertices( Event& event) {
   // from breakup vertices using the selected definition.
   const char* traceLeg = hasJunction ? "junction-leg-2" : "ordinary";
   if (traceVertices) {
+    Vec4 referenceOrigin = event[iHadJunc + event.size()
+      - hadrons.size()].vProd();
     HadronVertexTrace::geometry(traceLeg, system, iPartonIn, event,
-      orderedVertices, kappaVtx);
+      orderedVertices, kappaVtx, nullptr, nullptr, &referencePoints,
+      &referenceOrigin);
     HadronVertexTrace::breakups(traceLeg, spaceTime);
   }
   for (int i = 0; i < int(spaceTime.size()) - 1; ++i) {

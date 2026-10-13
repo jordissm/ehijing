@@ -6,6 +6,7 @@
 
 #include "Pythia8/Event.h"
 #include "Pythia8/FragmentationSystems.h"
+#include "Pythia8/ColourConnectionHistory.h"
 #include <algorithm>
 #include <iomanip>
 #include <ostream>
@@ -37,6 +38,7 @@ struct Context {
   int attempt = 0, pass = 0, string = -1;
   std::map<int, Tag> tags;
   std::map<int, Snapshot> snapshots;
+  const ColourConnectionHistory* colourHistory = nullptr;
 };
 
 // One context per thread, shared by the wrapper and fragmentation routines.
@@ -79,7 +81,7 @@ inline void beginEvent(long long event, int attempt, std::ostream& output) {
   c.event = event;
   c.attempt = attempt;
   std::ostringstream out;
-  out << "# eHIJING fragmentation trace v3\n"
+  out << "# eHIJING fragmentation trace v5\n"
       << "Event: " << event << "   Attempt: " << attempt << '\n'
       << "Coordinates: (t, x, y, z); time in fm/c; position in fm; momentum in GeV.\n"
       << "Breakup B labels are local to each string leg.\n"
@@ -91,7 +93,11 @@ inline void beginEvent(long long event, int attempt, std::ostream& output) {
   out << "GEOMETRY records describe the longitudinal massless-reference Lund worldsheet.\n"
       << "They exclude transverse tunnelling/smearing and heavy-endpoint corrections.\n"
       << "Reference constituent meeting points can differ from saved_vertex.\n"
+      << "REFERENCE_BREAKUP points include spacetime conversion corrections, before heavy offsets and smearing.\n"
       << "STRING partons give input endpoint states, not sampled constituent histories.\n\n";
+  out << "Colour connection times describe the recorded medium-stage topology, not hadron production/formation.\n"
+      << "Connection time dates the start of the current uninterrupted complete source component; first_time also records its first appearance.\n"
+      << "Untimed pre-medium/shower connections remain unavailable. Scalar connection clocks cannot be boosted without an interaction four-vertex.\n\n";
   write(out.str());
 }
 
@@ -134,6 +140,29 @@ private:
   bool enabled;
 };
 
+inline void colourConnection(std::ostream& out, const Event& event,
+  const std::vector<int>& partons) {
+  if (!context().colourHistory) {
+    out << "color_connection_status=unavailable_no_history color_connection_time=unavailable\n";
+    return;
+  }
+  const auto connection = context().colourHistory->connection(event, partons);
+  out << "color_connection_status=" << connection.status << " color_connection_time=";
+  if (connection.timed) out << connection.time; else out << "unavailable";
+  out << " color_connection_first_status=" << connection.firstStatus
+      << " color_connection_first_time=";
+  if (connection.firstTimed) out << connection.firstTime; else out << "unavailable";
+  out << " color_latest_known_link_time=";
+  if (connection.hasLatestLink) out << connection.latestLinkTime; else out << "unavailable";
+  out << " color_source_ids=(";
+  bool first = true;
+  for (int id : connection.sources) { if (!first) out << ','; out << id; first = false; }
+  out << ") color_link_ids=(";
+  first = true;
+  for (int id : connection.links) { if (!first) out << ','; out << id; first = false; }
+  out << ")\n";
+}
+
 inline void beginString(int index, const ColSinglet& system,
   const Event& event, const char* branch) {
   if (!context().active) return;
@@ -162,14 +191,26 @@ inline void beginString(int index, const ColSinglet& system,
           : system.isClosed ? "gluon_loop"
           : i == system.iParton.front() ? "positive_endpoint"
           : i == system.iParton.back() ? "negative_endpoint" : "gluon_kink")
-        << " status=" << p.status() << " colors=" << p.col() << ','
+        << " status=" << p.status() << " colour_source_id=" << p.colourHistoryId()
+        << " colors=" << p.col() << ','
         << p.acol() << " mothers=" << p.mother1() << ',' << p.mother2()
         << " hasVertex=" << p.hasVertex() << ' ';
     momentum(out, p.p());
     out << ' ';
     vertex(out, "absolute_vertex", p.vProd());
+    if (context().colourHistory) {
+      std::set<int> sources;
+      const bool complete = context().colourHistory->sourceIds(event, i, sources);
+      out << " color_provenance_complete=" << complete << " color_source_ids=(";
+      bool first = true;
+      for (int id : sources) { if (!first) out << ','; out << id; first = false; }
+      out << ')';
+    }
     out << '\n';
   }
+  prefix(out);
+  out << "STRING_CONNECTION ";
+  colourConnection(out, event, system.iParton);
   write(out.str());
 }
 
@@ -202,14 +243,18 @@ inline void breakups(const char* leg, const std::vector<Vec4>& points) {
 inline void geometry(const char* leg, const StringSystem& system,
   std::vector<int> partons, Event& event,
   const std::vector<StringVertex>& breaks, double kappa,
-  const RotBstMatrix* toJRF = nullptr, const RotBstMatrix* fromJRF = nullptr) {
+  const RotBstMatrix* toJRF = nullptr, const RotBstMatrix* fromJRF = nullptr,
+  const std::vector<Vec4>* effectivePoints = nullptr,
+  const Vec4* origin = nullptr) {
   if (!context().active) return;
   StringSystem reference = system;
   std::ostringstream out;
   prefix(out);
   out << "GEOMETRY leg=" << leg << " max_region=" << reference.iMax
       << " kappa_GeV_per_fm=" << kappa
-      << " model=longitudinal_massless_reference\n";
+      << " model=longitudinal_massless_reference";
+  if (origin) { out << ' '; vertex(out, "origin_fm", *origin); }
+  out << '\n';
   for (int pos = 0; pos <= reference.iMax; ++pos) {
     for (int neg = 0; neg <= reference.iMax - pos; ++neg) {
       StringRegion region = reference.region(pos, neg);
@@ -246,6 +291,14 @@ inline void geometry(const char* leg, const StringSystem& system,
         << " sampled_from=" << (b.fromPos ? "positive" : "negative")
         << " role=" << ((i == 0 || i == int(breaks.size()) - 1)
           ? "boundary" : "pair_creation") << '\n';
+    if (effectivePoints && i < int(effectivePoints->size())) {
+      Vec4 position = (*effectivePoints)[i];
+      if (fromJRF) position.rotbst(*fromJRF);
+      prefix(out);
+      out << "REFERENCE_BREAKUP leg=" << leg << " index=" << i << ' ';
+      vertex(out, "position_fm", position, 1.);
+      out << '\n';
+    }
   }
   write(out.str());
 }
@@ -287,7 +340,7 @@ inline void hadron(const Event& event, int index, const char* branch,
 }
 
 inline void collapse(const Event& event, int index, int recoilString,
-  const Vec4& origin) {
+  const Vec4& origin, const std::vector<int>& partons) {
   if (!context().active) return;
   recordHadron(event, index, "one-hadron-collapse");
   const Particle& p = event[index];
@@ -302,7 +355,7 @@ inline void collapse(const Event& event, int index, int recoilString,
   vertex(out, "inherited_origin", origin);
   out << "\n  "; vertex(out, "prescription_displacement", p.vProd() - origin);
   out << "\n  "; vertex(out, "saved_vertex", p.vProd());
-  out << '\n';
+  out << "\n  "; colourConnection(out, event, partons);
   write(out.str());
 }
 

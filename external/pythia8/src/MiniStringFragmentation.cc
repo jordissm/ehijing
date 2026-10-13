@@ -236,7 +236,6 @@ bool MiniStringFragmentation::ministring2two( int nTry, Event& event) {
 
   // Save parton vertices.
   Vec4 vProdF = event[ iParton.front() ].vProd();
-  Vec4 vProdL = event[ iParton.back() ].vProd();
 
   // Add produced particles to the event record.
   int iFirst = event.append( idHad1, statusHadPos, iParton.front(),
@@ -247,7 +246,9 @@ bool MiniStringFragmentation::ministring2two( int nTry, Event& event) {
   // Set decay vertex when this is displaced.
   if (event[iParton.front()].hasVertex()) {
     event[iFirst].vProd( vProdF );
-    event[iLast].vProd( vProdL );
+    // One string has one inherited spacetime origin, as in ordinary
+    // fragmentation. Retain both input birth vertices in the trace.
+    event[iLast].vProd( vProdF );
   }
 
   // Set lifetime of hadrons.
@@ -379,7 +380,11 @@ bool MiniStringFragmentation::ministring2one( int iSub,
       // Keep track of 74 throughout the event.
       if (event[iOld].status() == 74) iNew = event.copy(iOld, 74);
       else iNew = event.copy(iOld, 72);
-      event[iNew].rotbst(M);
+      // This is a local recoil momentum reshuffle, not a change of frame.
+      // Past birth events and breakup metadata must remain fixed in the lab.
+      Vec4 pNew = event[iNew].p();
+      pNew.rotbst(M);
+      event[iNew].p(pNew);
       colConfig[iMax].iParton[i] = iNew;
     }
   }
@@ -430,7 +435,7 @@ bool MiniStringFragmentation::ministring2one( int iSub,
     event[iHad].vProd( event[iHad].vProd() + prodPoint * FM2MM );
   }
   if (traceVertices)
-    HadronVertexTrace::collapse(event, iHad, iMax, traceOrigin);
+    HadronVertexTrace::collapse(event, iHad, iMax, traceOrigin, iParton);
 
   // Successfully done.
   return true;
@@ -456,6 +461,8 @@ void MiniStringFragmentation::setHadronVertices(Event& event,
     Vec4 noOffset = (xPosIn * region.pPos + xNegIn * region.pNeg) / kappaVtx;
     longitudinal.push_back( noOffset );
   }
+  vector<Vec4> referencePoints;
+  if (traceVertices) referencePoints = longitudinal;
 
   // Longitudinal offset of breakup points for massive quarks.
   if (region.massiveOffset( 0, 0, 0, id1, id2, mc, mb)) {
@@ -553,8 +560,10 @@ void MiniStringFragmentation::setHadronVertices(Event& event,
     reference.iMax = 0;
     reference.indxReg = 3;
     reference.system.push_back(region);
+    Vec4 referenceOrigin = event[iFirst].vProd();
     HadronVertexTrace::geometry("two-hadron-mini-string", reference,
-      iParton, event, ministringVertices, kappaVtx);
+      iParton, event, ministringVertices, kappaVtx, nullptr, nullptr,
+      &referencePoints, &referenceOrigin);
     HadronVertexTrace::breakups("two-hadron-mini-string", spaceTime);
   }
   vector<Vec4> prodPoints(2);
