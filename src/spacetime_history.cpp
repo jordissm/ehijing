@@ -229,7 +229,12 @@ void SpacetimeHistory::finish_output() {
 }
 
 void SpacetimeHistory::write(std::ostream& out) const {
-    HepMC3::WriterAscii writer(out);
+    if (!out) throw std::runtime_error("Cannot write spacetime history");
+    // Some HepMC3 versions close a supplied ofstream in WriterAscii::close().
+    // Give the writer a plain ostream over the borrowed buffer so it can
+    // finish the HepMC footer without closing the caller-owned file.
+    std::ostream stream(out.rdbuf());
+    HepMC3::WriterAscii writer(stream);
     writer.set_precision(17);
     for (size_t i = 0; i < snapshots_.size(); ++i) {
         // Serialize a diagnostic copy: neither the source generator nor the
@@ -241,5 +246,7 @@ void SpacetimeHistory::write(std::ostream& out) const {
         if (writer.failed()) throw std::runtime_error("Cannot write spacetime history");
     }
     writer.close();
-    if (writer.failed() || !out) throw std::runtime_error("Cannot finish spacetime history");
+    out.flush();
+    if (writer.failed() || !stream || !out)
+        throw std::runtime_error("Cannot finish spacetime history");
 }

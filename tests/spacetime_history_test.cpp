@@ -7,6 +7,7 @@
 #include "HepMC3/GenVertex.h"
 
 #include <cmath>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -139,6 +140,26 @@ int main() {
                                            "electra-history-path-test", 42, 10);
         require(paths.historyPath.filename() == "event_00000042.history", "Wrong history filename");
         require(paths.historyPath.parent_path() == paths.eventPath.parent_path(), "Wrong history shard");
+
+        // Exercise the driver's real file lifecycle: string streams cannot
+        // reveal a writer that closes a caller-owned ofstream.
+        {
+            std::ofstream file_output(paths.historyPath);
+            require(file_output.is_open(), "Cannot open history test file");
+            history.write(file_output);
+            require(file_output.is_open(), "History writer closed caller-owned file");
+            file_output.close();
+            require(bool(file_output), "Cannot close history test file");
+        }
+        {
+            HepMC3::ReaderAscii file_reader(paths.historyPath.string());
+            for (int i = 0; i < 4; ++i) {
+                auto snapshot = read(file_reader);
+                require(snapshot.event_number() == i, "File snapshot order lost");
+            }
+            file_reader.close();
+        }
+        std::filesystem::remove(paths.historyPath);
 
         // A=Z=1 with a struck proton has no spectators, so both calls consume
         // no output RNG draws. Verify that diagnostics leave existing files exact.
