@@ -37,6 +37,10 @@ existing interpretation. Version 3 adds fragmentation-side labels, momenta at
 fragmentation, and `GEOMETRY`, `REGION`, and `PARAMETER_BREAKUP` records. These
 describe PYTHIA's longitudinal massless-reference parameter plane; diagnostics
 fill unused regions in a copy of the system without changing the event or RNG.
+Version 4 additionally records the explicit inherited origin and
+`REFERENCE_BREAKUP` points after spacetime conversion corrections, before heavy
+endpoint offsets and vertex smearing. These include special finalTwo solutions.
+The trace preserves raw fractions alongside the converted points.
 
 Final entries include the OSCAR `output_ID` for exported particles, the source
 string and branch, and indicators showing whether their saved vertex or breakup
@@ -60,87 +64,138 @@ python3 utils/plot_fragmentation.py /path/to/event_00000000.fragmentation \
     --string 0 --pass 1 --frame string-rest -o string_0_rest.pdf
 ```
 
-The default PDF sits beside the input file and includes a time-versus-z overview,
-individual string/pass diagrams, longitudinal constituent worldline pages for
-v3 geometry records, and hadron time tables. Use `--axis x` or
-`--axis y` for other projections, `--no-labels` for crowded diagrams, or
-`--overview-only` for a single page. `--frame string-rest` boosts both vertices
-and momenta to one selected string's rest frame, with the primary vertex as the
-coordinate origin. `--duration 5` extends outgoing hadron worldlines to 5 fm/c
-after the latest formation point in the plot frame. In the ELECTRA container the script is at
-`/opt/electra/share/utils/plot_fragmentation.py`.
+The default PDF sits beside the input file and contains the common lab-frame
+overview, individual string/pass diagrams, Lund reference pages, and
+final particle-time tables in the lab and each available input-string rest
+frame by default (`--no-table` omits them). The container script
+is at `/opt/electra/share/utils/plot_fragmentation.py`.
 
-The connected Lund boundary overlay is **enabled by default on the overview
-and saved-vertex pages**, including `--overview-only`. Bold solid lines show
-original endpoint boundaries, thin solid lines show breakup constituents, and
-shading shows surviving reference string. Filled circles show stored vertices;
-hollow `RB` and `RF` circles identify reference breakups/turns and constituent
-meetings. These may differ from the stored vertices. `--lund-boundaries`
-explicitly enables the default; `--no-lund-boundaries` omits this overlay from
-the overview and saved-vertex pages. Dedicated Lund reference pages remain in
-the multipage output.
+Lund boundaries are enabled by default on the overview and saved-vertex pages,
+including `--overview-only`. Solid bold lines show original endpoint boundaries,
+thin lines show breakup constituents, and verified reference string area is
+shaded. Filled green and purple circles show stored breakup and formation
+vertices. Hollow `RB`/`RF` circles show converted reference breakups/meetings.
+The primary vertex is a yellow star. Hadron worldlines use `dx/dt = p/E` from
+the saved formation point before OSCAR spatial smearing; they exclude later
+interactions. Nonfinal particles are not assigned an invented lifetime.
 
-The Lund pages default to each string's own rest frame, with `z_parallel`
-aligned with the recorded positive light-cone direction. A two-hadron mini-string
-may choose this reference decay axis differently from its input parton axis.
-`--lund-view projection` instead
-uses the selected `--frame` and `--axis` on those pages. This option does not
-change the saved-vertex plots or time tables.
+Reference paths use the explicit inherited string/leg origin, never an average
+of endpoint birth events. Canonical half-gluon momenta normalize rescaled
+regional bases before stitching. Spacetime conversion corrections are included;
+paths and area fill must pass domain, ordering and continuity checks. `B!` marks
+a converted point outside the classical reference domain; `H!` marks a stored
+lab-frame formation before an associated breakup. Corrections in PYTHIA can
+produce such assignments; no causal classical connection is fabricated.
 
-Breakup vertices are solid green circles, formation vertices solid purple
-circles, and the primary vertex a yellow star. Saved-vertex diagrams show
-free outgoing hadron worldlines with `dx/dt = p/E`, beginning at the stored
-formation point; they do not connect adjacent breakup points to that vertex.
-These lines are extrapolations without downstream interactions or decays.
+Reference meeting points exclude transverse fragmentation momentum, while the
+saved late formula includes the full hadron four-momentum. Therefore turning
+off `HadronVertex:smearOn` does not make these points identical in the lab. The
+reference picture also excludes heavy-endpoint offsets and transverse tunnelling.
+See [the late prescription, Eq. (25)](https://arxiv.org/html/1808.04619v2#S3.SS1).
 
-For groups without both connected reference endpoint boundaries, saved-vertex
-pages include the massive original endpoint model for two-parton open strings,
-including one-hadron collapses. The dash-dot curves integrate
-`dp_parallel/dt = +/- kappa` and `dx/dt = p/E` in the input string CM frame,
-using the recorded on-shell masses and momenta, and boost the spacetime paths
-back to the selected frame. Diamonds mark recorded endpoint starts; triangles
-mark model turns. Curves show one outward-and-return excursion and stop there.
-Individual string pages include an endpoint close-up when the motion is small
-compared with the formation-time scale, and diagram labels are spaced apart.
-This is an ideal unbroken constant-tension model, not an exact constituent
-history from PYTHIA. Each endpoint starts at its own recorded vertex with its
-own force clock; distinct birth vertices need not describe a single coherent
-straight string. Fragmentation/pair creation and collapse recoil exchange are
-not modelled, and the curves are not fitted to saved formation points. Massive
-paths through gluon kinks/junctions are omitted with a diagnostic message.
-The model uses [the straight-string equation of motion, Eq. (17)](https://arxiv.org/html/1808.04619v2#S2.SS2.SSS5).
-New traces explicitly record each input parton's `mass_GeV`; older v2/v3 files
-can recover that mass from the recorded four-momentum.
+### Single-hadron collapses
 
-The separate longitudinal pages follow the classical massless-reference Lund
-constituent characteristics, splitting paths at gluon-region boundaries and
-including outward endpoint motion before the boundary turns. Original
-endpoint boundaries are bold solid lines, breakup-constituent boundaries are
-thin solid lines, and the surviving string worldsheet is shaded. Pair creation
-removes the future quadrant of each breakup in the string parameter plane;
-the shading excludes those regions. If any pair-creation coordinates are
-missing, the area is not filled. Outward endpoint arms are reconstructed
-independently of hadron solutions so missing final-two coordinates do not
-hide an otherwise recorded original endpoint arm. Their green and
-purple points, and outgoing longitudinal hadron slopes, belong to that reference
-picture. They exclude transverse tunnelling/smearing and heavy-endpoint
-corrections and can differ from the saved physical vertices. PYTHIA's smeared
-late prescription need not lie in both breakup vertices' future light cones;
-straight connections would therefore not give physical constituent worldlines.
-Missing final-two coordinates or discontinuous/invalid regions are reported
-instead of interpolated. A shared mean endpoint vertex (or mean origin for a
-leg without recorded endpoints) anchors all reference paths of a string/leg,
-so neighbouring paths join; saved hadron metadata is unchanged. One-hadron
-collapses have no parameter-plane paths for newly created constituents, but
-their original massive endpoints are shown by the model above.
+The default `--collapse-model both` overlays a labelled one-hadron Lund
+diamond and the original massive input endpoint curves, also on the dedicated
+collapse page. Dash-dot lines are the effective diamond; dotted lines are the
+input curves. The diamond uses the final hadron momentum after recoil exchange
+and closes at
+the stored late point `F = O + p_h/kappa` and uses the positive input endpoint
+direction in the final hadron rest frame as its axis convention. The proper
+model extent is `m_h/kappa`. `CT` triangles are model turns, not sampled breakups.
+This is a massless effective post-collapse string, not the physical evolution
+of the original massive partons. It is used when the assigned vertex satisfies
+that formula; smearing/heavy corrections can require the input-model fallback.
 
-Old v2 files plot saved vertices, massive input endpoints and hadron worldlines;
-regenerate traces after rebuilding PYTHIA/eHIJING to obtain the parameter-plane
-constituent pages. Time tables mark
-missing production times as `unavailable`. Faded hadrons were not exported,
-and changed final vertices have square markers. Later decay/copy hadrons use
-their ancestry when it identifies a single string; ambiguous ancestry is
-shown as unassigned. Nonfinal hadrons are not extrapolated with an invented lifetime.
+`--collapse-model effective` selects only the diamond; `--collapse-model input`
+selects only the massive constant-force diagnostic. Each
+endpoint starts at its own recorded birth vertex, turns at
+`abs(p_parallel)/kappa` and stops on its first return at
+`2*abs(p_parallel)/kappa`, in the input string CM frame. It excludes pair creation
+and recoil exchange, so it need not meet the saved hadron formation. See
+[the massive equation of motion, Eq. (17)](https://arxiv.org/html/1808.04619v2#S2.SS2.SSS5).
+
+Recorded starts (hollow diamonds) describe input constituent availability, not
+hadron formation. Neither input endpoint turns nor effective `CT` turns create
+constituents. The effective origin is an inherited model anchor, while the purple
+point is the assigned hadron formation. No recoil-exchange history is reconstructed.
+
+### Frames and compatibility
+
+All main plots for an event and frame/spatial projection use shared axis limits.
+Longitudinal pages share numerical ranges too, while retaining each string's
+own CM and axis; their coordinates cannot be overlaid as one physical frame.
+Endpoint-detail insets retain their local zoom. Reference projection pages
+use the same boost and coordinate origin as the corresponding saved pages.
+
+Use `--frame lab --overview-only` to plot all selected strings in one common
+frame. `--string 0 --pass 1` restricts the selection. Reference pages default
+to each string's own CM longitudinal axis; effective collapse pages use the
+final hadron rest frame. `--lund-view projection` instead uses the chosen
+`--frame`/`--axis` on reference pages. The default `--frame both` includes lab
+and input-string CM saved-vertex plots and tables. A multi-string overview
+uses only lab; each individual string has its own rest view when its momentum
+is timelike. `--frame string-rest` requests those individual rest views and
+keeps the multi-string overview in lab. `--frame lab` uses lab reference pages
+too unless `--lund-view string-rest` is explicitly selected. `--overview-only`
+omits per-string pages and tables.
+
+Tables retain unavailable collapse production times as `unavailable`. They
+recompute rest-frame production time from the two full breakup vertices, while
+saved and final formation times are transformed as four-vertex components.
+Rest tables use the input string CM and primary origin, matching saved-vertex
+rest plots; effective collapse reference pages use the final hadron CM and
+inherited origin.
+Rest-table rows are grouped by string and collected on the same page; each row
+uses its own string CM, not a common rest frame for the event.
+
+Individual string rest frames cannot be mixed
+into a common physical spacetime overview.
+
+Other options include `--axis x`, `--axis y`, `--no-labels`, `-o output.pdf`,
+and `--no-lund-boundaries` to omit the overview overlay. `--duration 5` extends
+free hadron lines 5 fm/c past the latest formation; it does not set constituent
+trajectory durations.
+
+The plotter reads v2/v3/v4/v5. Old unsmeared light-flavour breakup pairs provide
+converted reference points when v4 records are absent. Rebuild bundled PYTHIA,
+eHIJING and the container, then regenerate events to apply the native fixes:
+collapse recoil reshuffling changes momentum while preserving past vertices,
+and both hadrons of a two-hadron mini-string inherit the positive endpoint
+origin, matching ordinary fragmentation. This origin is a consistent inherited
+anchor, not a newly determined colour-exchange event. Original endpoint births
+remain in the trace. Old traces preserve their historical metadata, including
+any recoil-boosted vertices or different mini-string inherited origins.
+
+### Colour-connection provenance (trace v5)
+
+`HadronVertex:trace = on` now enables a per-attempt history beginning before
+the medium modifications. Stable source IDs survive temporary particle copies,
+hadronizer import and native recoil copies; joined partons are resolved through
+their mother entries. `COLOUR_CHANGE` records old/new colour ports with the
+sampled emission/collision clock in fm/c relative to the hard interaction.
+`COLOUR_LINK` identifies each link by its tag and both source IDs, and records
+the changes that created or removed it. `IMPORT` maps source IDs into the
+hadronizer event. History recording consumes no random numbers.
+
+Each `STRING_CONNECTION` and single-hadron-collapse record gives:
+
+- `color_connection_first_time` / `color_connection_first_status`: first
+  recorded appearance of the complete connected source component.
+- `color_connection_time` / `color_connection_status`: start of its current
+  uninterrupted connection episode, which can differ after disconnection.
+- `color_source_ids` and `color_link_ids`: references into the history.
+- `color_latest_known_link_time`: a diagnostic clock, not a component birth time.
+
+Component creation is determined from the graph history, including removal of
+external links. Pre-medium/shower components have no recorded creation clock;
+they stay unavailable. Missing/changed provenance, incomplete or junction
+graphs and nonchronological operations also prevent assignment of a time.
+Times are model clocks in the lab/nuclear frame, not interaction four-vertices;
+they cannot be boosted as scalars. They do not change hadron `prod_time`,
+formation points or the OSCAR format. The plotter accepts v2-v5 and prints the
+collapse clocks/statuses. Rebuild the bundled PYTHIA and eHIJING, then regenerate
+events to obtain the new history; old traces lack this information.
 
 ## Generating documentation
 

@@ -23,6 +23,15 @@ rather than recompilation-sensitive constants.
 - DIS event-selection cuts are loaded from `RunConfig::dis_cuts_config_path`.
 - Tabulated eHIJING data are read from `RunConfig::tabulation_path`.
 
+Keep the three settings files together under `input/ehijing/experiments/<experiment>/`
+using the names `hard_process.setting`, `hadronization.setting`, and
+`dis_cuts.setting`. The Slurm submit script selects the directory with
+the required `EXPERIMENT` variable; each config path can still be overridden
+independently when needed. Use a separate experiment directory when detector
+acceptance or reconstruction assumptions require different settings, including
+hadronization settings. Add bundles only for experiments with configured files;
+the repository currently supplies the HERMES bundle.
+
 The DIS cuts file is parsed by `load_dis_cuts()` and supports the optional keys
 `yMin`, `yMax`, `xBMin`, `xBMax`, `nuMin`, `nuMax`, `Q2Min`, `Q2Max`, `W2Min`,
 and `W2Max`.
