@@ -43,6 +43,7 @@ add_executable(ehijing
   src/hadronizer.cpp
   src/main.cpp
   src/modified_ff.cpp
+  src/spacetime_history.cpp
 )
 
 # ---- C++ standard (target-based) ----
@@ -77,3 +78,22 @@ endif()
 # Install
 include(GNUInstallDirs)
 install(TARGETS ehijing RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Synthetic diagnostics tests: no event generation or reference data required.
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(spacetime_history_test
+    tests/spacetime_history_test.cpp
+    src/spacetime_history.cpp
+    src/filesystem_utils.cpp
+    src/event_output.cpp
+  )
+  target_compile_features(spacetime_history_test PRIVATE cxx_std_17)
+  target_include_directories(spacetime_history_test PRIVATE
+    include ${PYTHIA8_INCLUDE_DIR} ${HEPMC3_INCLUDE_DIR} ${GSL_INCLUDE_DIR}
+  )
+  target_link_libraries(spacetime_history_test PRIVATE
+    ${PYTHIA8_LIBRARIES} ${HEPMC3_LIBRARIES} ${GSL_LIBRARIES} Threads::Threads
+  )
+  add_test(NAME spacetime_history COMMAND spacetime_history_test)
+endif()

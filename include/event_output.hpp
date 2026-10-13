@@ -13,6 +13,8 @@
 #include <iosfwd>
 #include <vector>
 
+class SpacetimeHistory;
+
 /**
  * @brief Write the OSCAR2013 particle-list header lines.
  *
@@ -49,6 +51,8 @@ void write_event_headers(std::ostream& out);
  *        units are mm, with coordinate times in mm/c.
  * @param event_out Stream that receives the OSCAR2013 particle list.
  * @param meta_out Stream that receives the JSON metadata record.
+ * @param history Optional observer of the same output positions and spectators;
+ *        consumes no additional random draws.
  */
 void write_event_output(
     int32_t event_number,
@@ -58,4 +62,5 @@ void write_event_output(
     const DISKinematics& kin,
     const std::vector<Pythia8::Particle>& particles,
     std::ostream& event_out,
-    std::ostream& meta_out);
+    std::ostream& meta_out,
+    SpacetimeHistory* history = nullptr);

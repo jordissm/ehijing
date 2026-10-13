@@ -11,6 +11,8 @@
 #include <random>
 #include <string>
 
+class SpacetimeHistory;
+
 /**
  * @brief Monte Carlo sampler for low-\f$ Q^2 \f$ medium-induced shower changes.
  *
@@ -59,12 +61,14 @@ public:
      * @param Rx Output hard-vertex x coordinate in GeV^{-1}.
      * @param Ry Output hard-vertex y coordinate in GeV^{-1}.
      * @param Rz Output hard-vertex z coordinate in GeV^{-1}.
+     * @param history Optional collector of sampled states and parent mappings.
      */
     void sample_ff_partons(Pythia8::Pythia& pythia,
                            const DISKinematics& kinematics,
                            double& Rx,
                            double& Ry,
-                           double& Rz);
+                           double& Rz,
+                           SpacetimeHistory* history = nullptr);
 
 private:
     /// Selected medium-modification mode.

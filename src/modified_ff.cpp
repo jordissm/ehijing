@@ -1,13 +1,26 @@
 #include "modified_ff.hpp"
+#include "spacetime_history.hpp"
 #include "ehijing_constants.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <vector>
 #include <cstdlib>
+#include <iomanip>
+#include <sstream>
 
 using namespace Pythia8;
 namespace constants = ehijing::constants;
+
+namespace {
+std::string emission_diagnostic(double time, double z, double kt2, double lt2) {
+    std::ostringstream out;
+    out << std::setprecision(17) << "Sampled formation_time_GeV_inv=" << time
+        << "; z=" << z << "; kt2_GeV2=" << kt2 << "; lt2_GeV2=" << lt2
+        << "; formation time is an ordering variable, not a reconstructed physical vertex.";
+    return out.str();
+}
+} // namespace
 
 Modified_FF::Modified_FF(int mode,
                          int atomic_number,
@@ -30,7 +43,8 @@ Modified_FF::Modified_FF(int mode,
 }
 
 // The realization of the modified FF
-void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinematics, double& Rx, double& Ry, double& Rz)
+void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinematics, double& Rx, double& Ry, double& Rz,
+                                   SpacetimeHistory* history)
 {
     // Always return the hard vertex, even when no parton passes the medium
     // modification filters below.
@@ -48,6 +62,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
     // This will hold the gluons emitted from the medium-contrbuted FF in this stage
     // as well as recoil partons that keeps the entire system color neutral.
     std::vector<Particle> new_particles;
+    std::vector<int> new_sources;
     new_particles.clear();
 
     // For each parton from the high-Q shower, sample gluons and recoils from low-Q medium
@@ -346,6 +361,10 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             particle.e(std::sqrt(particle.pAbs2() + particle.m2()));
             kmu.e(std::sqrt(kmu.pAbs2()));
 
+            if (history) history->capture_particles({particle}, "medium_parent_after_emission",
+                "shower", "source_parton_vertices", {i}, {},
+                emission_diagnostic(formation_time, z, kt2, lt2));
+
             // the gluon can continue to collide
 
             std::vector<double> g_qt2s, g_ts, g_phis;
@@ -464,6 +483,19 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
                                          mdiq,
                                          0);
             // time formation_time
+            if (history) {
+                // Observe sampled states before append discards their parent links.
+                // The gluon stores its sampled collision history only in this copy.
+                auto observed_gluon = gluon;
+                observed_gluon.AddMultipleCollision(g_ts, g_qt2s, g_phis);
+                const int future_index = pythia.event.size() + new_particles.size()
+                    + fragmented_gluons.size() + recoiled_beam_remnants.size();
+                history->capture_particles({observed_gluon, recolQ, recoldiQ},
+                    "medium_emission_products", "shower", "unassigned",
+                    {future_index, future_index + 1, future_index + 2}, {i, i, i},
+                    "Indices identify the eventual appended shower entries. Product order gluon,quark,diquark. " +
+                    emission_diagnostic(formation_time, z, kt2, lt2));
+            }
             recoiled_beam_remnants.push_back(gluon);
             x_arr.push_back(formation_time * hbarc * kmu.px() / kmu.e());
             y_arr.push_back(formation_time * hbarc * kmu.py() / kmu.e());
@@ -498,6 +530,10 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             // turn off the elastic broading Wenbin
             particle.p(particle.p() + qmu);
             particle.e(std::sqrt(particle.pAbs2() + particle.m2()));
+            if (history) history->capture_particles({particle}, "medium_parent_after_kick",
+                "shower", "source_parton_vertices", {i}, {},
+                "Collision sampler index=" + std::to_string(j) +
+                "; iterations follow sampler order, not chronological order.");
             int q_col, q_acol;
             // update color
             if (particle.id() == constants::pdg::gluon_id) {
@@ -598,6 +634,14 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
                                          mdiq,
                                          0);
 
+            if (history) {
+                const int future_index = pythia.event.size() + new_particles.size()
+                    + fragmented_gluons.size() + recoiled_beam_remnants.size();
+                history->capture_particles({recolQ, recoldiQ}, "medium_collision_products",
+                    "shower", "unassigned", {future_index, future_index + 1}, {i, i},
+                    "Indices identify the eventual appended shower entries. Parent collision index=" +
+                    std::to_string(j) + "; sampled time_GeV_inv=" + std::to_string(ts[j]));
+            }
             recoiled_beam_remnants.push_back(recolQ);
             x_arr.push_back(ts[j] * hbarc * pq.px() / pq.e());
             y_arr.push_back(ts[j] * hbarc * pq.py() / pq.e());
@@ -613,13 +657,16 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
 
         for (auto& fragmented_gluon : fragmented_gluons) {
             new_particles.push_back(fragmented_gluon);
+            if (history) new_sources.push_back(i);
         }
 
         for (auto& recoiled_beam_remnant : recoiled_beam_remnants) {
             new_particles.push_back(recoiled_beam_remnant);
+            if (history) new_sources.push_back(i);
         }
     }
 
+    const int first_new_index = pythia.event.size();
     int ixyz = 0;
     for (auto& new_particle : new_particles) {
         
@@ -644,5 +691,16 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
         ) * constants::units::fm_to_mm);
 
         ixyz++;
+    }
+    if (history && !new_particles.empty()) {
+        std::vector<Particle> appended;
+        std::vector<int> indices;
+        for (int i = first_new_index; i < pythia.event.size(); ++i) {
+            appended.push_back(pythia.event[i]);
+            indices.push_back(i);
+        }
+        history->capture_particles(appended, "medium_appended", "shower",
+            "relative_mm_hard_interaction", indices, new_sources,
+            "source_index preserves the parent discarded by the existing append operation.");
     }
 }

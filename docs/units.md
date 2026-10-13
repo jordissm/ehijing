@@ -80,6 +80,24 @@ frame. They are not proper-time intervals. SMASH's configured
 `proper_formation_time_` is a separate proper-time quantity. Frame consistency
 and the downstream use of imported formation times require their own review.
 
+## Diagnostic history interface
+
+`event_XXXXXXXX.history` uses native HepMC3 Asciiv3 ASCII with `U GEV MM`.
+Observation vertices retain the current stage's origin/frame convention;
+collection performs no Lorentz transformation and adds no nuclear origin.
+`stored_vertex_xyzt` preserves the raw `(x,y,z,ct)` value with an explicit unit
+label; nuclear geometry coordinates and collision times remain separately
+labelled GeV^-1 quantities. String production references and breakup pairs use
+absolute mm coordinates. The `oscar_output` snapshot converts the already
+computed t = 0 output positions from fm to mm on diagnostic copies only.
+
+A missing particle vertex is flagged by `has_vertex=0`, even though HepMC's
+position field contains a zero. Observation vertices (status 900) and auxiliary
+serialization anchors (`diagnostic_anchor=1`) are diagnostic bookkeeping, not
+new physical interaction assignments. Snapshot sequence numbers are execution
+order, not a coordinate-time ordering. See the README for record identity,
+source mappings and comment attributes.
+
 ## Remaining review items
 
 - Custom source settings or external parton producers must satisfy the import

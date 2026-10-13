@@ -5,6 +5,102 @@ The eHIJING headers and sources are documented with Doxygen.
 [Unit conventions](docs/units.md) describe spacetime units, conversion factors,
 interface requirements, and remaining review items.
 
+## Diagnostic spacetime history
+
+Each successful eHIJING event now writes `event_00000042.history` next to its
+OSCAR and metadata files, using the same eight-digit event ID and shard directory.
+The file is native **HepMC3 Asciiv3 ASCII**, written with `HepMC3::WriterAscii`,
+with momentum in GeV and vertex coordinates in mm (time in mm/c). It covers
+eHIJING through output; it does not include SMASH transport. Disable collection
+with `--history off` on either `ehijing` or `electra ehijing run`. Existing local
+and SLURM callers automatically get histories with the rebuilt executable.
+The Python wrapper only passes this optional flag when explicitly requested,
+so its default invocation remains compatible with older executables.
+
+One file contains several HepMC event blocks representing diagnostic snapshots
+of **one physical event**. `E` numbers identify snapshot sequence, starting at
+zero. The `event_id` attribute preserves the physical event ID, including 64-bit
+IDs; `attempt` identifies the successful generation attempt. Failed attempts
+are discarded along with their event, rather than being attached to a later
+successful event's history. Snapshot sequence is execution order, not physical
+time. In particular, the high-scale shower is scale ordered and the existing
+collision sampler retains its native order.
+
+The stages are:
+
+- `hard_process`: the PYTHIA process record retained after generation.
+- `high_scale_shower`: the complete PYTHIA event record before `Modified_FF`,
+  including incoming particles, intermediate partons, remnants and leptons.
+- `medium_parent_after_emission` and `medium_parent_after_kick`: observed parent
+  momentum updates, with formation-variable or collision-index annotations.
+- `medium_emission_products` and `medium_collision_products`: sampled gluons
+  and recoil quark/diquark products, before append loses their parent fields.
+  Indices identify their eventual entries in the shower record. Gluon collision
+  samples are retained here even though the operative append does not retain them.
+- `medium_appended` and `medium_modified`: newly assigned displacements and the
+  complete record after medium processing.
+- `hadronizer_import` and `hadronizer_input`: copied relative vertices and then
+  absolute vertices, with explicit mappings back to source shower indices.
+- `hadronization_and_decays`: the full hadronizer record, including intermediate
+  hadrons and decayed particles, not just its final-state return vector.
+- `oscar_output`: final hadrons extrapolated to t = 0 and the actual spectator
+  nucleons sampled by the existing writer. Coordinates are recorded before the
+  OSCAR file rounds them to five decimals in fm.
+
+Only stages with observed medium updates/products are emitted. Identity is
+`(record, record_index)`; indices are local to `process`, `shower`, `hadronizer`
+or `oscar`. `source_record`/`source_index` link imports and appended products;
+`source_index=-1` means no direct import association. Native `mother1`,
+`mother2`, `daughter1`, `daughter2`, `pythia_status`, colour tags, scale and
+sampled collision arrays are attributes. PYTHIA's range and copy conventions
+still apply to those ancestry fields. Final hadronizer particles have an
+`oscar_id`; OSCAR observations map back to the corresponding hadronizer index.
+Spectators are marked separately and do not acquire invented shower ancestry.
+The output snapshot also retains the actual OSCAR production/formation times
+and cross-section factors, alongside its extrapolated t = 0 positions. Native
+decay endpoints from PYTHIA's stored vertex and lifetime are recorded when
+available in the hadronizer record.
+The PYTHIA system entry at index zero is retained and marked as bookkeeping.
+
+Each simulated particle has its own observation vertex, with status 900.
+These are **observations, not newly inferred physical interaction vertices**.
+To retain compatibility with HepMC3 readers that reject vertices with empty
+incoming lists, each has one auxiliary incoming particle (PDG 0, status 4,
+`diagnostic_anchor=1`). Filter these serialization anchors when counting
+simulated particles. They carry no physics meaning. Physical ancestry is in
+the attributes rather than invented connections between observation vertices.
+Standard event displays will therefore show an observation graph, not a
+reconstructed shower worldline graph.
+
+`has_vertex=0` means a stored zero is unavailable; `has_vertex=1` distinguishes
+an explicitly assigned zero. `stored_vertex_xyzt` retains the raw value with
+`stored_vertex_units`, while HepMC `V` positions use mm. All four-coordinate
+attributes use `(x,y,z,ct)`. Nuclear geometry origins are separately recorded
+in GeV^-1, along with the target momentum defining the nuclear rest frame.
+No diagnostic Lorentz boost or translation is applied. The supplied workflow
+requires `PartonVertex:setVertex=off`; custom settings enabling it still require
+the import-policy review described in [Unit conventions](docs/units.md).
+
+Production references and geometric breakup pairs are retained as attributes
+when present. The native fragmentation trace (including Lund geometry and
+special string branches) is embedded in `comment_fragmentation`, even when the
+separate `.fragmentation` file is disabled. Comments are HepMC string attributes
+(`A` records), with newlines escaped by the ASCII writer, so standard readers
+can read the file without stripping custom text lines.
+
+Collection reads/copies existing values and consumes no random draws. It does
+not restore operative ancestry, assign shower lifetimes, move vertices, or
+change momenta, colours, decays, collision sampling or OSCAR output. Missing
+spacetime information remains visible as a gap. File size and memory usage grow
+with the full particle records and observed medium updates; use `--history off`
+for production runs that do not need these diagnostics.
+
+After building with `BUILD_TESTING=ON`, run `ctest --test-dir <build-dir>
+--output-on-failure`. The synthetic history test checks native HepMC3 reader
+round trips, identity mappings, collision ordering, missing versus known-zero
+vertices, units, multiline comments and identical OSCAR/metadata output with
+diagnostics enabled. It does not generate simulation events.
+
 ## Hadronization spacetime trace
 
 Enable diagnostics in the hadronization settings file passed to

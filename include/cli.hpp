@@ -74,6 +74,9 @@ struct RunConfig {
     ///
     /// Typically combined with the event ID to ensure reproducibility across runs.
     uint32_t seed;
+
+    /// Write diagnostic HepMC3 ASCII histories (default on).
+    bool history = true;
 };
 
 /**

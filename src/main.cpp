@@ -6,6 +6,7 @@
 #include "event_output.hpp"
 #include "hadronizer.hpp"
 #include "modified_ff.hpp"
+#include "spacetime_history.hpp"
 
 using namespace Pythia8;
 namespace constants = ehijing::constants;
@@ -15,6 +16,7 @@ namespace constants = ehijing::constants;
 #include <ctime>   // for time()
 #include <fstream>
 #include <random>
+#include <memory>
 #include <iomanip>
 #include <sstream>
 #include <unistd.h>
@@ -170,13 +172,23 @@ int main(int argc, char* argv[]) {
             double Rx = pythia.event.Rx();
             double Ry = pythia.event.Ry();
             double Rz = pythia.event.Rz();
+            std::unique_ptr<SpacetimeHistory> history;
+            if (cfg.history) {
+                history = std::make_unique<SpacetimeHistory>(first_event_id + n_written, attempt + 1);
+                history->set_context(Vec4(Rx, Ry, Rz, 0.0), kinematics.pProton,
+                                     pythia.settings.flag("PartonVertex:setVertex"));
+                history->capture(pythia.process, "hard_process", "process", "source_parton_vertices");
+                history->capture(pythia.event, "high_scale_shower", "shower", "source_parton_vertices");
+            }
             // Modify the final shower with low-Q^2 medium corrections
-            modified_ff.sample_ff_partons(pythia, kinematics, Rx, Ry, Rz);
+            modified_ff.sample_ff_partons(pythia, kinematics, Rx, Ry, Rz, history.get());
+            if (history) history->capture(pythia.event, "medium_modified", "shower",
+                                          "relative_mm_hard_interaction");
             
             // Put the parton-level event into the separate hadronizer
             auto hadronized_event_opt = hadronizer.hadronize(
                 pythia, atomic_number, mass_number, Rx, Ry, Rz,
-                first_event_id + n_written, attempt + 1);
+                first_event_id + n_written, attempt + 1, history.get());
             if (!hadronized_event_opt) {
                 std::cerr << "WARNING: hadronization failed for event " << (first_event_id + n_written) << " on attempt " << (attempt + 1) << "/" << hadronization_retries_max << "\n";
                 n_hadronization_failed++;
@@ -226,7 +238,21 @@ int main(int argc, char* argv[]) {
                                kinematics,
                                hadronization_result.particles,
                                event_out,
-                               meta_out);
+                               meta_out,
+                               history.get());
+
+            if (history) {
+                try {
+                    std::ofstream history_out(paths.historyPath);
+                    if (!history_out) throw std::runtime_error("Cannot open history output");
+                    history->write(history_out);
+                    history_out.close();
+                    if (!history_out) throw std::runtime_error("Cannot close history output");
+                } catch (const std::exception& error) {
+                    std::cerr << "ERROR: " << error.what() << ": " << paths.historyPath << '\n';
+                    return 1;
+                }
+            }
 
             // Mark event as successfully generated, passed trigger, and hadronized
             success = true;

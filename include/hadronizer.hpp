@@ -18,6 +18,8 @@ enum class StruckNucleon {
     Neutron
 };
 
+class SpacetimeHistory;
+
 struct HadronizationResult {
     /// Momentum, energy and mass in GeV; absolute vertices in mm and coordinate
     /// times in mm/c, including breakup metadata.
@@ -68,6 +70,8 @@ public:
      * @param Rz Hard-vertex z coordinate in GeV^{-1} used for production vertices.
      * @param event_id Global event ID used to label the optional spacetime trace.
      * @param attempt One-based generation attempt used to label the trace.
+     * @param history Optional read-only diagnostic collector; does not restore
+     *        operative ancestry or alter fragmentation.
      *
      * @return Hadronization result if fragmentation succeeds; otherwise
      *         `std::nullopt`.
@@ -79,7 +83,8 @@ public:
                                              double Ry,
                                              double Rz,
                                              int64_t event_id = -1,
-                                             int attempt = 0);
+                                             int attempt = 0,
+                                             SpacetimeHistory* history = nullptr);
 
 private:
     /// Dedicated PYTHIA instance used only for hadronization.

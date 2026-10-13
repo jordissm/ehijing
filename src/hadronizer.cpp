@@ -1,4 +1,5 @@
 #include "hadronizer.hpp"
+#include "spacetime_history.hpp"
 #include "ehijing_constants.hpp"
 #include "Pythia8/HadronVertexTrace.h"
 
@@ -135,12 +136,14 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
                                                       double Ry,
                                                       double Rz,
                                                       int64_t event_id,
-                                                      int attempt) {
+                                                      int attempt,
+                                                      SpacetimeHistory* history) {
 
     std::ostringstream trace_output;
-    HadronVertexTrace::EventScope trace_scope(trace_vertices, event_id, attempt,
+    const bool capture_trace = trace_vertices || history != nullptr;
+    HadronVertexTrace::EventScope trace_scope(capture_trace, event_id, attempt,
                                             &trace_output);
-    if (trace_vertices) {
+    if (capture_trace) {
         std::ostringstream out;
         out << std::defaultfloat << std::setprecision(12) << std::boolalpha
             << "Configuration: " << trace_config_path << '\n'
@@ -161,7 +164,7 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
     // This origin is added once to each imported parton's displacement.
     const Vec4 origin = Vec4(Rx, Ry, Rz, 0.0)
                       * hbarc * constants::units::fm_to_mm;
-    if (trace_vertices) {
+    if (capture_trace) {
         std::ostringstream out;
         HadronVertexTrace::prefix(out);
         HadronVertexTrace::vertex(out, "nuclear_origin", origin);
@@ -183,6 +186,7 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
     // partons from the shower
     pythia.event.reset();
 
+    std::vector<int> source_indices(history ? pythia.event.size() : 0, -1);
     // Loop over the partons in the shower PythiaIn, and put them in the hadronizer
     for (int i = 0; i < pythiaIn.event.size(); ++i) {
 
@@ -254,9 +258,10 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
                             particle.m());
 
         auto& appended = pythia.event.back();
+        if (history) source_indices.push_back(i);
         // Input vertices are displacements from the hard interaction in mm.
         appended.vProd(particle.vProd());
-        if (trace_vertices) {
+        if (capture_trace) {
             std::ostringstream out;
             HadronVertexTrace::prefix(out);
             out << "IMPORT source_index=" << i
@@ -270,6 +275,9 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
             HadronVertexTrace::write(out.str());
         }
     }
+
+    if (history) history->capture(pythia.event, "hadronizer_import", "hadronizer",
+                                  "relative_mm_hard_interaction", source_indices);
 
     // Assign absolute space-time vertices to partons in mm.
     // Loop over the partons in the hadronizer
@@ -504,15 +512,23 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
         }
     }
 
+    if (history) history->capture(pythia.event, "hadronizer_input", "hadronizer",
+                                  "absolute_mm_nuclear_origin", source_indices);
     // Perform hadronization
     const bool ok = pythia.next();
-    if (trace_vertices) HadronVertexTrace::dumpFinal(pythia.event, ok);
+    if (capture_trace) HadronVertexTrace::dumpFinal(pythia.event, ok);
     trace_scope.finish();
     if (!ok) {
         std::cerr << "Hadronizer: pythia.next() failed\n";
         return std::nullopt;
     }
     if (trace_vertices) result.fragmentation_trace = trace_output.str();
+    if (history) {
+        source_indices.resize(pythia.event.size(), -1);
+        history->capture(pythia.event, "hadronization_and_decays", "hadronizer",
+                         "absolute_mm_saved_vertex", source_indices);
+        history->fragmentation(trace_output.str());
+    }
 
     // Return the final state hadrons after hadronization
     for (int i = 0; i < pythia.event.size(); ++i) {

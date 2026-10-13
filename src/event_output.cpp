@@ -1,4 +1,5 @@
 #include "event_output.hpp"
+#include "spacetime_history.hpp"
 #include "ehijing_constants.hpp"
 
 #include <cmath>
@@ -58,7 +59,8 @@ void write_metadata_json(
 void write_final_hadrons(
     const std::vector<Particle>& particles,
     std::ostream& out,
-    int32_t& particle_index) {
+    int32_t& particle_index,
+    SpacetimeHistory* history) {
 
     for (const auto& p : particles) {
         if (!p.isFinal()) {
@@ -116,6 +118,8 @@ void write_final_hadrons(
             << form_time << " "
             << 0.0 << '\n';
 
+        if (history) history->output_particle(p, particle_index,
+            Vec4(x_hadron, y_hadron, z_hadron, 0.0) * constants::units::fm_to_mm);
         ++particle_index;
     }
 }
@@ -125,7 +129,8 @@ void write_spectator_nucleons(
     int mass_number,
     StruckNucleon struck_nucleon,
     std::ostream& out,
-    int32_t& particle_index) {
+    int32_t& particle_index,
+    SpacetimeHistory* history) {
 
     static thread_local std::mt19937 gen(std::random_device{}());
     std::uniform_real_distribution<double> uniform(0.0, 1.0);
@@ -170,6 +175,10 @@ void write_spectator_nucleons(
             << 0.0 << " "
             << 1.0 << '\n';
 
+        if (history) history->output_particle(
+            Particle(constants::pdg::proton_id, 1, 0, 0, 0, 0, 0, 0,
+                     px, py, pz, p0, constants::mass::proton_gev), particle_index,
+            Vec4(rx, ry, rz, t) * constants::units::fm_to_mm, true);
         ++particle_index;
     }
 
@@ -211,6 +220,10 @@ void write_spectator_nucleons(
             << 0.0 << " "
             << 1.0 << '\n';
 
+        if (history) history->output_particle(
+            Particle(constants::pdg::neutron_id, 1, 0, 0, 0, 0, 0, 0,
+                     px, py, pz, p0, constants::mass::neutron_gev), particle_index,
+            Vec4(rx, ry, rz, t) * constants::units::fm_to_mm, true);
         ++particle_index;
     }
 }
@@ -230,7 +243,8 @@ void write_event_output(
     const DISKinematics& kin,
     const std::vector<Particle>& particles,
     std::ostream& event_out,
-    std::ostream& meta_out) {
+    std::ostream& meta_out,
+    SpacetimeHistory* history) {
 
     write_metadata_json(event_number, atomic_number, mass_number, kin, meta_out);
 
@@ -240,8 +254,9 @@ void write_event_output(
     event_out << "# event " << event_number << " out " << count << "\n";
 
     int32_t particle_index = 0;
-    write_final_hadrons(particles, event_out, particle_index);
-    write_spectator_nucleons(atomic_number, mass_number, struck_nucleon, event_out, particle_index);
+    write_final_hadrons(particles, event_out, particle_index, history);
+    write_spectator_nucleons(atomic_number, mass_number, struck_nucleon, event_out, particle_index, history);
+    if (history) history->finish_output();
 
     // Write event footer
     event_out << "# event " << event_number << " end 0\n";

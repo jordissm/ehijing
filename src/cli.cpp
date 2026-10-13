@@ -42,7 +42,7 @@ void usage(const char* prog) {
         << "--hard-process-config <PATH> "
         << "--hadronization-config <PATH> "
         << "--dis-cuts-config <PATH> "
-        << "--seed <SEED>\n\n";
+        << "--seed <SEED> [--history <on|off>]\n\n";
 }
 
 RunConfig parse_args(int argc, char* argv[]) {
@@ -67,6 +67,14 @@ RunConfig parse_args(int argc, char* argv[]) {
     }
 
     RunConfig cfg{};
+
+    if (auto it = args.find("--history"); it != args.end()) {
+        if (it->second != "on" && it->second != "off") {
+            std::cerr << "ERROR: --history must be on or off\n";
+            std::exit(2);
+        }
+        cfg.history = it->second == "on";
+    }
 
     // Required arguments parser
     cfg.n_events        = std::stoi(require_arg(args, "--number-of-events", argv[0]));

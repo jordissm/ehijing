@@ -51,6 +51,9 @@ struct EventPaths {
 
     /// Optional per-event hadronization spacetime trace output path.
     std::filesystem::path fragmentationPath;
+
+    /// HepMC3 ASCII diagnostic spacetime history.
+    std::filesystem::path historyPath;
 };
 
 /**
@@ -63,7 +66,7 @@ struct EventPaths {
  * @param event_id Event ID used for sharding and file naming.
  * @param chunk_size Number of events per shard directory.
  *
- * @return Paths for the shard directory, OSCAR, metadata, and fragmentation output.
+ * @return Paths for the shard directory, OSCAR, metadata, fragmentation and history output.
  */
 EventPaths make_event_paths(const std::filesystem::path& base_events_dir,
                             int64_t event_id,

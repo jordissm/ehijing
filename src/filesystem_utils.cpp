@@ -45,6 +45,7 @@ EventPaths make_event_paths(const std::filesystem::path& base_events_dir,
         shard_dir,
         shard_dir / ("event_" + event_str + ".oscar"),
         shard_dir / ("event_" + event_str + ".meta.json"),
-        shard_dir / ("event_" + event_str + ".fragmentation")
+        shard_dir / ("event_" + event_str + ".fragmentation"),
+        shard_dir / ("event_" + event_str + ".history")
     };
 }
