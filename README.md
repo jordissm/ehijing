@@ -70,6 +70,13 @@ coordinate origin. `--duration 5` extends outgoing hadron worldlines to 5 fm/c
 after the latest formation point in the plot frame. In the ELECTRA container the script is at
 `/opt/electra/share/utils/plot_fragmentation.py`.
 
+The Lund pages default to each string's own rest frame, with `z_parallel`
+aligned with the recorded positive light-cone direction. A two-hadron mini-string
+may choose this reference decay axis differently from its input parton axis.
+`--lund-view projection` instead
+uses the selected `--frame` and `--axis` on those pages. This option does not
+change the saved-vertex plots or time tables.
+
 Breakup vertices are solid green circles, formation vertices solid purple
 circles, and the primary vertex a yellow star. Saved-vertex diagrams show
 free outgoing hadron worldlines with `dx/dt = p/E`, beginning at the stored
@@ -96,7 +103,14 @@ can recover that mass from the recorded four-momentum.
 
 The separate longitudinal pages follow the classical massless-reference Lund
 constituent characteristics, splitting paths at gluon-region boundaries and
-including outward endpoint motion before the boundary turns. Their green and
+including outward endpoint motion before the boundary turns. Original
+endpoint boundaries are bold solid lines, breakup-constituent boundaries are
+thin solid lines, and the surviving string worldsheet is shaded. Pair creation
+removes the future quadrant of each breakup in the string parameter plane;
+the shading excludes those regions. If any pair-creation coordinates are
+missing, the area is not filled. Outward endpoint arms are reconstructed
+independently of hadron solutions so missing final-two coordinates do not
+hide an otherwise recorded original endpoint arm. Their green and
 purple points, and outgoing longitudinal hadron slopes, belong to that reference
 picture. They exclude transverse tunnelling/smearing and heavy-endpoint
 corrections and can differ from the saved physical vertices. PYTHIA's smeared
