@@ -75,7 +75,7 @@ void write_final_hadrons(
         // local_pos.bstback(p_com);
 
         const double form_time = local_pos.e();
-        // One-hadron collapses have no reconstructed breakup pair.
+        // Production uses the stored references, including origin-only collapses.
         const double prod_time = p.hasProductionTime()
             ? p.tProduction() * constants::units::mm_to_fm
             : 0.0;

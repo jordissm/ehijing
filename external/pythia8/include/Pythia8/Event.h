@@ -80,7 +80,9 @@ public:
     hasVertexSave(pt.hasVertexSave), vProdSave(pt.vProdSave),
     tauSave(pt.tauSave), hasProductionTimeSave(pt.hasProductionTimeSave),
     vBreakupFirstSave(pt.vBreakupFirstSave),
-    vBreakupSecondSave(pt.vBreakupSecondSave), collset_(pt.collset_),
+    vBreakupSecondSave(pt.vBreakupSecondSave),
+    productionOriginModeSave(pt.productionOriginModeSave),
+    vProductionOriginSave(pt.vProductionOriginSave), collset_(pt.collset_),
     Rx_(pt.Rx_), Ry_(pt.Ry_), Rz_(pt.Rz_),
     pdePtr(pt.pdePtr), evtPtr(pt.evtPtr),
     coll_ts_(pt.coll_ts_),
@@ -97,6 +99,8 @@ public:
     hasProductionTimeSave = pt.hasProductionTimeSave;
     vBreakupFirstSave = pt.vBreakupFirstSave;
     vBreakupSecondSave = pt.vBreakupSecondSave;
+    productionOriginModeSave = pt.productionOriginModeSave;
+    vProductionOriginSave = pt.vProductionOriginSave;
     Rx_ = pt.Rx_; Ry_ = pt.Ry_; Rz_ = pt.Rz_;
     pdePtr = pt.pdePtr; evtPtr = pt.evtPtr;
     coll_ts_ = pt.coll_ts_;
@@ -146,10 +150,17 @@ public:
   void tProd(double tProdIn) {vProdSave.e(tProdIn); hasVertexSave = true;}
   void tau(double tauIn) {tauSave = tauIn;}
 
-  // Breakup pair defining the separate hadron production time. Keep both
-  // vertices so that the earlier time can be selected in any boosted frame.
+  // Retain geometric breakup/boundary points used in fragmentation. Production
+  // references can additionally use the inherited origin for an original end.
   void productionVertices(Vec4 vFirstIn, Vec4 vSecondIn) {
     vBreakupFirstSave = vFirstIn; vBreakupSecondSave = vSecondIn;
+    hasProductionTimeSave = true; productionOriginModeSave = 0;}
+  void productionEndpointOrigin(Vec4 origin, bool first) {
+    vProductionOriginSave = origin;
+    productionOriginModeSave |= first ? 1 : 2;}
+  // Origin-only assignment for a collapse: no breakup pair is constructed.
+  void productionOrigin(Vec4 origin) {
+    vProductionOriginSave = origin; productionOriginModeSave = 4;
     hasProductionTimeSave = true;}
 
   // Member functions for output.
@@ -177,12 +188,23 @@ public:
   double tProd()     const {return vProdSave.e();}
   double tau()       const {return tauSave;}
   bool   hasProductionTime() const {return hasProductionTimeSave;}
-  // Absolute breakup vertices in mm; meaningful when hasProductionTime().
+  bool   hasBreakupPair() const {return hasProductionTimeSave
+    && productionOriginModeSave != 4;}
+  // 0: breakup references; bits 1/2: replace first/second production reference
+  // by the origin; 4: origin-only collapse assignment.
+  int    productionOriginMode() const {return productionOriginModeSave;}
+  // Absolute production-reference four-vertices in mm (time in mm/c).
+  Vec4   vProductionOrigin() const {return vProductionOriginSave;}
+  Vec4   vProductionFirst() const {return ((productionOriginModeSave & 1)
+    || productionOriginModeSave == 4) ? vProductionOriginSave : vBreakupFirstSave;}
+  Vec4   vProductionSecond() const {return ((productionOriginModeSave & 2)
+    || productionOriginModeSave == 4) ? vProductionOriginSave : vBreakupSecondSave;}
+  // Absolute geometric vertices in mm; meaningful when hasBreakupPair().
   Vec4   vBreakupFirst() const {return vBreakupFirstSave;}
   Vec4   vBreakupSecond() const {return vBreakupSecondSave;}
   // Coordinate time in mm/c; zero when no breakup pair has been stored.
   double tProduction() const {return hasProductionTimeSave
-    ? min(vBreakupFirstSave.e(), vBreakupSecondSave.e()) : 0.;}
+    ? min(vProductionFirst().e(), vProductionSecond().e()) : 0.;}
 
   // Member functions for output; derived int and bool quantities.
   int    idAbs()     const {return abs(idSave);}
@@ -305,41 +327,49 @@ public:
     if (hasVertexSave) vProdSave.rot(thetaIn, phiIn);
     if (hasProductionTimeSave) {
       vBreakupFirstSave.rot(thetaIn, phiIn);
-      vBreakupSecondSave.rot(thetaIn, phiIn);}}
+      vBreakupSecondSave.rot(thetaIn, phiIn);
+      if (productionOriginModeSave) vProductionOriginSave.rot(thetaIn, phiIn);}}
   void bst(double betaX, double betaY, double betaZ) {
     pSave.bst(betaX, betaY, betaZ);
     if (hasVertexSave) vProdSave.bst(betaX, betaY, betaZ);
     if (hasProductionTimeSave) {
       vBreakupFirstSave.bst(betaX, betaY, betaZ);
-      vBreakupSecondSave.bst(betaX, betaY, betaZ);}}
+      vBreakupSecondSave.bst(betaX, betaY, betaZ);
+      if (productionOriginModeSave) vProductionOriginSave.bst(betaX, betaY, betaZ);}}
   void bst(double betaX, double betaY, double betaZ, double gamma) {
     pSave.bst(betaX, betaY, betaZ, gamma);
     if (hasVertexSave) vProdSave.bst(betaX, betaY, betaZ, gamma);
     if (hasProductionTimeSave) {
       vBreakupFirstSave.bst(betaX, betaY, betaZ, gamma);
-      vBreakupSecondSave.bst(betaX, betaY, betaZ, gamma);}}
+      vBreakupSecondSave.bst(betaX, betaY, betaZ, gamma);
+      if (productionOriginModeSave) vProductionOriginSave.bst(betaX, betaY, betaZ, gamma);}}
   void bst(const Vec4& pBst) {pSave.bst(pBst);
     if (hasVertexSave) vProdSave.bst(pBst);
     if (hasProductionTimeSave) {
-      vBreakupFirstSave.bst(pBst); vBreakupSecondSave.bst(pBst);}}
+      vBreakupFirstSave.bst(pBst); vBreakupSecondSave.bst(pBst);
+      if (productionOriginModeSave) vProductionOriginSave.bst(pBst);}}
   void bst(const Vec4& pBst, double mBst) {pSave.bst(pBst, mBst);
     if (hasVertexSave) vProdSave.bst(pBst, mBst);
     if (hasProductionTimeSave) {
       vBreakupFirstSave.bst(pBst, mBst);
-      vBreakupSecondSave.bst(pBst, mBst);}}
+      vBreakupSecondSave.bst(pBst, mBst);
+      if (productionOriginModeSave) vProductionOriginSave.bst(pBst, mBst);}}
   void bstback(const Vec4& pBst) {pSave.bstback(pBst);
     if (hasVertexSave) vProdSave.bstback(pBst);
     if (hasProductionTimeSave) {
-      vBreakupFirstSave.bstback(pBst); vBreakupSecondSave.bstback(pBst);}}
+      vBreakupFirstSave.bstback(pBst); vBreakupSecondSave.bstback(pBst);
+      if (productionOriginModeSave) vProductionOriginSave.bstback(pBst);}}
   void bstback(const Vec4& pBst, double mBst) {pSave.bstback(pBst, mBst);
     if (hasVertexSave) vProdSave.bstback(pBst, mBst);
     if (hasProductionTimeSave) {
       vBreakupFirstSave.bstback(pBst, mBst);
-      vBreakupSecondSave.bstback(pBst, mBst);}}
+      vBreakupSecondSave.bstback(pBst, mBst);
+      if (productionOriginModeSave) vProductionOriginSave.bstback(pBst, mBst);}}
   void rotbst(const RotBstMatrix& M) {pSave.rotbst(M);
     if (hasVertexSave) vProdSave.rotbst(M);
     if (hasProductionTimeSave) {
-      vBreakupFirstSave.rotbst(M); vBreakupSecondSave.rotbst(M);}}
+      vBreakupFirstSave.rotbst(M); vBreakupSecondSave.rotbst(M);
+      if (productionOriginModeSave) vProductionOriginSave.rotbst(M);}}
   void offsetHistory( int minMother, int addMother, int minDaughter,
     int addDaughter);
   void offsetCol( int addCol);
@@ -414,6 +444,8 @@ protected:
   double tauSave;
   bool   hasProductionTimeSave;
   Vec4   vBreakupFirstSave, vBreakupSecondSave;
+  int    productionOriginModeSave = 0;
+  Vec4   vProductionOriginSave;
   double Rx_, Ry_, Rz_; // WK:
 
   // Pointer to properties of the particle species.

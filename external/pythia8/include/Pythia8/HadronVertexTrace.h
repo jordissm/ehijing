@@ -28,6 +28,8 @@ struct Snapshot {
   Vec4 vertex;
   bool hasPair;
   Vec4 first, second;
+  bool hasProduction;
+  Vec4 productionFirst, productionSecond;
 };
 
 struct Context {
@@ -86,6 +88,7 @@ inline void beginEvent(long long event, int attempt, std::ostream& output) {
       << "For an open reference string, B0 and the last B are endpoint turns, not pair creations.\n"
       << "Absolute breakup points include the inherited origin.\n"
       << "saved_vertex is the formation point in HadronVertex:mode = 2.\n"
+      << "Production references use the string origin for original ordinary open-string ends and the collapse origin for one-hadron collapses.\n"
       << "output_ID matches the OSCAR hadron row; spectators are not traced.\n"
       << "An unavailable production time is not a measured zero.\n\n";
   out << "GEOMETRY records describe the longitudinal massless-reference Lund worldsheet.\n"
@@ -179,8 +182,9 @@ inline void recordHadron(const Event& event, int index, const char* branch) {
   Context& c = context();
   c.tags[index] = Tag{c.pass, c.string, branch};
   const Particle& p = event[index];
-  c.snapshots[index] = Snapshot{p.vProd(), p.hasProductionTime(),
-    p.vBreakupFirst(), p.vBreakupSecond()};
+  c.snapshots[index] = Snapshot{p.vProd(), p.hasBreakupPair(),
+    p.vBreakupFirst(), p.vBreakupSecond(), p.hasProductionTime(),
+    p.vProductionFirst(), p.vProductionSecond()};
 }
 
 inline void breakups(const char* leg, const std::vector<Vec4>& points) {
@@ -263,6 +267,18 @@ inline void geometry(const char* leg, const StringSystem& system,
   write(out.str());
 }
 
+inline void productionReferences(std::ostream& out, const Particle& p) {
+  out << "\n  production_basis=" << (p.productionOriginMode() == 4 ? "collapse_origin"
+    : p.productionOriginMode() == 3 ? "string_origin"
+    : p.productionOriginMode() ? "string_origin_and_breakup" : "breakup_pair")
+      << " hasProductionTime=" << p.hasProductionTime();
+  if (p.hasProductionTime()) {
+    out << " stored_prod_time=" << p.tProduction() * MM2FM << "\n  ";
+    vertex(out, "production_reference_first", p.vProductionFirst());
+    out << "\n  "; vertex(out, "production_reference_second", p.vProductionSecond());
+  } else out << " stored_prod_time=unavailable(no_production_reference)";
+}
+
 inline void hadron(const Event& event, int index, const char* branch,
   int firstIndex, int secondIndex, const Vec4& origin,
   const Vec4& first, const Vec4& second, const Vec4& displacement,
@@ -293,8 +309,7 @@ inline void hadron(const Event& event, int index, const char* branch,
   out << "\n  computed_earliest_breakup=" << earliest
       << " saved_minus_earliest=" << p.tProd() * MM2FM - earliest
       << " hasProductionTime=" << p.hasProductionTime();
-  if (p.hasProductionTime()) out << " stored_prod_time=" << p.tProduction() * MM2FM;
-  else out << " stored_prod_time=unavailable(no_stored_breakup_pair)";
+  productionReferences(out, p);
   out << '\n';
   write(out.str());
 }
@@ -309,12 +324,12 @@ inline void collapse(const Event& event, int index, int recoilString,
   out << "HADRON index=" << index << " pdg=" << p.id()
       << " name=\"" << p.name() << '"'
       << " status=" << p.status()
-      << " branch=one-hadron-collapse recoil_string=" << recoilString
-      << " production_time=unavailable(no_reconstructed_breakup_pair)\n  ";
+      << " branch=one-hadron-collapse recoil_string=" << recoilString << "\n  ";
   momentum(out, p.p()); out << "\n  ";
   vertex(out, "inherited_origin", origin);
   out << "\n  "; vertex(out, "prescription_displacement", p.vProd() - origin);
   out << "\n  "; vertex(out, "saved_vertex", p.vProd());
+  productionReferences(out, p);
   out << '\n';
   write(out.str());
 }
@@ -397,18 +412,26 @@ inline void dumpFinal(const Event& event, bool success) {
     if (p.hasProductionTime()) {
       out << "\n    prod_time=" << p.tProduction() * MM2FM
           << " raw_prod_time_mm_per_c=" << p.tProduction() << ' ';
+      out << "\n    "; vertex(out, "stored_production_first", p.vProductionFirst());
+      out << "\n    "; vertex(out, "stored_production_second", p.vProductionSecond());
+    } else out << "\n    prod_time=unavailable(no_production_reference)";
+    if (p.hasBreakupPair()) {
       out << "\n    ";
       vertex(out, "stored_breakup_first", p.vBreakupFirst());
       out << "\n    "; vertex(out, "stored_breakup_second", p.vBreakupSecond());
-    } else out << "\n    prod_time=unavailable(no_stored_breakup_pair)";
+    }
     auto snapshot = context().snapshots.find(i);
     if (snapshot != context().snapshots.end()) {
       const Snapshot& s = snapshot->second;
       out << "\n    vertex_changed_after_fragmentation=" << !sameVertex(s.vertex, p.vProd())
           << " breakup_metadata_changed_after_fragmentation="
-          << (s.hasPair != p.hasProductionTime()
+          << (s.hasPair != p.hasBreakupPair()
               || !sameVertex(s.first, p.vBreakupFirst())
-              || !sameVertex(s.second, p.vBreakupSecond()));
+              || !sameVertex(s.second, p.vBreakupSecond()))
+          << " production_metadata_changed_after_fragmentation="
+          << (s.hasProduction != p.hasProductionTime()
+              || !sameVertex(s.productionFirst, p.vProductionFirst())
+              || !sameVertex(s.productionSecond, p.vProductionSecond()));
     }
     out << '\n';
   }

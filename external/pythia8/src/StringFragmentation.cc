@@ -1502,12 +1502,19 @@ void StringFragmentation::setHadronVertices( Event& event) {
         prodPoints = middlePoint - 0.5 * tau0fac *  redOsc * pHad / kappaVtx;
       }
     }
-    // In mode 2, retain the breakup pair before setting the formation point.
+    // Retain geometric boundary/breakup points for the formation prescription.
+    // Original ends of an ordinary open string already exist at its origin.
     Vec4 traceOrigin = event[iHad].vProd();
-    if (hadronVertex == 2)
+    if (hadronVertex == 2) {
       event[iHad].productionVertices(
         event[iHad].vProd() + spaceTime[i] * FM2MM,
         event[iHad].vProd() + spaceTime[i + 1] * FM2MM);
+      if (!hasJunction && !isClosed) {
+        if (i == 0) event[iHad].productionEndpointOrigin(traceOrigin, true);
+        if (i == int(spaceTime.size()) - 2)
+          event[iHad].productionEndpointOrigin(traceOrigin, false);
+      }
+    }
     event[iHad].vProd( event[iHad].vProd() + prodPoints * FM2MM );
     if (traceVertices)
       HadronVertexTrace::hadron(event, iHad, traceLeg, i, i + 1,

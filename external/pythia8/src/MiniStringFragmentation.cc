@@ -430,8 +430,9 @@ bool MiniStringFragmentation::ministring2one( int iSub,
     if (hadronVertex == 0) prodPoint += 0.5 * redOsc * pHadron / kappaVtx;
     else if (hadronVertex == 1 || hadronVertex == 2)
       prodPoint += redOsc * pHadron / kappaVtx;
-    // A one-hadron collapse has no breakup pair. In mode 2 use the late
-    // formation point, but leave hasProductionTime() false.
+    // A collapse has no breakup pair: its separate production point is its
+    // inherited origin. The late formation assignment remains unchanged.
+    if (hadronVertex == 2) event[iHad].productionOrigin(traceOrigin);
     event[iHad].vProd( event[iHad].vProd() + prodPoint * FM2MM );
   }
   if (traceVertices)

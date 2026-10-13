@@ -46,8 +46,9 @@ Final entries include the OSCAR `output_ID` for exported particles, the source
 string and branch, and indicators showing whether their saved vertex or breakup
 metadata changed after fragmentation. Hadrons created later by decays or copies
 list ancestor strings through their parent links; multiple sources are retained.
-One-hadron collapses explicitly report production time as unavailable because
-no breakup pair is reconstructed. The
+One-hadron collapses use their inherited origin as the production point without
+constructing a breakup pair. Full production-reference vertices are recorded
+separately from geometric breakups/turns. The
 dump precedes the writer's freestreaming to t = 0 and output spatial smearing.
 Diagnostics do not change particle data or the OSCAR columns.
 
@@ -74,7 +75,9 @@ Lund boundaries are enabled by default on the overview and saved-vertex pages,
 including `--overview-only`. Solid bold lines show original endpoint boundaries,
 thin lines show breakup constituents, and verified reference string area is
 shaded. Filled green and purple circles show stored breakup and formation
-vertices. Hollow `RB`/`RF` circles show converted reference breakups/meetings.
+vertices. Boundary turns use green `T` triangles and are not pair creations.
+Hollow `RB`/`RF` circles show converted reference breakups/meetings; `RT`
+triangles show reference turns.
 The primary vertex is a yellow star. Hadron worldlines use `dx/dt = p/E` from
 the saved formation point before OSCAR spatial smearing; they exclude later
 interactions. Nonfinal particles are not assigned an invented lifetime.
@@ -140,9 +143,10 @@ keeps the multi-string overview in lab. `--frame lab` uses lab reference pages
 too unless `--lund-view string-rest` is explicitly selected. `--overview-only`
 omits per-string pages and tables.
 
-Tables retain unavailable collapse production times as `unavailable`. They
-recompute rest-frame production time from the two full breakup vertices, while
-saved and final formation times are transformed as four-vertex components.
+Tables show `prod_time` and a single `form_time` in mode 2, using the final particle
+vertex when available, otherwise the fragmentation assignment. They recompute
+rest-frame production time from the full production references (breakups or
+origins). Old missing production times remain `unavailable`, distinct from zero.
 Rest tables use the input string CM and primary origin, matching saved-vertex
 rest plots; effective collapse reference pages use the final hadron CM and
 inherited origin.
@@ -166,6 +170,41 @@ origin, matching ordinary fragmentation. This origin is a consistent inherited
 anchor, not a newly determined colour-exchange event. Original endpoint births
 remain in the trace. Old traces preserve their historical metadata, including
 any recoil-boosted vertices or different mini-string inherited origins.
+
+### Production references and collapse origins
+
+For ordinary open strings in mode 2, production references for the first and
+last hadrons replace the corresponding endpoint turn with the inherited string
+origin. Interior hadrons retain both breakup references. Geometric boundary
+points remain available for the unchanged late formation prescription and Lund
+paths. Closed strings, junctions and two-hadron mini-strings retain their previous
+production rules. Production references and any inherited origin transform with
+the particle under genuine rotations/boosts and survive particle copies.
+
+A single-hadron collapse has an origin-only production assignment. The existing
+native origin is
+
+\[
+O^\mu=\tfrac12\left(v_{\rm first}^\mu+v_{\rm last}^\mu\right)
+\]
+
+when the first endpoint has a stored vertex; otherwise the default origin is
+zero. This is an inherited average, not a measured colour-exchange vertex.
+The native formation assignment is
+
+\[
+F^\mu=O^\mu+S^\mu+r\,p_h^\mu/\kappa,
+\qquad t_{\rm prod}=O^0,
+\]
+
+where `S` is the configured smearing displacement and `r` is the native heavy
+flavour `redOsc` factor. For unsmeared light-flavour collapses, `S=0`, `r=1`,
+so `F=O+p_h/kappa` and `t_form=t_prod+E_h/kappa`. The momentum is the final
+hadron momentum after recoil exchange. These equations use coordinates in fm
+and momentum in GeV, with `kappa` in GeV/fm; stored PYTHIA vertices are converted
+onsite to mm. The production update does not modify the formation calculation.
+Rebuild PYTHIA/eHIJING and regenerate events to apply the new production rules;
+historical traces retain their recorded times.
 
 ## Generating documentation
 
