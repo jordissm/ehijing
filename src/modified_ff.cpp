@@ -30,10 +30,8 @@ Modified_FF::Modified_FF(int mode,
 }
 
 // The realization of the modified FF
-void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinematics, double& Rx, double& Ry, double& Rz,
-    ColourConnectionHistory* colour_history)
+void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinematics, double& Rx, double& Ry, double& Rz)
 {
-    if (colour_history) colour_history->reset(pythia.event);
     // Always return the hard vertex, even when no parton passes the medium
     // modification filters below.
     Rx = pythia.event.Rx();
@@ -465,16 +463,6 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
                                          pdiq,
                                          mdiq,
                                          0);
-            // Record the sampled emission/remnant clock before these temporary
-            // particles are appended. Stable IDs survive all intermediate copies.
-            if (colour_history) {
-                const double connection_time = formation_time * hbarc;
-                colour_history->identify(gluon, -1, true, connection_time);
-                colour_history->identify(recolQ, -1, true, connection_time);
-                colour_history->identify(recoldiQ, -1, true, connection_time);
-                colour_history->apply("medium_radiation_remnants", true, connection_time,
-                    particle.colourHistoryId(), {&gluon, &recolQ, &recoldiQ});
-            }
             // time formation_time
             recoiled_beam_remnants.push_back(gluon);
             x_arr.push_back(formation_time * hbarc * kmu.px() / kmu.e());
@@ -610,13 +598,6 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
                                          mdiq,
                                          0);
 
-            if (colour_history) {
-                const double connection_time = ts[j] * hbarc;
-                colour_history->identify(recolQ, -1, true, connection_time);
-                colour_history->identify(recoldiQ, -1, true, connection_time);
-                colour_history->apply("medium_collision_colour_exchange", true, connection_time,
-                    particle.colourHistoryId(), {&particle, &recolQ, &recoldiQ});
-            }
             recoiled_beam_remnants.push_back(recolQ);
             x_arr.push_back(ts[j] * hbarc * pq.px() / pq.e());
             y_arr.push_back(ts[j] * hbarc * pq.py() / pq.e());
@@ -653,9 +634,6 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
                             new_particle.m());
         
         auto& appended = pythia.event.back();
-        appended.colourHistoryId(new_particle.colourHistoryId());
-        if (colour_history)
-            colour_history->bind(appended.colourHistoryId(), pythia.event.size() - 1);
         // Store the displacement from the hard interaction in PYTHIA's mm
         // units. The hadronizer adds the nuclear origin once during import.
         appended.vProd(Vec4(

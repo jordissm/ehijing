@@ -135,16 +135,11 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
                                                       double Ry,
                                                       double Rz,
                                                       int64_t event_id,
-                                                      int attempt,
-                                                      const ColourConnectionHistory* colour_history) {
+                                                      int attempt) {
 
     std::ostringstream trace_output;
     HadronVertexTrace::EventScope trace_scope(trace_vertices, event_id, attempt,
                                             &trace_output);
-    if (trace_vertices) {
-        HadronVertexTrace::context().colourHistory = colour_history;
-        if (colour_history) colour_history->write(trace_output);
-    }
     if (trace_vertices) {
         std::ostringstream out;
         out << std::defaultfloat << std::setprecision(12) << std::boolalpha
@@ -259,7 +254,6 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
                             particle.m());
 
         auto& appended = pythia.event.back();
-        appended.colourHistoryId(particle.colourHistoryId());
         // Input vertices are displacements from the hard interaction in mm.
         appended.vProd(particle.vProd());
         if (trace_vertices) {
@@ -269,7 +263,6 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
                 << " hadronizer_index=" << pythia.event.size() - 1
                 << " pdg=" << particle.id()
                 << " source_status=" << particle.status()
-                << " colour_source_id=" << appended.colourHistoryId()
                 << " source_mothers=" << particle.mother1() << ','
                 << particle.mother2() << ' ';
             HadronVertexTrace::vertex(out, "relative_vertex", appended.vProd());

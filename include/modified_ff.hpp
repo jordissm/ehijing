@@ -8,7 +8,6 @@
 #include "dis_kinematics.hpp"
 
 #include "Pythia8/Pythia.h"
-#include "Pythia8/ColourConnectionHistory.h"
 #include <random>
 #include <string>
 
@@ -60,16 +59,12 @@ public:
      * @param Rx Output hard-vertex x coordinate in GeV^{-1}.
      * @param Ry Output hard-vertex y coordinate in GeV^{-1}.
      * @param Rz Output hard-vertex z coordinate in GeV^{-1}.
-     * @param colour_history Optional per-attempt diagnostic history. It is
-     *        reset here and records the pre-medium graph, sampled emissions,
-     *        and collision colour exchanges without changing the model.
      */
     void sample_ff_partons(Pythia8::Pythia& pythia,
                            const DISKinematics& kinematics,
                            double& Rx,
                            double& Ry,
-                           double& Rz,
-                           Pythia8::ColourConnectionHistory* colour_history = nullptr);
+                           double& Rz);
 
 private:
     /// Selected medium-modification mode.

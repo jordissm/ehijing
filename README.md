@@ -157,7 +157,7 @@ and `--no-lund-boundaries` to omit the overview overlay. `--duration 5` extends
 free hadron lines 5 fm/c past the latest formation; it does not set constituent
 trajectory durations.
 
-The plotter reads v2/v3/v4/v5. Old unsmeared light-flavour breakup pairs provide
+The plotter reads v2/v3/v4. Old unsmeared light-flavour breakup pairs provide
 converted reference points when v4 records are absent. Rebuild bundled PYTHIA,
 eHIJING and the container, then regenerate events to apply the native fixes:
 collapse recoil reshuffling changes momentum while preserving past vertices,
@@ -166,36 +166,6 @@ origin, matching ordinary fragmentation. This origin is a consistent inherited
 anchor, not a newly determined colour-exchange event. Original endpoint births
 remain in the trace. Old traces preserve their historical metadata, including
 any recoil-boosted vertices or different mini-string inherited origins.
-
-### Colour-connection provenance (trace v5)
-
-`HadronVertex:trace = on` now enables a per-attempt history beginning before
-the medium modifications. Stable source IDs survive temporary particle copies,
-hadronizer import and native recoil copies; joined partons are resolved through
-their mother entries. `COLOUR_CHANGE` records old/new colour ports with the
-sampled emission/collision clock in fm/c relative to the hard interaction.
-`COLOUR_LINK` identifies each link by its tag and both source IDs, and records
-the changes that created or removed it. `IMPORT` maps source IDs into the
-hadronizer event. History recording consumes no random numbers.
-
-Each `STRING_CONNECTION` and single-hadron-collapse record gives:
-
-- `color_connection_first_time` / `color_connection_first_status`: first
-  recorded appearance of the complete connected source component.
-- `color_connection_time` / `color_connection_status`: start of its current
-  uninterrupted connection episode, which can differ after disconnection.
-- `color_source_ids` and `color_link_ids`: references into the history.
-- `color_latest_known_link_time`: a diagnostic clock, not a component birth time.
-
-Component creation is determined from the graph history, including removal of
-external links. Pre-medium/shower components have no recorded creation clock;
-they stay unavailable. Missing/changed provenance, incomplete or junction
-graphs and nonchronological operations also prevent assignment of a time.
-Times are model clocks in the lab/nuclear frame, not interaction four-vertices;
-they cannot be boosted as scalars. They do not change hadron `prod_time`,
-formation points or the OSCAR format. The plotter accepts v2-v5 and prints the
-collapse clocks/statuses. Rebuild the bundled PYTHIA and eHIJING, then regenerate
-events to obtain the new history; old traces lack this information.
 
 ## Generating documentation
 

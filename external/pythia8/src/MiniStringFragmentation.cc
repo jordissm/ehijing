@@ -435,7 +435,7 @@ bool MiniStringFragmentation::ministring2one( int iSub,
     event[iHad].vProd( event[iHad].vProd() + prodPoint * FM2MM );
   }
   if (traceVertices)
-    HadronVertexTrace::collapse(event, iHad, iMax, traceOrigin, iParton);
+    HadronVertexTrace::collapse(event, iHad, iMax, traceOrigin);
 
   // Successfully done.
   return true;
