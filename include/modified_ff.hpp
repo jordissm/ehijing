@@ -62,8 +62,10 @@ public:
      * @param Ry Output hard-vertex y coordinate in GeV^{-1}.
      * @param Rz Output hard-vertex z coordinate in GeV^{-1}.
      * @param history Optional collector of sampled states and parent mappings.
+     * @return False when an explicit-target transfer has no physical elastic
+     * solution. The mutated attempt must then be discarded in its entirety.
      */
-    void sample_ff_partons(Pythia8::Pythia& pythia,
+    bool sample_ff_partons(Pythia8::Pythia& pythia,
                            const DISKinematics& kinematics,
                            double& Rx,
                            double& Ry,

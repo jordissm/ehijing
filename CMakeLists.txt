@@ -96,4 +96,27 @@ if(BUILD_TESTING)
     ${PYTHIA8_LIBRARIES} ${HEPMC3_LIBRARIES} ${GSL_LIBRARIES} Threads::Threads
   )
   add_test(NAME spacetime_history COMMAND spacetime_history_test)
+  add_executable(spectator_balance_test
+    tests/spectator_balance_test.cpp
+    src/spacetime_history.cpp
+    src/event_output.cpp
+  )
+  target_compile_features(spectator_balance_test PRIVATE cxx_std_17)
+  target_include_directories(spectator_balance_test PRIVATE
+    include ${PYTHIA8_INCLUDE_DIR} ${HEPMC3_INCLUDE_DIR} ${GSL_INCLUDE_DIR}
+  )
+  target_link_libraries(spectator_balance_test PRIVATE
+    ${PYTHIA8_LIBRARIES} ${HEPMC3_LIBRARIES} ${GSL_LIBRARIES} Threads::Threads
+  )
+  add_test(NAME spectator_balance COMMAND spectator_balance_test)
+  add_executable(nuclear_target_test tests/nuclear_target_test.cpp)
+  target_compile_features(nuclear_target_test PRIVATE cxx_std_17)
+  target_include_directories(nuclear_target_test PRIVATE include ${PYTHIA8_INCLUDE_DIR})
+  target_link_libraries(nuclear_target_test PRIVATE ${PYTHIA8_LIBRARIES} ${GSL_LIBRARIES} Threads::Threads)
+  add_test(NAME nuclear_target COMMAND nuclear_target_test)
+  add_executable(shared_remnant_test tests/shared_remnant_test.cpp src/modified_ff.cpp src/spacetime_history.cpp)
+  target_compile_features(shared_remnant_test PRIVATE cxx_std_17)
+  target_include_directories(shared_remnant_test PRIVATE include ${PYTHIA8_INCLUDE_DIR} ${HEPMC3_INCLUDE_DIR} ${GSL_INCLUDE_DIR})
+  target_link_libraries(shared_remnant_test PRIVATE ${PYTHIA8_LIBRARIES} ${HEPMC3_LIBRARIES} ${GSL_LIBRARIES} Threads::Threads)
+  add_test(NAME shared_remnant COMMAND shared_remnant_test)
 endif()

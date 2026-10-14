@@ -42,7 +42,7 @@ void usage(const char* prog) {
         << "--hard-process-config <PATH> "
         << "--hadronization-config <PATH> "
         << "--dis-cuts-config <PATH> "
-        << "--seed <SEED> [--history <on|off>]\n\n";
+        << "--seed <SEED> [--history <on|off>] [--nuclear-target <on|off>] [--nucleon-width-fm <fm>] [--nuclear-radius-fm <fm>] [--nuclear-surface-fm <fm>]\n\n";
 }
 
 RunConfig parse_args(int argc, char* argv[]) {
@@ -76,6 +76,15 @@ RunConfig parse_args(int argc, char* argv[]) {
         cfg.history = it->second == "on";
     }
 
+    if (auto it = args.find("--nuclear-target"); it != args.end()) {
+        if (it->second != "on" && it->second != "off") {
+            std::cerr << "ERROR: --nuclear-target must be on or off\n"; std::exit(2);
+        }
+        cfg.nuclear_target = it->second == "on";
+    }
+    if (args.count("--nucleon-width-fm")) cfg.nucleon_width_fm = std::stod(args.at("--nucleon-width-fm"));
+    if (args.count("--nuclear-radius-fm")) cfg.nuclear_radius_fm = std::stod(args.at("--nuclear-radius-fm"));
+    if (args.count("--nuclear-surface-fm")) cfg.nuclear_surface_fm = std::stod(args.at("--nuclear-surface-fm"));
     // Required arguments parser
     cfg.n_events        = std::stoi(require_arg(args, "--number-of-events", argv[0]));
     cfg.atomic_number   = std::stoi(require_arg(args, "--Z", argv[0]));

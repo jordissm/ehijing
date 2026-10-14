@@ -136,6 +136,8 @@ private:
 
   // eHIJING change
   EHIJING::NuclearGeometry * eHIJING_Geometry;
+  bool explicitNucleus = false;
+  double nucleonWidth = .5, nuclearRadius = 0., nuclearSurface = 0.;
 
   // Event generation strategy. Number of steps. Maximum pT scales.
   bool   doVeto;

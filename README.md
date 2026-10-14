@@ -5,6 +5,119 @@ The eHIJING headers and sources are documented with Doxygen.
 [Unit conventions](docs/units.md) describe spacetime units, conversion factors,
 interface requirements, and remaining review items.
 
+## Shared nuclear target and recoil
+
+The ELECTRA executable now defaults to `--nuclear-target on`. Rebuild both
+`external/pythia8` and the CMake application, and install the updated PYTHIA XML
+settings together with the library. A link-time ABI guard prevents linking the
+application to an old library. The underlying PYTHIA setting
+`eHIJING:ExplicitNucleus` defaults off for other library clients. Use
+`--nuclear-target off` to retain ELECTRA's previous continuous-medium recoil
+and spectator-count prescription.
+
+Each generation attempt constructs exactly A identified nucleons, with exactly
+Z protons. The primary species is chosen with Z/A, then an identity is chosen
+uniformly within that species. Its centre is the hard vertex, and its species
+is reused by the hadronizer. The primary identity is excluded from subsequent
+medium scattering. Hard-process momenta and nuclear PDFs retain their existing
+sampling; this is a geometrical assignment, without a Fermi-motion model.
+
+The geometry follows [TRENTo's nucleus prescriptions](https://github.com/Duke-QCD/trento/blob/master/src/nucleus.cxx)
+and its [Gaussian nucleon profile](https://github.com/Duke-QCD/trento/blob/master/doc/usage.rst):
+A=1 is a single nucleon; A=2, Z=1 uses the Hulthén proton-neutron separation
+with a=0.228 and b=1.18 fm^-1, placing nucleons at opposite half-separations.
+Heavy targets use spherical Woods–Saxon centres with the volume Jacobian and
+radial cutoff R+10a. Centres are independent, without minimum-distance
+correlations or recentering. Density is the sum of normalized spherical
+Gaussians with `--nucleon-width-fm 0.5` (a benchmark, not a fitted value).
+Geometry remains frozen; recoil momenta do not move the density centres.
+Collision sampling retains straight eikonal rays; kicks do not resample paths. No
+hotspots, strength fluctuations, nuclear binding, deformations, or TRENTo3D
+heavy-ion energy-deposition prescription are added.
+
+Default Woods–Saxon parameters in fm are:
+
+| A | R | a |
+| --- | --- | --- |
+| 63 | 4.20 | 0.596 |
+| 129 | 5.36 | 0.590 |
+| 197 | 6.38 | 0.535 |
+| 208 | 6.62 | 0.546 |
+| 238 | 6.81 | 0.600 |
+
+Other A>2 require both `--nuclear-radius-fm` and `--nuclear-surface-fm`.
+These two flags also override the listed values. Both must be positive.
+The same optional arguments are available on `electra ehijing run`; no local
+or SLURM positional arguments or output layouts change. The SLURM submit script
+accepts optional `NUCLEAR_TARGET=on|off`, `NUCLEON_WIDTH_FM`, `NUCLEAR_RADIUS_FM`
+and `NUCLEAR_SURFACE_FM` key=value parameters. Python forwards the
+options only when supplied, preserving invocation of older executables.
+
+The [eHIJING model](https://arxiv.org/html/2304.10779v2) still supplies the gluon
+TMD, transfer proposal/veto kernel, Qs equation, HT/GHT splitting kernels and
+high/low-scale shower. Forward-ray Gaussian thickness replaces the continuous
+medium thickness. Identity and collision time are sampled jointly from each
+nucleon's contribution along that ray. Radiation gluons sample the remaining
+medium starting at their existing formation-variable displacement. There is
+no additional hard-sphere exclusion length: primary exclusion is by identity.
+Qs uses the existing self-consistency solver outside the tabulated domain;
+the high-scale separation retains a minimum of mu^2. The interpolation upper
+endpoint is now safe without reading beyond the table.
+
+All sampled elastic collisions are applied in nuclear-rest-frame time order.
+Repeated hits, including hits from different partons, update the same whole
+on-shell remnant. The solver retains the sampled transverse transfer, chooses
+the forward two-body solution connected to zero transfer and conserves both
+four-momentum and masses at that collision. A hit nucleon is split into one
+quark–diquark pair after all hits, using its fixed proton/neutron species and
+its final recoil momentum. Repeated hits exchange existing colour lines;
+medium radiation inserts gluons into an existing supporting remnant's string.
+No additional baryon is created for each collision or emission. Lund
+fragmentation and its vertex machinery are retained. The pair's displacement
+is the last sampled collision point, not its final momentum extrapolated back
+to the collision time.
+
+A transfer without a physical forward solution rejects the entire attempt and
+regenerates its hard event and nucleus. Transfers are not clipped or resampled
+inside an accepted event. Final B/Q must also match the untouched target
+identities; a disagreement rejects the attempt. Only accepted attempts are
+written. Logs report recoil and balance rejection counts. A run exits with a
+diagnostic after 10000 consecutive unsuccessful attempts, rather than looping
+forever. Rejection changes the accepted-event distribution; monitor its rate
+before interpreting production results. These changes have synthetic tests,
+but no physics production sample has been validated yet.
+
+Exact conservation here applies to elastic recoil and remnant splitting.
+The existing low-scale radiation step still subtracts its gluon spatial
+momentum and restores the parent on shell independently; its approximate
+energy balance has not been redesigned. This implementation therefore does
+not claim exact global event energy conservation, nuclear excitation dynamics,
+or reconstructed high-scale shower formation positions.
+
+## Nuclear output bookkeeping
+
+For neutral-current DIS, the writer counts signed final baryon number and
+charge, including antibaryons, resonances, charged mesons and final decay
+leptons. Intermediate particles and the scattered DIS lepton are excluded.
+The required spectator counts are `Np = Z - Q_final` and
+`Nn = A - B_final - Np`, computed in thirds to retain fractional quantum numbers.
+
+In explicit-target mode these counts must equal the actual identities with
+zero hits. The writer emits those identities at their original sampled
+positions with rest-frame nucleon momenta, boosted to the output frame and
+freestreamed to its t=0 hypersurface. It never deletes or invents spectators to
+repair a target mismatch. The OSCAR header counts all emitted rows. Metadata
+and the history's output snapshot contain a `nuclear_target` ledger with
+identity, PDG species, hit count, sampled position in GeV^-1, primary ID and
+geometry parameters. `nuclear_bookkeeping` reports quantum numbers and
+`spectator_policy="untouched_target_identities"`.
+
+With `--nuclear-target off`, admissible required counts set the old writer's
+newly sampled spectators. Non-admissible counts retain the legacy A-1 fallback,
+labelled `admissible=false` and `spectator_policy="legacy_unmodified"`. This
+fallback does not apply to explicit-target events. Charged-current DIS remains
+outside the supported hadronic charge budget.
+
 ## Diagnostic spacetime history
 
 Each successful eHIJING event now writes `event_00000042.history` next to its
@@ -24,11 +137,16 @@ IDs; `attempt` identifies the successful generation attempt. Failed attempts
 are discarded along with their event, rather than being attached to a later
 successful event's history. Snapshot sequence is execution order, not physical
 time. In particular, the high-scale shower is scale ordered and the existing
-collision sampler retains its native order.
+collision sampler retains its native order in attributes. Explicit elastic
+recoil updates are subsequently sorted by their sampled rest-frame time.
 
 The stages are:
 
 - `hard_process`: the PYTHIA process record retained after generation.
+- `nuclear_target`: the frozen sampled target, with `nuclear_target_id` on each
+  nucleon and the primary identity in the comment.
+- `medium_exact_recoil`: outgoing jet and whole remnant after each exact
+  elastic collision; source shower index and target identity are separate.
 - `high_scale_shower`: the complete PYTHIA event record before `Modified_FF`,
   including incoming particles, intermediate partons, remnants and leptons.
 - `medium_parent_after_emission` and `medium_parent_after_kick`: observed parent
@@ -44,13 +162,16 @@ The stages are:
 - `hadronization_and_decays`: the full hadronizer record, including intermediate
   hadrons and decayed particles, not just its final-state return vector.
 - `oscar_output`: final hadrons extrapolated to t = 0 and the actual spectator
-  nucleons sampled by the existing writer. Coordinates are recorded before the
+  nucleons retained from the explicit target (or sampled by the legacy writer). Coordinates are recorded before the
   OSCAR file rounds them to five decimals in fm.
 
 Only stages with observed medium updates/products are emitted. Identity is
 `(record, record_index)`; indices are local to `process`, `shower`, `hadronizer`
 or `oscar`. `source_record`/`source_index` link imports and appended products;
-`source_index=-1` means no direct import association. Native `mother1`,
+`source_index=-1` means no direct import association. `nuclear_target_id`
+identifies a target nucleon for nuclear observations, recoil pairs and imported
+primary remnants; `-1` means unassigned. Shower snapshots also retain the
+separation scale and primary target identity. Native `mother1`,
 `mother2`, `daughter1`, `daughter2`, `pythia_status`, colour tags, scale and
 sampled collision arrays are attributes. PYTHIA's range and copy conventions
 still apply to those ancestry fields. Final hadronizer particles have an
@@ -77,7 +198,9 @@ an explicitly assigned zero. `stored_vertex_xyzt` retains the raw value with
 `stored_vertex_units`, while HepMC `V` positions use mm. All four-coordinate
 attributes use `(x,y,z,ct)`. Nuclear geometry origins are separately recorded
 in GeV^-1, along with the target momentum defining the nuclear rest frame.
-No diagnostic Lorentz boost or translation is applied. The supplied workflow
+The collector adds no boosts or translations. Explicit nuclear/recoil stages
+already supply boosted positions and momenta from the model; other snapshots
+retain their stage's existing frame and origin conventions. The supplied workflow
 requires `PartonVertex:setVertex=off`; custom settings enabling it still require
 the import-policy review described in [Unit conventions](docs/units.md).
 

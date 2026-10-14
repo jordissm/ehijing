@@ -1,4 +1,5 @@
 #include "modified_ff.hpp"
+#include "nuclear_recoil.hpp"
 #include "spacetime_history.hpp"
 #include "ehijing_constants.hpp"
 
@@ -8,6 +9,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <sstream>
+#include <map>
 
 using namespace Pythia8;
 namespace constants = ehijing::constants;
@@ -43,7 +45,7 @@ Modified_FF::Modified_FF(int mode,
 }
 
 // The realization of the modified FF
-void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinematics, double& Rx, double& Ry, double& Rz,
+bool Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinematics, double& Rx, double& Ry, double& Rz,
                                    SpacetimeHistory* history)
 {
     // Always return the hard vertex, even when no parton passes the medium
@@ -52,6 +54,35 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
     Ry = pythia.event.Ry();
     Rz = pythia.event.Rz();
 
+    const auto target = pythia.event.nuclearTarget();
+    const int original_size = pythia.event.size();
+    std::map<int,int> initial_colour_balance;
+    auto count_colours = [](std::map<int,int>& balance,const Particle& parton) {
+        if (parton.col()) ++balance[parton.col()];
+        if (parton.acol()) --balance[parton.acol()];
+    };
+    if (target) for (int i=0;i<original_size;++i)
+        if (pythia.event[i].isFinal()) count_colours(initial_colour_balance,pythia.event[i]);
+    // Medium kernels and exact recoil operate in the nuclear rest frame.
+    if (target) for (int i = 0; i < original_size; ++i) {
+        auto p = pythia.event[i].p(); p.bstback(kinematics.pProton); pythia.event[i].p(p);
+        if (pythia.event[i].hasVertex()) {
+            auto v = pythia.event[i].vProd(); v.bstback(kinematics.pProton); pythia.event[i].vProd(v);
+        }
+    }
+    struct Remnant { Vec4 p, vertex; int col = 0, acol = 0, source = 0; };
+    std::vector<Remnant> remnants(target ? target->nucleons().size() : 0);
+    if (target) for (size_t id = 0; id < remnants.size(); ++id) {
+        remnants[id].p = Vec4(0.,0.,0.,target->nucleons()[id].proton
+            ? constants::mass::proton_gev : constants::mass::neutron_gev);
+    }
+    auto ensure_remnant = [&](int id, int source, const Vec4& vertex) {
+        auto& r = remnants.at(id);
+        if (!r.col) { r.col = r.acol = pythia.event.nextColTag(); r.source = source; r.vertex = vertex; }
+    };
+    struct Kick { int source, target; bool appended; double time, qt2, phi; Vec4 vertex; };
+    std::vector<Kick> kicks;
+    const std::array<double,3> hard = {Rx,Ry,Rz};
     // Use fixed coupling at Qs of this event for anything medium-induced below Qs
     double kt2max_now = pythia.event.SeparationScale();
     double alpha_fix = EHIJING::alphas(kt2max_now);
@@ -84,7 +115,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
 
         // Only consider partons with energy above 2*min_energy in the nuclear rest frame
         // to avoid non-perturbative region and ensure the validity of the soft gluon approximation
-        if (particle.e() < 2 * min_energy) {
+        if (!target && particle.e() < 2 * min_energy) {
             continue;
         }
 
@@ -107,7 +138,9 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
 
         // Get its collision history
         std::vector<double> qt2s = particle.coll_qt2s(), ts = particle.coll_ts(), phis = particle.coll_phis();
+        const auto target_ids = particle.coll_targets();
         int n_collisions = ts.size();
+        if (target && (target_ids.size() != ts.size() || qt2s.size() != ts.size() || phis.size() != ts.size())) return false;
         // If no collision, nothing to do
         if (n_collisions == 0) {
             continue;
@@ -128,7 +161,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             sumq2 += qt2s[i];
         }
         // Neglect too soft momentum kicks
-        if (sumq2 < constants::numeric::min_momentum_kick2) {
+        if (!target && sumq2 < constants::numeric::min_momentum_kick2) {
             continue;
         }
 
@@ -295,6 +328,7 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
                 continue;
             }
 
+            int supporting_collision = -1;
             // Finally, sample phikT2 and compute the deflection of the hard parton lt2
             // If mode = 0, use HT
             if (mode_ == 0) {
@@ -326,6 +360,8 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
                         break;
                     }
                 }
+                if (choice < 0) { if (target) return false; continue; }
+                supporting_collision = choice;
                 // sample phik ~ (1+delta cos) / (1+delta^2 + 2 delta cos)
                 double delta = std::sqrt(kt2 / qt2s[choice]);
                 acceptance = 0.;
@@ -361,10 +397,57 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             particle.e(std::sqrt(particle.pAbs2() + particle.m2()));
             kmu.e(std::sqrt(kmu.pAbs2()));
 
-            if (history) history->capture_particles({particle}, "medium_parent_after_emission",
-                "shower", "source_parton_vertices", {i}, {},
-                emission_diagnostic(formation_time, z, kt2, lt2));
+            if (history) {
+                auto observed = particle;
+                if (target) {
+                    auto p = observed.p(); p.bst(kinematics.pProton); observed.p(p);
+                    if (observed.hasVertex()) { auto v = observed.vProd(); v.bst(kinematics.pProton); observed.vProd(v); }
+                }
+                history->capture_particles({observed}, "medium_parent_after_emission",
+                    "shower", "source_parton_vertices", {i}, {},
+                    emission_diagnostic(formation_time, z, kt2, lt2));
+            }
 
+            if (target) {
+                if (supporting_collision < 0) {
+                    double total = 0.; std::vector<double> weights(n_collisions);
+                    for (int j = 0; j < n_collisions; ++j) {
+                        weights[j] = kt2 > qt2s[j] ? qt2s[j]*(1.-std::cos(ts[j]/formation_time)) : 0.;
+                        total += weights[j];
+                    }
+                    if (!(total > 0.)) return false;
+                    double draw = uniform_dist_(rng_) * total;
+                    for (int j = 0; j < n_collisions; ++j) if (weights[j] > 0.) {
+                        supporting_collision = j; draw -= weights[j]; if (draw <= 0.) break;
+                    }
+                }
+                const int id = target_ids[supporting_collision];
+                if (id < 0 || id >= int(remnants.size()) || id == target->primary()) return false;
+                // Position is the ray/profile overlap at the supporting collision.
+                Vec4 at(vx*ts[supporting_collision], vy*ts[supporting_collision],
+                    vz*ts[supporting_collision], ts[supporting_collision]);
+                ensure_remnant(id, i, at);
+                auto& r = remnants[id];
+                Particle gluon(constants::pdg::gluon_id, constants::pythia::medium_recoil_status,
+                    i,0,0,0, r.col, pythia.event.nextColTag(), kmu,0.);
+                r.col = gluon.acol();
+                const Vec4 birth(vx*formation_time,vy*formation_time,vz*formation_time,formation_time);
+                gluon.vProd(birth*hbarc*constants::units::fm_to_mm);
+                std::vector<double> gq,gt,gphi; std::vector<int> gids;
+                const std::array<double,3> start = {Rx+birth.px(),Ry+birth.py(),Rz+birth.pz()};
+                const std::array<double,3> velocity = {kmu.px()/kmu.e(),kmu.py()/kmu.e(),kmu.pz()/kmu.e()};
+                collision_sampler_.sample_all_qt2_target(21,kmu.e(),*target,start,velocity,
+                    kinematics.bjorken_x,kinematics.Q2,gq,gt,gphi,gids);
+                std::vector<double> absolute_times = gt;
+                for (size_t j = 0; j < gt.size(); ++j) {
+                    absolute_times[j] += formation_time;
+                    Vec4 atg = birth + Vec4(velocity[0]*gt[j],velocity[1]*gt[j],velocity[2]*gt[j],gt[j]);
+                    kicks.push_back({int(new_particles.size()),gids[j],true,absolute_times[j],gq[j],gphi[j],atg});
+                }
+                gluon.AddMultipleCollision(absolute_times,gq,gphi,gids);
+                new_particles.push_back(gluon); new_sources.push_back(i);
+                continue;
+            }
             // the gluon can continue to collide
 
             std::vector<double> g_qt2s, g_ts, g_phis;
@@ -515,6 +598,13 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             t_arr.push_back(formation_time * hbarc);
         } // Comment out this loop to turn off radiation
 
+        if (target) {
+            for (int j = 0; j < n_collisions; ++j) {
+                Vec4 at(vx*ts[j],vy*ts[j],vz*ts[j],ts[j]);
+                kicks.push_back({i,target_ids[j],false,ts[j],qt2s[j],phis[j],at});
+            }
+            continue;
+        }
         // Handle recoil and remnants
         // If there is radiation, recoil goes to radiation.
         // If not, goes to the hard quark
@@ -666,10 +756,92 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
         }
     }
 
+    if (target) {
+        std::stable_sort(kicks.begin(), kicks.end(), [](const Kick& a,const Kick& b) { return a.time < b.time; });
+        for (const auto& hit : kicks) {
+            if (hit.target < 0 || hit.target >= int(remnants.size()) || hit.target == target->primary()) return false;
+            auto& jet = hit.appended ? new_particles.at(hit.source) : pythia.event[hit.source];
+            auto& r = remnants[hit.target];
+            auto momentum = jet.p();
+            if (!ehijing::recoil_two_body(momentum,r.p,hit.qt2,hit.phi)) {
+                std::cerr << "WARNING: rejecting event: no physical recoil; target_id=" << hit.target
+                          << " time_GeV_inv=" << hit.time << " qt2_GeV2=" << hit.qt2 << '\n';
+                return false;
+            }
+            ensure_remnant(hit.target,hit.appended ? new_sources.at(hit.source) : hit.source,hit.vertex);
+            jet.p(momentum); ++target->nucleons()[hit.target].hits;
+            r.vertex = hit.vertex; // Final split starts at the last sampled interaction.
+            // Exchange an existing color line; repeated hits never create a new pair.
+            if (jet.col() && (!jet.acol() || uniform_dist_(rng_) < .5)) {
+                const int old = jet.col(); jet.col(r.col); r.col = old;
+            } else {
+                const int old = jet.acol(); jet.acol(r.acol); r.acol = old;
+            }
+            if (history) {
+                Particle observed(target->nucleons()[hit.target].proton ? 2212 : 2112, 2,
+                    0,0,0,0,0,0,r.p,r.p.mCalc());
+                observed.nuclearTargetId(hit.target);
+                auto v = Vec4(Rx,Ry,Rz,0.) + hit.vertex;
+                v *= hbarc*constants::units::fm_to_mm; v.bst(kinematics.pProton);
+                observed.vProd(v); auto op = observed.p(); op.bst(kinematics.pProton); observed.p(op);
+                auto observed_jet = jet; op = observed_jet.p(); op.bst(kinematics.pProton); observed_jet.p(op);
+                observed_jet.vProd(v);
+                const int index = hit.appended ? original_size+hit.source : hit.source;
+                history->capture_particles({observed_jet,observed},"medium_exact_recoil","nuclear_collision",
+                    "absolute_mm_nuclear_origin",{}, {index,-1},
+                    "Exact elastic two-body recoil; target_id=" + std::to_string(hit.target)
+                    + "; time_GeV_inv=" + std::to_string(hit.time));
+            }
+        }
+        // Split each touched nucleon exactly once, preserving its fixed species.
+        for (size_t id = 0; id < remnants.size(); ++id) {
+            auto& r = remnants[id]; if (!r.col) continue;
+            if (target->nucleons()[id].hits == 0) return false;
+            const bool proton = target->nucleons()[id].proton;
+            int qid = proton ? 2 : 1, diqid = uniform_dist_(rng_) < .75 ? 2101 : 2103;
+            if (uniform_dist_(rng_) >= 2./3.) { qid = proton ? 1 : 2; diqid = proton ? 2203 : 1103; }
+            const double mq = constants::mass::constituent_light_quark_gev;
+            const double md = constants::mass::remnant_diquark_gev;
+            const double mn = proton ? constants::mass::proton_gev : constants::mass::neutron_gev;
+            const double magnitude = std::sqrt((mn*mn-(mq+md)*(mq+md))*(mn*mn-(mq-md)*(mq-md)))/(2.*mn);
+            const double cosine = 2.*uniform_dist_(rng_)-1., phi = constants::math::two_pi*uniform_dist_(rng_);
+            const double sine = std::sqrt(std::max(0.,1.-cosine*cosine));
+            Vec4 pq(magnitude*sine*std::cos(phi),magnitude*sine*std::sin(phi),magnitude*cosine,std::sqrt(magnitude*magnitude+mq*mq));
+            Vec4 pd(-pq.px(),-pq.py(),-pq.pz(),std::sqrt(magnitude*magnitude+md*md));
+            pq.bst(r.p); pd.bst(r.p);
+            Particle q(qid,constants::pythia::medium_recoil_status,r.source,0,0,0,r.col,0,pq,mq);
+            Particle d(diqid,constants::pythia::medium_recoil_status,r.source,0,0,0,0,r.acol,pd,md);
+            for (auto* parton : {&q,&d}) {
+                parton->nuclearTargetId(id);
+                parton->vProd(r.vertex*hbarc*constants::units::fm_to_mm);
+                new_particles.push_back(*parton); new_sources.push_back(r.source);
+            }
+        }
+        auto final_colour_balance = initial_colour_balance;
+        for (auto& item : final_colour_balance) item.second = -item.second;
+        for (int i=0;i<original_size;++i)
+            if (pythia.event[i].isFinal()) count_colours(final_colour_balance,pythia.event[i]);
+        for (const auto& parton : new_particles) count_colours(final_colour_balance,parton);
+        for (const auto& item : final_colour_balance) if (item.second != 0) {
+            std::cerr << "WARNING: rejecting event: remnant colour balance changed for tag=" << item.first << '\n';
+            return false;
+        }
+        for (int i = 0; i < original_size; ++i) {
+            auto p = pythia.event[i].p(); p.bst(kinematics.pProton); pythia.event[i].p(p);
+            if (pythia.event[i].hasVertex()) {
+                auto v = pythia.event[i].vProd(); v.bst(kinematics.pProton); pythia.event[i].vProd(v);
+            }
+        }
+        for (auto& parton : new_particles) {
+            auto p = parton.p(); p.bst(kinematics.pProton); parton.p(p);
+            auto v = parton.vProd(); v.bst(kinematics.pProton); parton.vProd(v);
+        }
+    }
     const int first_new_index = pythia.event.size();
     int ixyz = 0;
     for (auto& new_particle : new_particles) {
         
+        if (target) { pythia.event.append(new_particle); continue; }
         pythia.event.append(new_particle.id(),
                             constants::pythia::medium_recoil_status,
                             new_particle.col(), 
@@ -703,4 +875,5 @@ void Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             "relative_mm_hard_interaction", indices, new_sources,
             "source_index preserves the parent discarded by the existing append operation.");
     }
+    return true;
 }

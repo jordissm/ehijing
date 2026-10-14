@@ -79,6 +79,10 @@ bool PartonLevel::init( Info* infoPtrIn, Settings& settings,
   // eHIJING change
   // WK: eHIJING flag and qhat0g
   eHIJING               = settings.flag("eHIJING:all");
+  explicitNucleus = settings.flag("eHIJING:ExplicitNucleus");
+  nucleonWidth = settings.parm("eHIJING:NucleonWidth");
+  nuclearRadius = settings.parm("eHIJING:NuclearRadius");
+  nuclearSurface = settings.parm("eHIJING:NuclearSurface");
   eHIJING_MassNumber    = settings.parm("eHIJING:MassNumber");
   eHIJING_AtomicNumber  = settings.parm("eHIJING:AtomicNumber");
   eHIJING_Geometry      = new EHIJING::NuclearGeometry(eHIJING_MassNumber, eHIJING_AtomicNumber);
@@ -1376,9 +1380,21 @@ void PartonLevel::setupHardSys(Event& process, Event& event) {
   // eHIJING change
   // WK >>>
   // Sample hard location in the rest frame of A
-  if(eHIJING){
+  if(eHIJING || explicitNucleus){
     double rx, ry, rz;
-    eHIJING_Geometry->sample_HardVertex(rx, ry, rz);
+    if (explicitNucleus) {
+      auto target = std::make_shared<EHIJING::NuclearTarget>(
+        int(eHIJING_MassNumber),
+        int(eHIJING_AtomicNumber),
+        nucleonWidth,
+        nuclearRadius,
+        nuclearSurface);
+      target->sample([this]() { return rndmPtr->flat(); });
+      event.nuclearTarget(target);
+      process.nuclearTarget(target);
+      const auto& x = target->nucleons()[target->primary()].position;
+      rx = x[0]; ry = x[1]; rz = x[2];
+    } else eHIJING_Geometry->sample_HardVertex(rx, ry, rz);
     event.setRx(rx);
     event.setRy(ry);
     event.setRz(rz);

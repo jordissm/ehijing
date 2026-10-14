@@ -162,8 +162,10 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
     const double hbarc = constants::units::hbarc_gev_fm;
     // eHIJING geometry is in GeV^{-1}; standard PYTHIA vertices use mm.
     // This origin is added once to each imported parton's displacement.
-    const Vec4 origin = Vec4(Rx, Ry, Rz, 0.0)
+    Vec4 origin = Vec4(Rx, Ry, Rz, 0.0)
                       * hbarc * constants::units::fm_to_mm;
+    const auto target = pythiaIn.event.nuclearTarget();
+    if (target) origin.bst(pythiaIn.event[constants::pythia::incoming_target_index].p());
     if (capture_trace) {
         std::ostringstream out;
         HadronVertexTrace::prefix(out);
@@ -175,10 +177,9 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
     // This result will store the final hadrons after hadronization, and will be
     // returned to the main function
     HadronizationResult result;
-    result.struck_nucleon =
-        (dist(gen) < charge_fraction) ? StruckNucleon::Proton
-                                      : StruckNucleon::Neutron;
-
+    result.struck_nucleon = target
+        ? (target->nucleons()[target->primary()].proton ? StruckNucleon::Proton : StruckNucleon::Neutron)
+        : ((dist(gen) < charge_fraction) ? StruckNucleon::Proton : StruckNucleon::Neutron);
     // Get the initial hard parton ID
     int hardid = pythiaIn.event[constants::pythia::hard_parton_index].id();
 
@@ -207,7 +208,8 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
         //   (uu)_1 : 2203
         if (particle.status() == constants::pythia::beam_remnant_status &&
             constants::pdg::diquark_id_min_exclusive < particle.idAbs() &&
-            particle.idAbs() < constants::pdg::diquark_id_max_exclusive) {
+            particle.idAbs() < constants::pdg::diquark_id_max_exclusive
+            && particle.nuclearTargetId() < 0) {
 
             // valence stuff, the remnants will contain the rest flavor component
             // note that the hard quark has already been sampled according to the
@@ -261,6 +263,10 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
         if (history) source_indices.push_back(i);
         // Input vertices are displacements from the hard interaction in mm.
         appended.vProd(particle.vProd());
+        appended.nuclearTargetId(particle.nuclearTargetId());
+        if (target && particle.nuclearTargetId() < 0
+            && particle.status() == constants::pythia::beam_remnant_status)
+            appended.nuclearTargetId(target->primary());
         if (capture_trace) {
             std::ostringstream out;
             HadronVertexTrace::prefix(out);

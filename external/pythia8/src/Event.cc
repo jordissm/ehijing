@@ -620,6 +620,9 @@ Event& Event::operator=( const Event& oldEvent) {
     scaleSave           = oldEvent.scaleSave;
     scaleSecondSave     = oldEvent.scaleSecondSave;
     headerList          = oldEvent.headerList;
+    nuclearTarget_      = oldEvent.nuclearTarget_;
+    Rx_ = oldEvent.Rx_; Ry_ = oldEvent.Ry_; Rz_ = oldEvent.Rz_;
+    separationScale_ = oldEvent.separationScale_;
 
   // Done.
   }

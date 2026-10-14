@@ -1,6 +1,7 @@
 #ifndef EHIJING_H
 #define EHIJING_H
 #include <vector>
+#include "eHIJING/NuclearTarget.h"
 #include <cmath>
 #include <random>
 #include <iostream>
@@ -85,7 +86,7 @@ public:
        for(auto i=0; i<dim_; i++) {
            double x = (Xinput[i] - grid_min_[i])/step_[i];
            x = std::min(std::max(x, 0.), shape_[i]-1.);
-           size_t nx = size_t(std::floor(x));
+           size_t nx = std::min(size_t(std::floor(x)), size_t(shape_[i] - 2));
            double rx = x - nx;
            start_index[i] = nx;
            w[i] = rx;
@@ -175,6 +176,14 @@ public:
   double Qs2(double TA, double xB, double Q2) {
       return Qs2Table.interpolate({TA, std::log(xB), std::log(Q2)});
   };
+  // Explicit Gaussian profiles can lie outside the tabulated density range.
+  // Solve the same equation there instead of clamping to an unrelated density.
+  double Qs2_target(double TA, double xB, double Q2) {
+      if (!(TA > 0.) || Kfactor_ == 0.) return 0.;
+      if (TA < TAmin || TA > TAmax || xB < 1e-6 || xB > .99 || Q2 < 1. || Q2 > 1e5)
+          return compute_Qs2(TA, xB, Q2);
+      return Qs2(TA, xB, Q2);
+  }
   // compute the qhat of a gluon
   double qhatA(double TA, double xB, double Q2) {
       return rho0*Qs2(TA, xB, Q2)/TA;
@@ -183,6 +192,10 @@ public:
   double qhatF(double TA, double xB, double Q2) {
       return CF/CA*Qs2(TA, xB, Q2)/TA;
   };
+  int sample_all_qt2_target(int pid, double E, const NuclearTarget& target,
+    const std::array<double, 3>& start, const std::array<double, 3>& velocity,
+    double xB, double Q2, std::vector<double>& q2, std::vector<double>& times,
+    std::vector<double>& phis, std::vector<int>& targets);
   // Sample pure multiple collisions
   int sample_all_qt2(int pid, double E, double L, double thickness, double xB, double Q2,
                       std::vector<double> & q2_list, std::vector<double> & t_list,

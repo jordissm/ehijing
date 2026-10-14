@@ -348,6 +348,38 @@ int MultipleCollision::sample_all_qt2(int pid, double E, double L, double Thickn
     return q2_list.size();
 }
 
+int nuclear_target_abi_version() { return 1; }
+
+int MultipleCollision::sample_all_qt2_target(int pid, double E,
+    const NuclearTarget& target, const std::array<double, 3>& start,
+    const std::array<double, 3>& velocity, double xB, double Q2,
+    std::vector<double>& q2_list, std::vector<double>& t_list,
+    std::vector<double>& phi_list, std::vector<int>& targets) {
+    q2_list.clear(); t_list.clear(); phi_list.clear(); targets.clear();
+    const double TA = target.thickness(start, velocity);
+    const double CR = pid == 21 ? CA : CF;
+    const double tildeTA = Kfactor_ * M_PI * CR * TA / dA;
+    if (!(tildeTA >= 1e-6)) return 0;
+    const double qs2 = Qs2_target(TA, xB, Q2);
+    const double q2max = Q2 / xB, q2min = .01 * mu2;
+    double q2 = q2max;
+    while (q2 > q2min) {
+        const double lnr = std::log(std::max(1e-15, flat_gen(gen)));
+        const double xg = q2 / q2max;
+        q2 *= std::pow(1. + (lambdaG_ - 1.) * lnr * q2 / tildeTA
+            * std::pow(xg, -lambdaG_), 1. / (lambdaG_ - 1.));
+        // Keep the original eHIJING veto kernel and momentum-transfer proposal.
+        if (flat_gen(gen) < std::pow(1. - xg, powerG_) * q2 / (q2 + qs2)) {
+            double time;
+            int id = target.sample_collision(start, velocity,
+                [this]() { return flat_gen(gen); }, time);
+            q2_list.push_back(q2); t_list.push_back(time); targets.push_back(id);
+            phi_list.push_back(2. * M_PI * flat_gen(gen));
+        }
+    }
+    return q2_list.size();
+}
+
 /////////// Class: eHIJING
 // initializer
 eHIJING::eHIJING(int mode, double Kfactor,

@@ -71,7 +71,10 @@ a Lorentz transformation nor a translation.
     smearing to hadron positions. Production
     references can include the inherited string/collapse origin as well as breakup
     vertices; all are stored in mm and transformed as full four-vertices. Spectator
-   coordinates generated in fm retain those units.
+   coordinates generated in fm retain those units in legacy mode. In explicit
+   target mode, rest-frame nucleon positions in GeV^-1 are converted to fm,
+   boosted as full four-positions, and freestreamed to the output t=0 surface.
+   Rest-frame spectator momenta are boosted with the same target four-momentum.
 5. Keep velocities dimensionless: `p/E`. With positions in fm and times in fm/c,
    freestream to t = 0 using `x(0) = x(form) - (p/E) * form_time`, with c = 1.
 
@@ -79,6 +82,25 @@ a Lorentz transformation nor a translation.
 frame. They are not proper-time intervals. SMASH's configured
 `proper_formation_time_` is a separate proper-time quantity. Frame consistency
 and the downstream use of imported formation times require their own review.
+
+## Explicit nuclear-target frame handling
+
+The frozen Gaussian density, forward-ray thickness, collision times and exact
+elastic recoil are evaluated in the nuclear rest frame. Geometry stays in
+GeV^-1, density in GeV^3 and thickness in GeV^2. The low-scale adapter boosts
+source momenta and relative four-vertices back to that frame for processing,
+then boosts accepted results into the original generator frame. Formation
+variables remain ordering variables rather than measured formation events.
+
+Appended parton displacements are converted from GeV^-1 to mm and boosted as
+full four-vectors. The hadronizer separately converts and boosts the nuclear
+origin `(Rx,Ry,Rz,0)` before adding it once. Its fourth coordinate can become
+nonzero after a boost. Diagnostic nuclear snapshots and elastic-collision
+observations are already absolute mm four-positions in the generator frame.
+Spectator emission uses the same frame conversion and output t=0 surface as
+the hadrons. This does not restore missing high-scale shower delays or provide
+a dynamical nuclear trajectory model. Density centres are frozen even when
+whole-remnant momenta change.
 
 ## Diagnostic history interface
 
@@ -109,5 +131,6 @@ source mappings and comment attributes.
   `Modified_FF` are still preserved, and PYTHIA still computes hadron breakup
   and formation vertices. Restoring the source shower history is a separate
   change to the spacetime model.
-- Coordinate-frame consistency and SMASH's use of the imported `form_time`
-  require separate review. Unit conversion does not address either issue.
+- Custom/legacy coordinate-frame consistency and SMASH's use of the imported
+  `form_time` require separate review. Explicit-target boosts are implemented
+  at the eHIJING interfaces; downstream transport timing remains separate. Unit conversion does not address either issue.

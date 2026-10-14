@@ -77,6 +77,8 @@ struct RunConfig {
 
     /// Write diagnostic HepMC3 ASCII histories (default on).
     bool history = true;
+    bool nuclear_target = true;
+    double nucleon_width_fm = .5, nuclear_radius_fm = 0., nuclear_surface_fm = 0.;
 };
 
 /**

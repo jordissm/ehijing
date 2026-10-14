@@ -163,14 +163,17 @@ int main() {
 
         // A=Z=1 with a struck proton has no spectators, so both calls consume
         // no output RNG draws. Verify that diagnostics leave existing files exact.
+        Pythia8::ParticleDataEntry proton_data(2212, "p+", "pbar", 2, 3, 0, 0.938);
+        Particle proton(2212, 83, 0, 0, 0, 0, 0, 0, 0., 0., 0., 0.938, 0.938);
+        proton.setPDEPtr(&proton_data);
         DISKinematics kin{};
         std::ostringstream plain_oscar, plain_meta, traced_oscar, traced_meta;
-        write_event_output(42, 1, 1, StruckNucleon::Proton, kin, {hadron},
+        write_event_output(42, 1, 1, StruckNucleon::Proton, kin, {proton},
                            plain_oscar, plain_meta);
         SpacetimeHistory output_history(42, 1);
-        output_history.capture_particles({hadron}, "hadronization_and_decays",
+        output_history.capture_particles({proton}, "hadronization_and_decays",
                                          "hadronizer", "absolute_mm_saved_vertex", {3});
-        write_event_output(42, 1, 1, StruckNucleon::Proton, kin, {hadron},
+        write_event_output(42, 1, 1, StruckNucleon::Proton, kin, {proton},
                            traced_oscar, traced_meta, &output_history);
         require(plain_oscar.str() == traced_oscar.str(), "Diagnostics changed OSCAR output");
         require(plain_meta.str() == traced_meta.str(), "Diagnostics changed metadata output");

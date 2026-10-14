@@ -56,6 +56,15 @@ int main(int argc, char* argv[]) {
     const int64_t chunk_size                        = cfg.chunk_size;
     const uint32_t seed                             = cfg.seed;
 
+    if (cfg.nuclear_target) {
+        try {
+            EHIJING::NuclearTarget validate(mass_number, atomic_number, cfg.nucleon_width_fm,
+                cfg.nuclear_radius_fm, cfg.nuclear_surface_fm);
+            if (EHIJING::nuclear_target_abi_version() != 1) return 2;
+        } catch (const std::exception& e) {
+            std::cerr << "ERROR: " << e.what() << '\n'; return 2;
+        }
+    }
     // Ensure output directories exist
     try { // Attempt to create the directories if they do not exist
         std::filesystem::create_directories(std::filesystem::path(run_path));
@@ -112,8 +121,14 @@ int main(int argc, char* argv[]) {
     add_arg<double>(pythia, "eHIJING:TransverseMomentumDistributionConstant", tmd_k_constant);
     add_arg<std::string>(pythia, "eHIJING:TabulationPath", tabulation_path);
 
+    add_arg<std::string>(pythia, "eHIJING:ExplicitNucleus", cfg.nuclear_target ? "on" : "off");
+    add_arg<double>(pythia, "eHIJING:NucleonWidth", cfg.nucleon_width_fm);
+    add_arg<double>(pythia, "eHIJING:NuclearRadius", cfg.nuclear_radius_fm);
+    add_arg<double>(pythia, "eHIJING:NuclearSurface", cfg.nuclear_surface_fm);
     // Initialize Pythia
-    pythia.init();
+    if (!pythia.init()) {
+        std::cerr << "ERROR: PYTHIA initialization failed\n"; return 2;
+    }
 
     // Initialize the modified FF module for medium corrections to the parton shower
     double xg_n = pythia.settings.parm("eHIJING:xG-n");
@@ -131,6 +146,8 @@ int main(int argc, char* argv[]) {
 
     // Define counter for events that failed to generate
     int n_generation_failed = 0;
+    int n_recoil_rejected = 0, n_balance_rejected = 0;
+    int attempts_since_written = 0;
 
     // Define counter for events that failed the DIS trigger
     int n_trigger_failed = 0;
@@ -152,6 +169,13 @@ int main(int argc, char* argv[]) {
 
             // Add to total event attempt count
             n_total_attempts++;
+            if (++attempts_since_written > 10000 && cfg.nuclear_target) {
+                std::cerr << "ERROR: 10000 consecutive attempts produced no accepted event; "
+                    << "generation_failures=" << n_generation_failed << " recoil_rejections=" << n_recoil_rejected
+                    << " balance_rejections=" << n_balance_rejected << " trigger_failures=" << n_trigger_failed
+                    << " hadronization_failures=" << n_hadronization_failed << '\n';
+                return 4;
+            }
 
             // Skip event if it fails to generate
             if (!pythia.next()) {
@@ -160,6 +184,11 @@ int main(int argc, char* argv[]) {
                 continue;
             };
 
+            if (cfg.nuclear_target && !pythia.event.nuclearTarget()) {
+                std::cerr << "ERROR: explicit nuclear target missing from generated event; "
+                          << "check rebuilt PYTHIA library/settings and supported DIS configuration\n";
+                return 2;
+            }
             // Skip event if its kinematics do not satisfy the DIS trigger conditions
             const DISKinematics kinematics = compute_dis_kinematics(pythia);
             if (!is_valid_dis_event(kinematics, dis_cuts)) {
@@ -180,8 +209,27 @@ int main(int argc, char* argv[]) {
                 history->capture(pythia.process, "hard_process", "process", "source_parton_vertices");
                 history->capture(pythia.event, "high_scale_shower", "shower", "source_parton_vertices");
             }
+            if (history && pythia.event.nuclearTarget()) {
+                const auto target = pythia.event.nuclearTarget();
+                std::vector<Particle> nucleons;
+                for (size_t id = 0; id < target->nucleons().size(); ++id) {
+                    const auto& n = target->nucleons()[id];
+                    const double mass = n.proton ? constants::mass::proton_gev : constants::mass::neutron_gev;
+                    Vec4 p(0.,0.,0.,mass); p.bst(kinematics.pProton);
+                    Particle observed(n.proton ? 2212 : 2112,2,0,0,0,0,0,0,p,mass);
+                    Vec4 v(n.position[0],n.position[1],n.position[2],0.);
+                    v *= constants::units::hbarc_gev_fm*constants::units::fm_to_mm;
+                    v.bst(kinematics.pProton); observed.vProd(v); observed.nuclearTargetId(id);
+                    nucleons.push_back(observed);
+                }
+                history->capture_particles(nucleons,"nuclear_target","nucleus","absolute_mm_nuclear_origin",{}, {},
+                    "Frozen Gaussian nucleons; width_fm=" + std::to_string(target->width()*constants::units::hbarc_gev_fm)
+                    + "; primary_target_id=" + std::to_string(target->primary()));
+            }
             // Modify the final shower with low-Q^2 medium corrections
-            modified_ff.sample_ff_partons(pythia, kinematics, Rx, Ry, Rz, history.get());
+            if (!modified_ff.sample_ff_partons(pythia, kinematics, Rx, Ry, Rz, history.get())) {
+                ++n_recoil_rejected; continue;
+            }
             if (history) history->capture(pythia.event, "medium_modified", "shower",
                                           "relative_mm_hard_interaction");
             
@@ -197,6 +245,13 @@ int main(int argc, char* argv[]) {
             std::cout << "INFO: hadronization succeeded for event " << (first_event_id + n_written) << " on attempt " << (attempt + 1) << "/" << hadronization_retries_max << "\n";
             const auto& hadronization_result = *hadronized_event_opt;
             
+            const auto target = pythia.event.nuclearTarget();
+            const auto balance = calculate_spectator_balance(atomic_number,mass_number,
+                hadronization_result.struck_nucleon,hadronization_result.particles);
+            if (target && !target_balance_matches(*target,balance)) {
+                std::cerr << "WARNING: rejecting event: target ledger disagrees with final baryon number/charge\n";
+                ++n_balance_rejected; continue;
+            }
             // Set event ID
             const int64_t event_id = first_event_id + n_written;
             
@@ -239,7 +294,7 @@ int main(int argc, char* argv[]) {
                                hadronization_result.particles,
                                event_out,
                                meta_out,
-                               history.get());
+                               history.get(), target.get());
 
             if (history) {
                 try {
@@ -257,11 +312,16 @@ int main(int argc, char* argv[]) {
             // Mark event as successfully generated, passed trigger, and hadronized
             success = true;
             n_written++;
+            attempts_since_written = 0;
             break; // Exit the retry loop if the event was successful
         }
 
     }
 
+    std::cout << "INFO: written=" << n_written << " attempts=" << n_total_attempts
+        << " recoil_rejections=" << n_recoil_rejected << " balance_rejections=" << n_balance_rejected
+        << " generation_failures=" << n_generation_failed << " trigger_failures=" << n_trigger_failed
+        << " hadronization_failures=" << n_hadronization_failed << '\n';
     // Done
     return 0;
 }

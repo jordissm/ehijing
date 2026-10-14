@@ -12,6 +12,8 @@
 #define Pythia8_Event_H
 
 #include "Pythia8/Basics.h"
+#include "eHIJING/NuclearTarget.h"
+#include <memory>
 #include "Pythia8/ParticleData.h"
 #include "Pythia8/PythiaStdlib.h"
 
@@ -87,7 +89,8 @@ public:
     pdePtr(pt.pdePtr), evtPtr(pt.evtPtr),
     coll_ts_(pt.coll_ts_),
     coll_qt2s_(pt.coll_qt2s_),
-    coll_phis_(pt.coll_phis_) { }
+    coll_phis_(pt.coll_phis_), coll_targets_(pt.coll_targets_),
+    targetId_(pt.targetId_) { }
   Particle& operator=(const Particle& pt) {if (this != &pt) {
     idSave = pt.idSave; statusSave = pt.statusSave;
     mother1Save = pt.mother1Save; mother2Save = pt.mother2Save;
@@ -105,7 +108,8 @@ public:
     pdePtr = pt.pdePtr; evtPtr = pt.evtPtr;
     coll_ts_ = pt.coll_ts_;
     coll_phis_ = pt.coll_phis_;
-    coll_qt2s_ = pt.coll_qt2s_;}
+    coll_qt2s_ = pt.coll_qt2s_;
+    coll_targets_ = pt.coll_targets_; targetId_ = pt.targetId_;}
     return *this; }
 
   // Member functions to set the Event and ParticleDataEntry pointers.
@@ -390,16 +394,22 @@ public:
       coll_ts_.clear();
       coll_qt2s_.clear();
       coll_phis_.clear();
+      coll_targets_.clear();
   }
   // WK:
   void AddMultipleCollision(std::vector<double> ts,
                             std::vector<double> qt2s,
-                            std::vector<double> phis) {
+                            std::vector<double> phis,
+                            std::vector<int> targets = {}) {
       collset_ = true;
       coll_ts_ = ts;
       coll_qt2s_ = qt2s;
       coll_phis_ = phis;
+      coll_targets_ = targets;
   }
+  const std::vector<int>& coll_targets() const { return coll_targets_; }
+  int nuclearTargetId() const { return targetId_; }
+  void nuclearTargetId(int id) { targetId_ = id; }
   // WK:
   const double Rx() const {
       return Rx_;
@@ -446,6 +456,8 @@ protected:
   Vec4   vBreakupFirstSave, vBreakupSecondSave;
   int    productionOriginModeSave = 0;
   Vec4   vProductionOriginSave;
+  std::vector<int> coll_targets_;
+  int targetId_ = -1;
   double Rx_, Ry_, Rz_; // WK:
 
   // Pointer to properties of the particle species.
@@ -532,6 +544,7 @@ public:
     savedSize(0), savedJunctionSize(0), savedPartonLevelSize(0),
     scaleSave(0.), scaleSecondSave(0.),
     headerList("----------------------------------------"),
+    Rx_(0.), Ry_(0.), Rz_(0.), separationScale_(0.),
     particleDataPtr(0) { entry.reserve(capacity); }
   Event& operator=(const Event& oldEvent);
   Event(const Event& oldEvent) {*this = oldEvent;}
@@ -545,7 +558,7 @@ public:
   // Clear event record.
   void clear() {entry.resize(0); maxColTag = startColTag;
     savedPartonLevelSize = 0; scaleSave = 0.; scaleSecondSave = 0.;
-    clearJunctions();}
+    clearJunctions(); nuclearTarget_.reset();}
 
   // Clear event record, and set first particle empty.
   void reset() {clear(); append(90, -11, 0, 0, 0., 0., 0., 0., 0.);}
@@ -566,7 +579,7 @@ public:
     if (p.mother1() != 0 && !p.collset()){
         auto m = entry[p.mother1()];
         if (m.coll_ts().size()>0)
-            p.AddMultipleCollision(m.coll_ts(), m.coll_qt2s(), m.coll_phis());
+            p.AddMultipleCollision(m.coll_ts(), m.coll_qt2s(), m.coll_phis(), m.coll_targets());
     }
   }
 
@@ -727,6 +740,8 @@ public:
   // Warning: particles should be OK, but some other information unreliable.
   Event& operator+=(const Event& addEvent);
 
+  std::shared_ptr<EHIJING::NuclearTarget> nuclearTarget() const { return nuclearTarget_; }
+  void nuclearTarget(std::shared_ptr<EHIJING::NuclearTarget> target) { nuclearTarget_ = target; }
   const double Rx()const{ return Rx_;}
   const double Ry()const{ return Ry_;}
   const double Rz()const{ return Rz_;}
@@ -769,6 +784,7 @@ private:
   // Hard vertex location
   double Rx_, Ry_, Rz_;
   double separationScale_;
+  std::shared_ptr<EHIJING::NuclearTarget> nuclearTarget_;
   // Pointer to the particle data table.
   // The //! below is ROOT notation that this member should not be saved.
   ParticleData* particleDataPtr;  //!

@@ -2209,19 +2209,35 @@ void TimeShower::pT2nextQCD(double pT2begDip, double pT2sel,
     auto pinA = p.p();
     pinA.bstback(pProton);
     double vx = pinA.px()/pinA.e(), vy = pinA.py()/pinA.e(), vz = pinA.pz()/pinA.e();
-    double L = eHIJING_Geometry->compute_L(event.Rx(), event.Ry(), event.Rz(), vx, vy, vz);
-    double Thickness = eHIJING_Geometry->compute_TA(event.Rx(), event.Ry(), event.Rz(), vx, vy, vz);
-    double Qs2 = L*EHIJING::rho0/Thickness * eHIJING_Gen->Qs2(Thickness, xB, Q20);
-    double pT2min_in_A = pT2min;//std::max(pT2min, eHIJING_Gen->Qs2(EHIJING::rho0*L, xB, Q20) );
-				
+    const auto target = event.nuclearTarget();
+    double L = 0., Thickness = 0., Qs2 = EHIJING::mu2;
+    if (!target) {
+      L = eHIJING_Geometry->compute_L(event.Rx(), event.Ry(), event.Rz(), vx, vy, vz);
+      Thickness = eHIJING_Geometry->compute_TA(event.Rx(), event.Ry(), event.Rz(), vx, vy, vz);
+      Qs2 = L*EHIJING::rho0/Thickness * eHIJING_Gen->Qs2(Thickness, xB, Q20);
+    }
+    double pT2min_in_A = pT2min;
+
+    const std::array<double, 3> start = {event.Rx(), event.Ry(), event.Rz()};
+    const std::array<double, 3> velocity = {vx, vy, vz};
+    if (target) {
+      Thickness = target->thickness(start, velocity);
+      Qs2 = Thickness > 1e-12 ? eHIJING_Gen->Qs2_target(Thickness, xB, Q20) : EHIJING::mu2;
+      Qs2 = std::max(Qs2, EHIJING::mu2);
+    }
     event.setSeparationScale(Qs2);
 
     if (!p.collset()) { // set multiple collisions only once
         p.ResetMultipleCollision();
         std::vector<double> qt2s, ts, phis;
-	eHIJING_Gen->MultipleCollision::sample_all_qt2(p.idAbs(), pinA.e(), L, Thickness, xB, Q20, 
+	if (!target) eHIJING_Gen->MultipleCollision::sample_all_qt2(p.idAbs(), pinA.e(), L, Thickness, xB, Q20,
 			                               qt2s, ts, phis);
-        p.AddMultipleCollision(ts, qt2s, phis);
+        if (target) {
+          std::vector<int> targets;
+          eHIJING_Gen->sample_all_qt2_target(p.idAbs(), pinA.e(), *target,
+            start, velocity, xB, Q20, qt2s, ts, phis, targets);
+          p.AddMultipleCollision(ts, qt2s, phis, targets);
+        } else p.AddMultipleCollision(ts, qt2s, phis);
     }
     eHIJING_weight = 1.0;
     // WK <<<

@@ -15,6 +15,31 @@
 
 class SpacetimeHistory;
 
+/** Spectator counts required by neutral-current DIS baryon/charge balance.
+ * Quantum numbers and required counts are retained in thirds to avoid
+ * truncating fractional quantum numbers. Legacy mode keeps the A-1 fallback;
+ * explicit-target mode rejects any mismatch with untouched identities.
+ */
+struct SpectatorBalance {
+    int64_t final_baryon_number_times3 = 0;
+    int64_t final_charge_times3 = 0;
+    int64_t required_protons_times3 = 0;
+    int64_t required_neutrons_times3 = 0;
+    int64_t protons = 0;
+    int64_t neutrons = 0;
+    bool admissible = false;
+    bool baryon_number_conserved = false;
+    bool electric_charge_conserved = false;
+};
+
+/** Count only final hadronizer products, including antibaryons, resonances,
+ * charged mesons and charged decay products. The scattered DIS lepton is not
+ * part of this collection. Admissible required counts are nonnegative integers.
+ */
+SpectatorBalance calculate_spectator_balance(
+    int atomic_number, int mass_number, StruckNucleon struck_nucleon,
+    const std::vector<Pythia8::Particle>& particles);
+
 /**
  * @brief Write the OSCAR2013 particle-list header lines.
  *
@@ -28,6 +53,11 @@ void write_event_headers(std::ostream& out);
  * The event stream receives an OSCAR2013-style particle list containing final
  * hadrons and spectator nucleons.  The metadata stream receives a compact JSON
  * record with the event ID, target, and reconstructed DIS kinematics.
+ * Spectators satisfy B_final + N_p + N_n = A and Q_final + N_p = Z when
+ * the required counts are admissible. Otherwise legacy spectator counts are
+ * retained and metadata/history explicitly report the unsatisfied balance in
+ * legacy mode. With an explicit target, untouched identities must match the
+ * balance; a mismatch is an error and must be rejected before invoking output.
  *
  * Hadron positions are freestreamed from the saved vertex to t = 0. With
  * HadronVertex:mode = 2, form_time records the late formation time from
@@ -63,4 +93,10 @@ void write_event_output(
     const std::vector<Pythia8::Particle>& particles,
     std::ostream& event_out,
     std::ostream& meta_out,
-    SpacetimeHistory* history = nullptr);
+    SpacetimeHistory* history = nullptr,
+    const EHIJING::NuclearTarget* target = nullptr);
+
+// Actual untouched identities must agree with final B/Q, without deleting or
+// inventing spectators. A mismatch rejects the whole explicit-target event.
+bool target_balance_matches(const EHIJING::NuclearTarget& target,
+                            const SpectatorBalance& balance);

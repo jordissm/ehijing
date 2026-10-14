@@ -48,6 +48,7 @@ std::string collisions(const Pythia8::Particle& particle) {
         if (i < times.size()) out << ' ' << times[i]; else out << " unavailable";
         if (i < kicks.size()) out << ' ' << kicks[i]; else out << " unavailable";
         if (i < angles.size()) out << ' ' << angles[i]; else out << " unavailable";
+        if (i < particle.coll_targets().size()) out << " target_id=" << particle.coll_targets()[i];
     }
     return out.str();
 }
@@ -72,6 +73,11 @@ void SpacetimeHistory::capture(const Pythia8::Event& event,
     particles.reserve(event.size());
     for (int i = 0; i < event.size(); ++i) particles.push_back(event[i]);
     capture_particles(particles, stage, record, convention, {}, sources);
+    if (record == "shower") attribute(snapshots_.back(), "separation_scale_GeV2", scalar_text(event.SeparationScale()));
+    if (const auto target = event.nuclearTarget()) {
+        attribute(snapshots_.back(), "primary_target_id", std::to_string(target->primary()));
+        attribute(snapshots_.back(), "nucleon_width_fm", scalar_text(target->width()*units::hbarc_gev_fm));
+    }
 }
 
 void SpacetimeHistory::capture_particles(
@@ -106,7 +112,8 @@ void SpacetimeHistory::capture_particles(
         "PYTHIA mother/daughter fields retain native range/copy semantics. "
         "Vertex status 900 denotes an observation. A zero position with "
         "has_vertex=0 is unavailable, not a measured origin. No shower delays, "
-        "collision positions or Lorentz transformations are reconstructed. " + comment);
+        "collision positions or Lorentz transformations are reconstructed by the collector. "
+        "Explicit target/recoil stages store positions and boosts supplied by the model. " + comment);
     attribute(snapshot, "comment_anchors",
         "Particles with diagnostic_anchor=1 (PDG 0, status 4) are serialization "
         "anchors, not simulated particles. They give observation vertices an "
@@ -163,6 +170,7 @@ void SpacetimeHistory::capture_particles(
         attribute(*particle, "geometry_origin_xyzt_GeV_inv",
                   vector_text(Pythia8::Vec4(p.Rx(), p.Ry(), p.Rz(), 0.0)));
         attribute(*particle, "collisions", collisions(p));
+        attribute(*particle, "nuclear_target_id", std::to_string(p.nuclearTargetId()));
         attribute(*particle, "collisions_sampled", p.collset() ? "1" : "0");
         attribute(*particle, "has_production_references", p.hasProductionTime() ? "1" : "0");
         attribute(*particle, "has_breakup_pair", p.hasBreakupPair() ? "1" : "0");
@@ -226,6 +234,12 @@ void SpacetimeHistory::finish_output() {
             attribute(p, "source_index", std::to_string(final_hadronizer_indices_[i]));
         }
     }
+}
+
+void SpacetimeHistory::output_attribute(const std::string& name, const std::string& value) {
+    if (snapshots_.empty() || snapshots_.back().attribute_as_string("stage") != "oscar_output")
+        throw std::logic_error("Output history snapshot is not complete");
+    attribute(snapshots_.back(), name, value);
 }
 
 void SpacetimeHistory::write(std::ostream& out) const {

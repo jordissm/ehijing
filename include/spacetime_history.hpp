@@ -32,6 +32,8 @@ public:
     void output_particle(const Pythia8::Particle& particle, int output_id,
                          const Pythia8::Vec4& position_mm, bool spectator = false);
     void finish_output();
+    /// Attach bookkeeping metadata to the completed OSCAR observation.
+    void output_attribute(const std::string& name, const std::string& value);
     void write(std::ostream& out) const;
 
 private:
