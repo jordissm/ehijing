@@ -75,8 +75,8 @@ struct RunConfig {
     /// Typically combined with the event ID to ensure reproducibility across runs.
     uint32_t seed;
 
-    /// Write diagnostic HepMC3 ASCII histories (default on).
-    bool history = true;
+    /// Write diagnostic HepMC3 ASCII histories (default off).
+    bool history = false;
     bool nuclear_target = true;
     double nucleon_width_fm = .5, nuclear_radius_fm = 0., nuclear_surface_fm = 0.;
 };

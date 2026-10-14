@@ -120,13 +120,13 @@ outside the supported hadronic charge budget.
 
 ## Diagnostic spacetime history
 
-Each successful eHIJING event now writes `event_00000042.history` next to its
+When enabled, each successful eHIJING event writes `event_00000042.history` next to its
 OSCAR and metadata files, using the same eight-digit event ID and shard directory.
 The file is native **HepMC3 Asciiv3 ASCII**, written with `HepMC3::WriterAscii`,
 with momentum in GeV and vertex coordinates in mm (time in mm/c). It covers
-eHIJING through output; it does not include SMASH transport. Disable collection
-with `--history off` on either `ehijing` or `electra ehijing run`. Existing local
-and SLURM callers automatically get histories with the rebuilt executable.
+eHIJING through output; it does not include SMASH transport. Collection defaults
+to off. Enable it with `--history on` on either `ehijing` or `electra ehijing run`.
+Existing local and SLURM callers use this default with the rebuilt executable.
 The Python wrapper only passes this optional flag when explicitly requested,
 so its default invocation remains compatible with older executables.
 
@@ -215,7 +215,7 @@ Collection reads/copies existing values and consumes no random draws. It does
 not restore operative ancestry, assign shower lifetimes, move vertices, or
 change momenta, colours, decays, collision sampling or OSCAR output. Missing
 spacetime information remains visible as a gap. File size and memory usage grow
-with the full particle records and observed medium updates; use `--history off`
+with the full particle records and observed medium updates; leave collection off
 for production runs that do not need these diagnostics.
 
 After building with `BUILD_TESTING=ON`, run `ctest --test-dir <build-dir>
