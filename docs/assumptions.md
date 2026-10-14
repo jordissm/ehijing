@@ -24,6 +24,7 @@ relative to the parent ELECTRA repository.
 | Model assumption | An intentional physical approximation or prescription. Its usefulness has a domain of applicability; it is not automatically a software defect. |
 | Confirmed limitation | A behavior or missing guarantee directly established by the current source. Its size or phenomenological impact may still be unmeasured. |
 | Confirmed mismatch | Two current source interfaces or normalizations disagree under the stated conditions. This does not establish which installed binary or configuration was used in an earlier run. |
+| Resolved configuration mismatch | The checked-in configuration now matches the source interface. Runtime and physics validation remain separate checks. |
 | Open consistency question | There is a specific reason to check consistency, but this review has not established the outcome with an independent calculation or runtime test. |
 | Validation gap | Existing tests do not establish the stated physical claim. Absence of that validation is not proof that the result is wrong. |
 
@@ -152,7 +153,7 @@ an independent check; it is not a measured ranking of their numerical effects.
 | C2 | Confirmed limitation | High-scale shower delays are lost during hadronizer import. |
 | C3 | Confirmed mismatch | The two legacy qhat helpers have different dimensions. |
 | C4 | Confirmed limitation | The CLI seed does not control all random engines. |
-| C5 | Confirmed mismatch | The checked-in SMASH template uses obsolete formation fields for the current reader. |
+| C5 | Resolved configuration mismatch | The checked-in SMASH template now declares the production and formation columns required by the current reader. |
 | C6 | Confirmed limitation | Missing production-time information can become a numerical zero in output. |
 | C7 | Confirmed limitation | Cached table files do not establish their parameter provenance. |
 | Q1 | Open consistency question | How much does rejection condition the accepted physics sample? |
@@ -272,28 +273,28 @@ than whole-run reproducibility.
 `src/smash/src/listmodus.cc` requires both `prod_time` and `form_time` in
 `Modi:List:Optional_Quantities`, requires values on each row, and passes them
 directly to `set_slow_formation_times()`. The eHIJING writer exports both
-columns. However, ELECTRA's checked-in
-`input/smash/config_files/config.yaml` currently declares
+columns. ELECTRA's checked-in `input/smash/config_files/config.yaml` now declares
 
 ```yaml
-Optional_Quantities: ["ID", "charge", "begin_form_time", "xsecfac"]
+Optional_Quantities: ["ID", "charge", "prod_time", "form_time", "xsecfac"]
 ```
 
 The Python `smash_physical_event_task()` overrides the input filename,
 random seed, event count and profile path, but does not replace that optional
 field list. `slurm-scripts/smash_submit.sh` defaults to this template.
 
-**Operational consequence.** That unchanged template is incompatible with
-the current modified reader's required fields. This is a source/configuration
-mismatch, not a demonstrated failure of every installed ELECTRA run: a custom
-configuration or an older container may use another interface. No SMASH run
-was attempted in this audit, and the research input file has not been changed.
+**Resolution.** The obsolete `begin_form_time` entry has been replaced with
+`prod_time` and `form_time`, in the same order as the eHIJING writer's OSCAR
+header and particle rows. This resolves the checked-in source/configuration
+mismatch without changing the formation model or its parameters. The profile
+`Formation_Time` parameter remains configured, but does not replace or rescale
+the coordinate times required by list input.
 
-**Evidence needed to resolve it.** Check the exact reader binary, universal
-configuration and effective command-line overrides together. Verify that the
-declared field names and order match the actual OSCAR rows, then perform a
-small interface round trip before a physics production. Supplying a profile
-`Formation_Time` parameter does not replace the reader's required columns.
+**Remaining validation.** No SMASH run was attempted for this configuration
+fix. Check the exact installed reader binary, universal configuration and
+effective command-line overrides together, then perform a small interface
+round trip before a physics production. Custom configurations or older
+containers may use another interface.
 
 ### C6. Missing versus zero production times
 
