@@ -35,6 +35,8 @@ public:
      * @param xg_n Small-\f$ x \f$ gluon-density normalization parameter.
      * @param xg_lambda Small-\f$ x \f$ gluon-density power parameter.
      * @param table_path Path used for tabulated eHIJING collision kernels.
+     * @param seed_context Chunk context from the versioned seed policy.
+     *        The default zero context is deterministic for synthetic callers.
      */
     Modified_FF(int mode_,
                 int atomic_number_,
@@ -42,7 +44,8 @@ public:
                 double k_factor,
                 double xg_n,
                 double xg_lambda,
-                std::string table_path);
+                std::string table_path,
+                std::uint64_t seed_context = 0);
 
     /**
      * @brief Sample and append medium-induced partons for the current event.
@@ -85,11 +88,11 @@ private:
     /// eHIJING nuclear geometry model for path lengths and thicknesses.
     EHIJING::NuclearGeometry ehijing_geometry_;
 
-    /// Entropy source for initializing the local random-number engine.
-    std::random_device random_device_;
-
     /// Local random-number engine for medium-modification sampling.
     std::mt19937 rng_;
+
+    /// Dedicated stream for equal-probability colour choices.
+    std::mt19937 color_rng_;
 
     /// Uniform distribution on [0, 1) used by the sampler.
     std::uniform_real_distribution<double> uniform_dist_;

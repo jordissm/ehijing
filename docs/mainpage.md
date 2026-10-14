@@ -4,6 +4,10 @@ eHIJING is the event-generation component that combines PYTHIA DIS event
 generation with eHIJING medium modification, hadronization, and OSCAR2013-style
 output.
 
+New to DIS or nuclear parton propagation? Start with
+[Learning the physics of eHIJING](physics-tutorial.md), which develops the
+ideas step by step before connecting the equations to the code.
+
 See [Physical assumptions and open questions](assumptions.md) for the current
 model scope, known implementation limits and unresolved consistency checks.
 
@@ -1337,6 +1341,19 @@ rather than recompilation-sensitive constants.
 - Hadronization PYTHIA settings are loaded from `RunConfig::hadronization_config_path`.
 - DIS event-selection cuts are loaded from `RunConfig::dis_cuts_config_path`.
 - Tabulated eHIJING data are read from `RunConfig::tabulation_path`.
+- `RunConfig::seed` retains an unsigned 64-bit master seed. The application
+  derives engine seeds from it and `RunConfig::first_event_id` using
+  `electra-seeds-v1`; output shard width and requested event count do not
+  enter derivation.
+
+Both PYTHIA instances receive integer seeds in `[1, 900000000]` after their
+settings files are read and before initialization. Other active engines receive
+explicit seeds, including the medium samplers and legacy spectator writer.
+Rejected attempts advance streams continuously. Per-event metadata and histories
+record the master, effective seeds and successful attempt number. Replay requires
+the same chunk start, inputs, build and runtime environment; changing chunk starts
+changes the sample. See the [reproducibility policy and stream inventory](../README.md#reproducibility-and-seeds)
+for exact derivation, table handling and remaining limits.
 
 Keep the three settings files together under `input/ehijing/experiments/<experiment>/`
 using the names `hard_process.setting`, `hadronization.setting`, and
@@ -1362,6 +1379,8 @@ and `W2Max`.
   records and per-event JSON metadata.
 - `make_event_paths()` and related helpers define deterministic sharded output
   paths for large productions.
+- `ehijing::seed_metadata()` describes the versioned chunk/stream seeds, and
+  `ehijing::file_sha256()` identifies the settings and table bytes used.
 - `ehijing::constants` centralizes compile-time conventions that are not meant
   to change run by run.
 

@@ -109,13 +109,21 @@ void TimeShower::init( BeamParticle* beamAPtrIn,
   eHIJING_AtomicNumber                            = settingsPtr->parm("eHIJING:AtomicNumber");
 
   // eHIJING change
-  eHIJING_Geometry = new EHIJING::NuclearGeometry(eHIJING_MassNumber, eHIJING_AtomicNumber);
+  const auto seedContext = std::stoull(settingsPtr->word("eHIJING:SeedContext"));
+  const bool hadronSeedRole = settingsPtr->mode("eHIJING:SeedRole") == 1;
+  using EHIJING::seeds::Stream;
+  eHIJING_Geometry = new EHIJING::NuclearGeometry(eHIJING_MassNumber, eHIJING_AtomicNumber,
+    EHIJING::seeds::derive(seedContext, hadronSeedRole ? Stream::HadronShowerGeometry : Stream::ShowerGeometry));
   if (eHIJING){
       std::cout << "init EHIJING << K = "<< eHIJING_TransverseMomentumDistributionConstant << std::endl;
       eHIJING_Gen = new EHIJING::eHIJING(eHIJING_MediumModificationSplittingFunctionMode,
                                          eHIJING_TransverseMomentumDistributionConstant,
                                          settingsPtr->parm("eHIJING:xG-n"),
-                                         settingsPtr->parm("eHIJING:xG-lambda")
+                                         settingsPtr->parm("eHIJING:xG-lambda"),
+                                         EHIJING::seeds::derive(seedContext, hadronSeedRole
+                                           ? Stream::HadronShowerCollisions : Stream::ShowerCollisions),
+                                         EHIJING::seeds::derive(seedContext, hadronSeedRole
+                                           ? Stream::HadronShowerRadiation : Stream::ShowerRadiation)
                                           );
       eHIJING_Gen->Tabulate(eHIJING_table);
       std::cout << "Done <<" << std::endl;

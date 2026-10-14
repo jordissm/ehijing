@@ -37,6 +37,7 @@ find_package(GSL REQUIRED)
 # ---- Executable ----
 add_executable(ehijing
   src/cli.cpp
+  src/file_digest.cpp
   src/dis_kinematics.cpp
   src/event_output.cpp
   src/filesystem_utils.cpp
@@ -82,6 +83,11 @@ install(TARGETS ehijing RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 # Synthetic diagnostics tests: no event generation or reference data required.
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(seed_policy_test tests/seed_policy_test.cpp src/cli.cpp src/file_digest.cpp)
+  target_compile_features(seed_policy_test PRIVATE cxx_std_17)
+  target_include_directories(seed_policy_test PRIVATE include ${PYTHIA8_INCLUDE_DIR})
+  target_link_libraries(seed_policy_test PRIVATE ${PYTHIA8_LIBRARIES} ${GSL_LIBRARIES} Threads::Threads)
+  add_test(NAME seed_policy COMMAND seed_policy_test)
   add_executable(spacetime_history_test
     tests/spacetime_history_test.cpp
     src/spacetime_history.cpp

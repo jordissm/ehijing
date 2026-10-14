@@ -54,7 +54,7 @@ std::string collisions(const Pythia8::Particle& particle) {
 }
 } // namespace
 
-SpacetimeHistory::SpacetimeHistory(int64_t event_id, int attempt)
+SpacetimeHistory::SpacetimeHistory(int64_t event_id, int64_t attempt)
     : event_id_(event_id), attempt_(attempt) {}
 
 void SpacetimeHistory::set_context(const Pythia8::Vec4& origin,

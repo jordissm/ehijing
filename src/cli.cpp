@@ -2,6 +2,7 @@
 #include "ehijing_constants.hpp"
 
 #include <cstdlib>
+#include <charconv>
 #include <iostream>
 #include <random>
 #include <string>
@@ -120,12 +121,16 @@ RunConfig parse_args(int argc, char* argv[]) {
 
     // Parse optional random seed argument for reproducibility
     if (auto it = args.find("--seed"); it != args.end()) {
-        // Pythia seeds must be in [1, 900000000] typically; keep it in range
-        const uint64_t s64 = std::stoull(it->second);
-        cfg.seed = static_cast<uint32_t>(1 + (s64 % constants::pythia::max_seed));
+        const auto& value = it->second;
+        const auto parsed = std::from_chars(value.data(), value.data() + value.size(), cfg.seed);
+        if (value.empty() || parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size()) {
+            std::cerr << "ERROR: --seed must be an unsigned 64-bit decimal integer\n";
+            std::exit(2);
+        }
     } else {
         // Non-deterministic fallback
-        cfg.seed = static_cast<uint32_t>(std::random_device{}());
+        std::random_device entropy;
+        cfg.seed = (static_cast<uint64_t>(entropy()) << 32) | entropy();
     }
 
     if (cfg.n_events <= 0) {

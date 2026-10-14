@@ -91,11 +91,26 @@ int main() {
         require(balance.admissible && balance.protons == 4 && balance.neutrons == 5,
                 "Medium baryons were not removed from spectators");
         std::ostringstream oscar, metadata;
+        auto spectator_rng = EHIJING::seeds::engine(17);
         SpacetimeHistory history(42, 1);
         history.capture_particles(products, "hadronization_and_decays", "hadronizer",
                                   "absolute_mm_saved_vertex");
         write_event_output(42, 6, 12, StruckNucleon::Proton, kin, products,
-                           oscar, metadata, &history);
+                           oscar, metadata, &history, nullptr, &spectator_rng);
+        auto replay_rng = EHIJING::seeds::engine(17);
+        std::ostringstream replay_oscar, replay_meta, next_oscar, next_meta;
+        write_event_output(42, 6, 12, StruckNucleon::Proton, kin, products,
+                           replay_oscar, replay_meta, nullptr, nullptr, &replay_rng);
+        require(replay_oscar.str() == oscar.str(), "Spectator replay/diagnostic invariance failed");
+        write_event_output(42, 6, 12, StruckNucleon::Proton, kin, products,
+                           next_oscar, next_meta, nullptr, nullptr, &replay_rng);
+        require(next_oscar.str() != oscar.str(), "Spectator stream restarted between events");
+        bool missing_rng_rejected = false;
+        try {
+            std::ostringstream output, meta;
+            write_event_output(42, 6, 12, StruckNucleon::Proton, kin, products, output, meta);
+        } catch (const std::invalid_argument&) { missing_rng_rejected = true; }
+        require(missing_rng_rejected, "Legacy writer silently used an unowned engine");
         // Parse the actual emitted rows: count, charges, baryons and IDs must
         // agree with the event header and the independently specified target.
         std::istringstream lines(oscar.str());
@@ -186,7 +201,7 @@ int main() {
                 "Impossible balance falsely reported as conserved");
         std::ostringstream invalid_oscar, invalid_meta;
         write_event_output(43, 1, 2, StruckNucleon::Proton, kin, products,
-                           invalid_oscar, invalid_meta);
+                           invalid_oscar, invalid_meta, nullptr, nullptr, &spectator_rng);
         require(invalid_meta.str().find("\"admissible\": false") != std::string::npos
                 && invalid_meta.str().find("\"spectator_policy\": \"legacy_unmodified\"")
                     != std::string::npos, "Impossible event fallback not disclosed");

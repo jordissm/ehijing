@@ -58,6 +58,7 @@ void write_metadata_json(
     const DISKinematics& kin,
     const std::string& bookkeeping,
     const std::string& nuclear_target,
+    const std::string& reproducibility,
     std::ostream& out) {
 
     out << std::setprecision(16);
@@ -78,6 +79,7 @@ void write_metadata_json(
                         << kin.pGamma.e()  << "],\n";
     out << "  \"nuclear_bookkeeping\": " << bookkeeping;
     if (!nuclear_target.empty()) out << ",\n  \"nuclear_target\": " << nuclear_target;
+    if (!reproducibility.empty()) out << ",\n  \"reproducibility\": " << reproducibility;
     out << '\n';
     out << "}\n";
 }
@@ -165,9 +167,7 @@ void write_spectator_nucleons(
     int64_t total_neutrons,
     std::ostream& out,
     int32_t& particle_index,
-    SpacetimeHistory* history) {
-
-    static thread_local std::mt19937 gen(std::random_device{}());
+    SpacetimeHistory* history, std::mt19937& gen) {
     std::uniform_real_distribution<double> uniform(0.0, 1.0);
 
     const double RA = constants::nuclear::radius_coefficient_fm *
@@ -340,12 +340,16 @@ void write_event_output(
     std::ostream& event_out,
     std::ostream& meta_out,
     SpacetimeHistory* history,
-    const EHIJING::NuclearTarget* target) {
+    const EHIJING::NuclearTarget* target,
+    std::mt19937* spectator_rng,
+    const std::string& reproducibility) {
 
     const auto balance = calculate_spectator_balance(atomic_number, mass_number,
                                                      struck_nucleon, particles);
     if (target && !target_balance_matches(*target,balance))
         throw std::logic_error("Explicit target B/Q mismatch must be rejected before output");
+    if (!target && (balance.protons || balance.neutrons) && !spectator_rng)
+        throw std::invalid_argument("Legacy spectator output requires an explicitly seeded engine");
     const auto bookkeeping = bookkeeping_json(balance,target != nullptr);
     std::ostringstream ledger;
     if (target) {
@@ -363,7 +367,7 @@ void write_event_output(
         }
         ledger << "]}";
     }
-    write_metadata_json(event_number, atomic_number, mass_number, kin, bookkeeping,ledger.str(), meta_out);
+    write_metadata_json(event_number, atomic_number, mass_number, kin, bookkeeping,ledger.str(), reproducibility, meta_out);
 
     // The OSCAR header counts every emitted final product and spectator.
     const int64_t count = count_final_particles(particles) + balance.protons + balance.neutrons;
@@ -373,11 +377,14 @@ void write_event_output(
     int32_t particle_index = 0;
     write_final_hadrons(particles, event_out, particle_index, history);
     if (target) write_target_spectators(*target,kin,event_out,particle_index,history);
-    else write_spectator_nucleons(mass_number, balance.protons, balance.neutrons,
-                            event_out, particle_index, history);
+    else if (spectator_rng) {
+        write_spectator_nucleons(mass_number, balance.protons, balance.neutrons,
+            event_out, particle_index, history, *spectator_rng);
+    }
     if (history) {
         history->finish_output();
         history->output_attribute("nuclear_bookkeeping", bookkeeping);
+        if (!reproducibility.empty()) history->output_attribute("reproducibility", reproducibility);
         if (target) history->output_attribute("nuclear_target",ledger.str());
         history->output_attribute("target_A", std::to_string(mass_number));
         history->output_attribute("target_Z", std::to_string(atomic_number));

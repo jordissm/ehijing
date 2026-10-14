@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cmath>
 #include <vector>
-#include <cstdlib>
 #include <iomanip>
 #include <sstream>
 #include <map>
@@ -30,15 +29,17 @@ Modified_FF::Modified_FF(int mode,
                          double k_factor,
                          double xg_n,
                          double xg_lambda,
-                         std::string table_path)
+                         std::string table_path, std::uint64_t seed_context)
     : mode_(mode),
       atomic_number_(atomic_number),
       mass_number_(mass_number),
       z_over_a_(static_cast<double>(atomic_number) / mass_number),
-      collision_sampler_(k_factor, xg_n, xg_lambda),
-      ehijing_geometry_(mass_number, atomic_number),
-      random_device_(),
-      rng_(random_device_()),
+      collision_sampler_(k_factor, xg_n, xg_lambda,
+          EHIJING::seeds::derive(seed_context, EHIJING::seeds::Stream::ModifiedCollisions)),
+      ehijing_geometry_(mass_number, atomic_number,
+          EHIJING::seeds::derive(seed_context, EHIJING::seeds::Stream::ModifiedGeometry)),
+      rng_(EHIJING::seeds::engine(EHIJING::seeds::derive(seed_context, EHIJING::seeds::Stream::ModifiedFF))),
+      color_rng_(EHIJING::seeds::engine(EHIJING::seeds::derive(seed_context, EHIJING::seeds::Stream::ColorChoice))),
       uniform_dist_(0.0, 1.0)
 {
     collision_sampler_.Tabulate(table_path);
@@ -627,7 +628,7 @@ bool Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
             int q_col, q_acol;
             // update color
             if (particle.id() == constants::pdg::gluon_id) {
-                if (std::rand() % 2 == 0) {
+                if ((color_rng_() & 1U) == 0) {
                     q_acol = particle.acol();
                     particle.acol(pythia.event.nextColTag());
                     q_col = particle.acol();
@@ -694,7 +695,7 @@ bool Modified_FF::sample_ff_partons(Pythia& pythia, const DISKinematics& kinemat
                    Nqy = pabs * sintheta * std::sin(rphi);
             Vec4 pq{Nqx, Nqy, Nqz, 0}, pdiq{-Nqx, -Nqy, -Nqz, 0};
             // decide which object takes the recoil
-            if (std::rand() % 2 == 0) {
+            if ((color_rng_() & 1U) == 0) {
                 pq = pq - qmu;
             } else {
                 pdiq = pdiq - qmu;

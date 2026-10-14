@@ -36,7 +36,8 @@ struct Context {
   bool active = false;
   std::ostream* output = nullptr;
   long long event = -1;
-  int attempt = 0, pass = 0, string = -1;
+  long long attempt = 0;
+  int pass = 0, string = -1;
   std::map<int, Tag> tags;
   std::map<int, Snapshot> snapshots;
 };
@@ -73,7 +74,7 @@ inline bool sameVertex(const Vec4& a, const Vec4& b) {
       && a.pz() == b.pz();
 }
 
-inline void beginEvent(long long event, int attempt, std::ostream& output) {
+inline void beginEvent(long long event, long long attempt, std::ostream& output) {
   Context& c = context();
   c = Context();
   c.active = true;
@@ -101,7 +102,7 @@ inline void beginEvent(long long event, int attempt, std::ostream& output) {
 
 class EventScope {
 public:
-  EventScope(bool enabledIn, long long event, int attempt,
+  EventScope(bool enabledIn, long long event, long long attempt,
     std::ostream* output = nullptr)
     : enabled(enabledIn && output != nullptr) {
     if (enabled) beginEvent(event, attempt, *output);

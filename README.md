@@ -2,6 +2,11 @@
 
 The eHIJING headers and sources are documented with Doxygen.
 
+[Learning the physics of eHIJING](docs/physics-tutorial.md) is a graduate-level
+tutorial that starts with DIS and QCD showers, derives the medium ingredients,
+and connects them to this implementation through worked examples, code excerpts
+and exercises.
+
 [Physics included in eHIJING](docs/mainpage.md#physics-included-in-ehijing)
 details DIS kinematics, nuclear PDFs and geometry, the gluon TMD and saturation
 scale, multiple scattering, HT/GHT radiation and LPM interference, shower
@@ -455,6 +460,94 @@ and momentum in GeV, with `kappa` in GeV/fm; stored PYTHIA vertices are converte
 onsite to mm. The production update does not modify the formation calculation.
 Rebuild PYTHIA/eHIJING and regenerate events to apply the new production rules;
 historical traces retain their recorded times.
+
+## Reproducibility and seeds
+
+`--seed` is an ELECTRA master seed: an unsigned decimal integer in
+`[0, 18446744073709551615]`. It is not a raw PYTHIA seed. In particular, master
+seed zero is reproducible. The Python wrapper passes it unchanged; omitting it
+in standalone eHIJING obtains entropy once and prints the selected master seed.
+Rebuild both the bundled modified PYTHIA library (including its XML settings)
+and eHIJING to use this policy. A linked policy-version symbol prevents silently
+using an older medium library. Previously generated samples are not reproduced
+by the new policy; retain their original binaries and records.
+
+The guarantee is complete event replay in fresh processes for the same master,
+chunk starting ID, settings, table bytes, executable and runtime environment.
+Streams advance through failed attempts and accepted events without reseeding.
+The recorded successful attempt number counts all attempts for that output
+event, including across the driver's 15-attempt batches. Changing the requested
+event count or output shard width preserves the event prefix for an unchanged
+chunk start. Changing chunk starts changes the sample. PYTHIA can retain and
+adapt sampling state, so reseeding by event ID would not suffice for independent
+event replay. Diagnostic collection consumes no additional draws.
+
+The frozen `electra-seeds-v1` derivation is implemented in
+`external/pythia8/include/eHIJING/SeedPolicy.h`. Define `mix(x)` by unsigned
+64-bit arithmetic:
+
+```text
+x += 0x9e3779b97f4a7c15
+x = (x XOR (x >> 30)) * 0xbf58476d1ce4e5b9
+x = (x XOR (x >> 27)) * 0x94d049bb133111eb
+return x XOR (x >> 31)
+context = mix(master XOR mix(first_event_id) XOR 0x454c454354524131)
+stream_seed = mix(context XOR mix(stream_id))
+```
+
+Each `mt19937` receives `seed_seq{low32(stream_seed), high32(stream_seed)}`.
+Each PYTHIA instance receives `1 + stream_seed % 900000000`, with
+`Random:setSeed = on`, after reading settings and before `init()`. PYTHIA's own
+seed zero selects the time and negative seeds select its default sequence;
+neither reaches PYTHIA through the ELECTRA master-seed conversion.
+
+| ID | Stream owner | Use |
+| --- | --- | --- |
+| 1 | Hard PYTHIA | Hard process, ordinary shower draws, explicit nuclear target |
+| 2 | PartonLevel geometry | Legacy hard interaction position |
+| 3 | TimeShower geometry | Deterministic path/thickness calculations; no draws currently |
+| 4 | TimeShower medium, MultipleCollision base | High-scale collisions and target selection |
+| 5 | TimeShower medium, eHIJING derived class | High-scale radiation |
+| 6 | Modified_FF | Low-scale emissions and remnant sampling |
+| 7 | Modified_FF collision sampler | Low-scale additional collisions |
+| 8 | Modified_FF geometry | Deterministic calculations; no draws currently |
+| 9 | Modified_FF colour-choice engine | Equal-probability colour/recoil choices formerly using C `rand()` |
+| 10 | Hadronizer PYTHIA | Fragmentation and decays |
+| 11 | Hadronizer helper engine | Legacy nucleon and remnant choices |
+| 12 | Event writer | Legacy spectator positions; unused for explicit targets |
+| 13–16 | Hadronizer PartonLevel/TimeShower medium objects | Separate namespace; inactive in the supplied hadronization workflow |
+
+The unused driver engine was removed. The unused `Event` default engine and
+uncalled GSL VEGAS helper are not operative streams. The fixed stream labels do
+not guarantee disjoint sequences: mapping into PYTHIA's finite seed range can
+produce collisions. Cross-platform bitwise equality and matched random histories
+between changed physics settings are outside this contract.
+
+Per-event metadata's `reproducibility` object records policy, master, chunk start,
+successful attempt, effective PYTHIA seeds and the 64-bit inputs to `seed_seq` for
+other engines. Wide seed values are decimal strings to retain all bits in JSON
+readers. `inputs_sha256` identifies settings and Qs/GHT file bytes. Histories
+include the same provenance as an output-observation attribute. The fragmentation
+configuration label uses the canonical settings path, so alternate spellings of
+the same file agree; relocating that file changes its diagnostic label.
+
+New tables use `max_digits10` so in-memory values match reloads. Generation is
+locked per table and publishes complete files atomically. Existing cached tables
+are loaded without rewriting or requiring cache-directory write access. Retain
+the same table bytes for replay; regenerating historical low-precision tables can
+change numerical inputs.
+
+The CTest `seed_policy` test runs without event generation. The parent ELECTRA
+repository also provides an explicit smoke check with small temporary runs:
+
+```bash
+PYTHONPATH=python python3 tests/reproducibility_smoke.py --executable /path/to/ehijing
+```
+
+It compares complete records in fresh processes for HT/GHT and explicit/legacy
+targets, generated/reloaded tables, history on/off, direct/wrapper runs and
+prefix preservation. Its outputs are temporary; research/reference data and
+installed utilities are untouched.
 
 ## Generating documentation
 

@@ -86,6 +86,10 @@ void write_event_headers(std::ostream& out);
  * @param meta_out Stream that receives the JSON metadata record.
  * @param history Optional observer of the same output positions and spectators;
  *        consumes no additional random draws.
+ * @param target Optional shared target for deterministic untouched spectators.
+ * @param spectator_rng Persistent seeded engine, required when legacy spectators
+ *        are emitted. Explicit targets and events without spectators need none.
+ * @param reproducibility Optional JSON object containing seed/input provenance.
  */
 void write_event_output(
     int32_t event_number,
@@ -97,7 +101,9 @@ void write_event_output(
     std::ostream& event_out,
     std::ostream& meta_out,
     SpacetimeHistory* history = nullptr,
-    const EHIJING::NuclearTarget* target = nullptr);
+    const EHIJING::NuclearTarget* target = nullptr,
+    std::mt19937* spectator_rng = nullptr,
+    const std::string& reproducibility = "");
 
 // Actual untouched identities must agree with final B/Q, without deleting or
 // inventing spectators. A mismatch rejects the whole explicit-target event.

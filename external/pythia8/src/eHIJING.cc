@@ -12,10 +12,40 @@
 #include <sstream>
 #include <filesystem>
 #include <atomic>
+#include <iomanip>
+#include <limits>
+#include <memory>
+#include <sys/file.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "eHIJING/eHIJING.h"
 #include "eHIJING/integrator.h"
 namespace EHIJING {
+
+int seed_policy_version() { return 1; }
+
+namespace {
+// Chunks sharing a table directory serialize generation. Readers of an existing
+// atomically published table need no write permission on the cache directory.
+class TableLock {
+public:
+    explicit TableLock(const std::filesystem::path& table) {
+        std::filesystem::create_directories(table.parent_path());
+        descriptor = ::open((table.string() + ".lock").c_str(), O_CREAT | O_RDWR, 0644);
+        if (descriptor < 0) throw std::runtime_error("Cannot open table lock: " + table.string());
+        if (::flock(descriptor, LOCK_EX) != 0) {
+            ::close(descriptor);
+            throw std::runtime_error("Cannot acquire table lock: " + table.string());
+        }
+    }
+    ~TableLock() { ::flock(descriptor, LOCK_UN); ::close(descriptor); }
+    TableLock(const TableLock&) = delete;
+    TableLock& operator=(const TableLock&) = delete;
+private:
+    int descriptor;
+};
+}
 
 // Unit conversion constants
 // https://pdg.lbl.gov/2025/reviews/rpp2025-rev-phys-constants.pdf
@@ -77,12 +107,12 @@ double CHT_F1(double x){
 
 ///////// Class: Multiple Collision /////////////////////
 // initializer
-MultipleCollision::MultipleCollision(double Kfactor, double powerG, double lambdaG):
+MultipleCollision::MultipleCollision(double Kfactor, double powerG, double lambdaG,
+                                     std::uint64_t seed):
 Kfactor_(Kfactor),
 powerG_(powerG),
 lambdaG_(lambdaG),
-rd(),
-gen(rd()),
+gen(seeds::engine(seed)),
 flat_gen(0.,1.),
 Qs2Table(3, {31,31,31}, // TA, ln(x), ln(Q2) --> size and grid for Qs table
            {TAmin, std::log(1e-6), std::log(1.0)},
@@ -93,6 +123,8 @@ Qs2Table(3, {31,31,31}, // TA, ln(x), ln(Q2) --> size and grid for Qs table
 // Tabulate Qs
 void MultipleCollision::Tabulate(std::filesystem::path table_path){
     std::filesystem::path fname = table_path/std::filesystem::path("Qs.dat");
+    std::unique_ptr<TableLock> lock;
+    if (!std::filesystem::exists(fname)) lock = std::make_unique<TableLock>(fname);
     if (std::filesystem::exists(fname)) {
         std::cout << "Loading Qs Table" << std::endl;
         std::ifstream f(fname.c_str());
@@ -165,7 +197,7 @@ void MultipleCollision::Tabulate(std::filesystem::path table_path){
 
                 Qs2Table.set_with_linear_index(c, aQs2);
 
-                f << aQs2 << '\n';
+                f << std::setprecision(std::numeric_limits<double>::max_digits10) << aQs2 << '\n';
                 if (!f) {
                     throw std::runtime_error(
                         "Write failure while writing temporary file '" + tmp_path.string() + "'");
@@ -383,14 +415,14 @@ int MultipleCollision::sample_all_qt2_target(int pid, double E,
 /////////// Class: eHIJING
 // initializer
 eHIJING::eHIJING(int mode, double Kfactor,
-                 double powerG, double lambdaG):
-MultipleCollision(Kfactor, powerG, lambdaG),
+                 double powerG, double lambdaG, std::uint64_t collision_seed,
+                 std::uint64_t seed):
+MultipleCollision(Kfactor, powerG, lambdaG, collision_seed),
 mode_(mode),
 Kfactor_(Kfactor),
 powerG_(powerG),
 lambdaG_(lambdaG),
-rd(),
-gen(rd()),
+gen(seeds::engine(seed)),
 flat_gen(0.,1.),
 GHT_Angular_Table(2, {51, 51}, // X = delta = 2kq/(k^2+q^2),
                                // ln(1+Y) = ln(1+ (|k|-|q|)^2*t/(2*z*(1-z)*E) )
@@ -410,6 +442,8 @@ void eHIJING::Tabulate(std::filesystem::path table_path) {
         // the following routine will use the max number of hardware concurrency of your computer
         // to parallel the computation of the table
         std::filesystem::path fname = table_path/std::filesystem::path("GHT.dat");
+        std::unique_ptr<TableLock> lock;
+        if (!std::filesystem::exists(fname)) lock = std::make_unique<TableLock>(fname);
         if (std::filesystem::exists(fname)) {
             std::cout << "Loading GHT Table" << std::endl;
             std::ifstream f(fname.c_str());
@@ -432,7 +466,9 @@ void eHIJING::Tabulate(std::filesystem::path table_path) {
             }
         } else {
             std::filesystem::create_directory(table_path);
-            std::ofstream f(fname.c_str());
+            const auto temporary = fname.string() + ".tmp";
+            std::ofstream f(temporary.c_str());
+            if (!f) throw std::runtime_error("Cannot write GHT table: " + temporary);
             // Table Qs as a function of lnx, lnQ2, TA
             std::atomic_int counter =  0;
             int percentbatch = int(GHT_Angular_Table.size()/100.);
@@ -455,7 +491,7 @@ void eHIJING::Tabulate(std::filesystem::path table_path) {
                 }
             };
             std::vector<std::thread> threads;
-            int nthreads = std::thread::hardware_concurrency();
+            int nthreads = std::max(1U, std::thread::hardware_concurrency());
             int padding = int(std::ceil(GHT_Angular_Table.size()*1./nthreads));
             std::cout << "Generating GHT angular tables with " << nthreads << " thread" << std::endl;
             for(auto i=0; i<nthreads; ++i) {
@@ -465,8 +501,12 @@ void eHIJING::Tabulate(std::filesystem::path table_path) {
             }
             for(auto& t : threads) t.join();
             for (int c=0; c<GHT_Angular_Table.size(); c++) {
-                f << GHT_Angular_Table.get_with_linear_index(c) << std::endl;
+                f << std::setprecision(std::numeric_limits<double>::max_digits10)
+                  << GHT_Angular_Table.get_with_linear_index(c) << std::endl;
             }
+            f.close();
+            if (!f) throw std::runtime_error("Cannot finish GHT table: " + temporary);
+            std::filesystem::rename(temporary, fname);
         }
         std::cout << "... done" << std::endl;
     }

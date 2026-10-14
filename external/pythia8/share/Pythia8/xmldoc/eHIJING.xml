@@ -1,4 +1,10 @@
 <chapter name="eHIJING">
+<word name="eHIJING:SeedContext" default="0">
+Unsigned 64-bit chunk context supplied by ELECTRA's versioned seed policy.
+</word>
+<mode name="eHIJING:SeedRole" default="0" min="0" max="1">
+Stream namespace: 0 for the hard generator, 1 for the separate hadronizer.
+</mode>
 <flag name="eHIJING:ExplicitNucleus" default="off"></flag>
 <parm name="eHIJING:NucleonWidth" default="0.5" min="0.000001"></parm>
 <parm name="eHIJING:NuclearRadius" default="0.0" min="0.0"></parm>

@@ -72,8 +72,8 @@ struct RunConfig {
 
     /// Base random seed for event generation.
     ///
-    /// Typically combined with the event ID to ensure reproducibility across runs.
-    uint32_t seed;
+    /// Combined with the chunk starting ID by electra-seeds-v1; never reduced here.
+    uint64_t seed;
 
     /// Write diagnostic HepMC3 ASCII histories (default off).
     bool history = false;

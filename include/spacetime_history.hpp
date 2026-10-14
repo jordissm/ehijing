@@ -15,7 +15,7 @@
  */
 class SpacetimeHistory {
 public:
-    SpacetimeHistory(int64_t event_id, int attempt);
+    SpacetimeHistory(int64_t event_id, int64_t attempt);
     void capture(const Pythia8::Event& event, const std::string& stage,
                  const std::string& record, const std::string& vertex_convention,
                  const std::vector<int>& source_indices = {});
@@ -38,7 +38,7 @@ public:
 
 private:
     int64_t event_id_;
-    int attempt_;
+    int64_t attempt_;
     Pythia8::Vec4 origin_, target_;
     bool source_vertices_in_fm_ = false;
     int source_shower_size_ = 0;

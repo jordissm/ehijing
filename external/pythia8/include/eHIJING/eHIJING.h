@@ -4,6 +4,7 @@
 #include "eHIJING/NuclearTarget.h"
 #include <cmath>
 #include <random>
+#include "eHIJING/SeedPolicy.h"
 #include <iostream>
 #include <filesystem>
 
@@ -111,13 +112,12 @@ private:
     const int A_, Z_, N_;
     const double R_, R2_;
     // Random number generators
-    std::random_device rd;
     std::mt19937 gen;
     std::uniform_real_distribution<double> flat_gen;
 public:
-    NuclearGeometry(int A, int Z): A_(A), Z_(Z), N_(A-Z),
+    NuclearGeometry(int A, int Z, std::uint64_t seed = 0): A_(A), Z_(Z), N_(A-Z),
     R_(r0*std::pow(A*1., 1./3.)), R2_(R_*R_),
-    rd(), gen(rd()), flat_gen(0.,1.)
+    gen(seeds::engine(seed)), flat_gen(0.,1.)
     {
     };
     int A() const {return A_; };
@@ -162,7 +162,6 @@ private:
   const double powerG_;
   const double lambdaG_;
   // Random number generators
-  std::random_device rd;
   std::mt19937 gen;
   std::uniform_real_distribution<double> flat_gen;
   table_nd Qs2Table;
@@ -170,7 +169,7 @@ private:
   double Qs2_self_consistent_eq(double Qs2, double TA, double xB, double Q2);
   double compute_Qs2(double TA, double xB, double Q2);
 public:
-  MultipleCollision(double K, double pG, double lG);
+  MultipleCollision(double K, double pG, double lG, std::uint64_t seed = 0);
   // Tabulate Qs table
   void Tabulate(std::filesystem::path table_path);
   double Qs2(double TA, double xB, double Q2) {
@@ -214,14 +213,14 @@ private:
     const double powerG_;
     const double lambdaG_;
     // Random number generators
-    std::random_device rd;
     std::mt19937 gen;
     std::uniform_real_distribution<double> flat_gen;
     table_nd GHT_Angular_Table;
     double compute_GHT_Angular_Table(double X, double Y);
 public:
     // constructor, given mode, the K factor, powerG, lambdaG
-    eHIJING(int mode, double K, double pG, double lG);
+    eHIJING(int mode, double K, double pG, double lG,
+           std::uint64_t collision_seed = 0, std::uint64_t radiation_seed = 0);
     // Tabulate (if nessesary) genralized HT table
     void Tabulate(std::filesystem::path table_path);
     bool next_kt2_stochastic(double & kt2, int pid,

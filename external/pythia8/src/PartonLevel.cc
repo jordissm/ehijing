@@ -85,7 +85,11 @@ bool PartonLevel::init( Info* infoPtrIn, Settings& settings,
   nuclearSurface = settings.parm("eHIJING:NuclearSurface");
   eHIJING_MassNumber    = settings.parm("eHIJING:MassNumber");
   eHIJING_AtomicNumber  = settings.parm("eHIJING:AtomicNumber");
-  eHIJING_Geometry      = new EHIJING::NuclearGeometry(eHIJING_MassNumber, eHIJING_AtomicNumber);
+  const auto seedContext = std::stoull(settings.word("eHIJING:SeedContext"));
+  const auto geometryStream = settings.mode("eHIJING:SeedRole") == 1
+    ? EHIJING::seeds::Stream::HadronPartonGeometry : EHIJING::seeds::Stream::PartonGeometry;
+  eHIJING_Geometry = new EHIJING::NuclearGeometry(eHIJING_MassNumber, eHIJING_AtomicNumber,
+    EHIJING::seeds::derive(seedContext, geometryStream));
   
 
   // Separate low-mass (unresolved) and high-mass (perturbative) diffraction.

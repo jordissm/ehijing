@@ -8,10 +8,11 @@ questions in the eHIJING checkout used by ELECTRA. It complements the
 model is not, by itself, validation of subsequent ELECTRA extensions.
 
 **Review basis: 14 October 2026.** Statements below are based on source,
-settings, existing documentation and the assertions in synthetic tests. This
-documentation review did not generate a physics sample or execute a SMASH run.
-The page records current behavior; proposed checks are work still to be done.
-It does not choose new model parameters or change the simulation.
+settings, existing documentation and synthetic tests. The C4 resolution also
+includes executed fresh-process replay checks with small temporary eHIJING runs
+and synthetic SMASH transport. These checks establish reproducibility in their
+stated scope; they are not production-level physics benchmarks. Proposed checks
+in the open items remain work to be done. This page chooses no new model parameters.
 
 Paths beginning with `src/`, `include/`, `tests/` or `external/` are relative
 to the eHIJING component. Paths explicitly described as ELECTRA paths are
@@ -25,6 +26,7 @@ relative to the parent ELECTRA repository.
 | Confirmed limitation | A behavior or missing guarantee directly established by the current source. Its size or phenomenological impact may still be unmeasured. |
 | Confirmed mismatch | Two current source interfaces or normalizations disagree under the stated conditions. This does not establish which installed binary or configuration was used in an earlier run. |
 | Resolved configuration mismatch | The checked-in configuration now matches the source interface. Runtime and physics validation remain separate checks. |
+| Resolved for fixed chunks | Seeded streams and complete-record replay are established for fixed chunk starts with identical inputs, build and environment; independent event replay after rechunking is outside the guarantee. |
 | Open consistency question | There is a specific reason to check consistency, but this review has not established the outcome with an independent calculation or runtime test. |
 | Validation gap | Existing tests do not establish the stated physical claim. Absence of that validation is not proof that the result is wrong. |
 
@@ -152,7 +154,7 @@ an independent check; it is not a measured ranking of their numerical effects.
 | C1 | Confirmed limitation | Low-scale radiation does not guarantee four-momentum closure. |
 | C2 | Confirmed limitation | High-scale shower delays are lost during hadronizer import. |
 | C3 | Confirmed mismatch | The two legacy qhat helpers have different dimensions. |
-| C4 | Confirmed limitation | The CLI seed does not control all random engines. |
+| C4 | Resolved for fixed chunks | A versioned master seed controls all active event streams; rechunking is outside the guarantee. |
 | C5 | Resolved configuration mismatch | The checked-in SMASH template now declares the production and formation columns required by the current reader. |
 | C6 | Resolved output ambiguity; explicit fallback | Production-time status distinguishes missing information, available times and spectators; SMASH warns when using the zero fallback. |
 | C7 | Confirmed limitation | Cached table files do not establish their parameter provenance. |
@@ -250,22 +252,46 @@ GeV squared per fm.
 
 ### C4. Seed propagation and reproducibility
 
-**Evidence.** `src/main.cpp` seeds the hard PYTHIA instance, its driver engine
-and the C random generator. However, `Modified_FF` initializes its engine from
-`random_device`, as do the bundled medium classes. The hadronizer has another
-independently initialized engine, and legacy spectator sampling uses a
-thread-local engine initialized from `random_device`.
+**Resolution.** `electra-seeds-v1` preserves a validated unsigned 64-bit
+master seed at the CLI boundary. The executable derives each stream from that
+master, the chunk's first event ID and a frozen stream identifier. PYTHIA
+receives integer seeds in `[1, 900000000]`; all medium, hadronizer-helper,
+colour-choice and legacy-spectator engines receive explicit seeds. The explicit
+nuclear target continues to use the hard PYTHIA stream. No event stream obtains
+independent entropy. Omitting the standalone seed obtains entropy once for the
+master, which is printed and recorded.
 
-**Physical consequence.** Repeating `--seed` is not a guarantee of identical
-complete events. It also does not supply matched random histories for a
-parameter comparison. This complicates reproducible debugging of rare recoil
-or formation anomalies.
+**Policy across attempts, events and chunks.** Streams are initialized before
+sampling and advance continuously through all failed attempts and accepted
+events. They are never reset on rejection. The successful attempt number is
+monotonic for each requested event, including across the driver's 15-attempt
+batches. Event count and output shard width are excluded from derivation, so
+extending a fresh run with the same chunk start preserves its prefix. A
+different chunk start changes its stream context. This resolves repeated-run
+reproducibility for fixed chunk boundaries; it does not make events independently
+replayable after rechunking or changing physics parameters.
 
-**Evidence needed to resolve it.** Enumerate every random stream, its owner
-and its initialization. Define a deterministic stream policy across attempts,
-events and chunks, then compare complete records in fresh processes. A
-diagnostic collector consuming no extra random draws is a narrower guarantee
-than whole-run reproducibility.
+**Evidence.** `tests/seed_policy_test.cpp` checks fixed derivation vectors,
+wide-seed parsing, engine replay and PYTHIA's seed boundaries. The parent
+repository's `tests/reproducibility_smoke.py` compares full OSCAR, metadata,
+fragmentation and HepMC3 records across fresh processes for explicit/legacy
+targets and HT/GHT modes. It also checks diagnostic collection, direct/wrapper
+agreement, changed seeds and prefix preservation. The parent repository's
+`tests/smash_seed_smoke.py` also compares complete synthetic transport records and
+both replica seeds across
+fresh processes and task modes, and verifies that changing the master changes
+the stochastic records. Qs/GHT tables now serialize with round-trip precision;
+generation uses locking and atomic publication so
+parallel chunks do not load partial tables. Existing tables are preserved.
+
+**Scope and provenance.** Identical settings, table bytes, executable and
+runtime environment are required. Metadata includes the policy, master and
+effective stream seeds, successful attempt and input SHA-256 digests. Completed
+wrapper tasks validate saved requests before skipping; historical completion
+markers without provenance require a new run directory. Cross-architecture
+bitwise equality, disjoint random streams and matched parameter-variation
+histories are not claimed. See the [reproducibility policy](../README.md#reproducibility-and-seeds)
+for the stream inventory and exact derivation.
 
 ### C5. SMASH formation-field configuration mismatch
 
@@ -529,8 +555,9 @@ plan; do not assume that changing one setting restores the published setup.
 
 ## What existing tests establish
 
-The following describes assertions in the test sources, not a fresh execution
-of the binaries during this documentation review.
+The table describes coverage in the test sources. The C4 replay checks were also
+executed for the seed-policy resolution, as recorded in that item; their temporary
+fixtures do not replace physics validation with a production sample.
 
 | Test source | Coverage present | What that coverage does not establish |
 | --- | --- | --- |
@@ -538,6 +565,10 @@ of the binaries during this documentation review.
 | `tests/shared_remnant_test.cpp` | Repeated hits share one remnant pair, chronological elastic updates, a constructed boosted displacement, conservation in the nonradiative fixture, and rejection of an impossible transfer. | Radiation energy closure: its soft-jet fixture deliberately avoids radiation and uses an artificial saturation table. |
 | `tests/spectator_balance_test.cpp` | Signed final B/Q counting, resonances and antiparticles, explicit untouched identities, output counts, and labeled legacy fallback behavior. | Exact total energy, full flavor correlations, nuclear binding or an unbiased accepted event sample. |
 | `tests/spacetime_history_test.cpp` | HepMC round trips, record identity, available versus missing vertices, coordinate conversions and diagnostic output invariance for synthetic fixtures. | Reconstruction of absent shower lifetimes, causal ordering of all assigned vertices, or the physics of a SMASH formation profile. |
+| `tests/seed_policy_test.cpp` | Frozen derivation vectors, unsigned 64-bit parsing, engine replay, high seed bits, PYTHIA boundaries and SHA-256 reference vectors. | Disjoint streams, cross-platform event equality or physical validity of the generated sample. |
+| ELECTRA `tests/test_seed_policy.py` | Master validation, unambiguous structured hashing, unchanged forwarding, recorded effective seeds, completion fingerprints and captured SLURM submission commands. | A real SLURM/container run or physics validation; subprocess execution is mocked in the forwarding checks. |
+| ELECTRA `tests/reproducibility_smoke.py` | Complete-record replay in fresh processes for HERMES deuterium fixtures with HT/GHT and explicit/legacy targets; table generation/reload, observers on/off, path aliases, prefix preservation and direct/wrapper agreement. | Rechunking independence, cross-architecture equality, exhaustive coverage of target/parameter settings or phenomenological agreement. |
+| ELECTRA `tests/smash_seed_smoke.py` | Complete synthetic pion transport records and two replica seeds agree across fresh processes/task modes; a changed master changes stochastic output. | Production transport benchmarks, arbitrary profiles/inputs or the physical interpretation of formation times. |
 
 ### V1. Production-level physics validation remains open
 

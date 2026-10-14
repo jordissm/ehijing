@@ -45,8 +45,11 @@ public:
      *
      * @param hadronization_config_path Path to the PYTHIA settings file used
      *        for string fragmentation and particle-data options.
+     * @param seed_context Chunk context from the versioned seed policy.
+     *        The default zero context is deterministic for synthetic callers.
      */
-    explicit Hadronizer(const std::string& hadronization_config_path);
+    explicit Hadronizer(const std::string& hadronization_config_path,
+                        std::uint64_t seed_context = 0);
 
     /**
      * @brief Hadronize one medium-modified PYTHIA event record.
@@ -83,7 +86,7 @@ public:
                                              double Ry,
                                              double Rz,
                                              int64_t event_id = -1,
-                                             int attempt = 0,
+                                             int64_t attempt = 0,
                                              SpacetimeHistory* history = nullptr);
 
 private:
@@ -93,9 +96,6 @@ private:
     /// Enable per-event diagnostics through HadronVertex:trace.
     bool trace_vertices;
     std::string trace_config_path;
-
-    /// Entropy source for initializing the local random-number engine.
-    std::random_device rd;
 
     /// Local random-number engine used by hadronization helpers.
     std::mt19937 gen;

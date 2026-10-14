@@ -4,6 +4,7 @@
 #include "Pythia8/HadronVertexTrace.h"
 
 #include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <iomanip>
 #include <optional>
@@ -104,9 +105,10 @@ namespace {
     }
 } // namespace
 
-Hadronizer::Hadronizer(const std::string& hadronization_config_path)
-    : pythia(), trace_vertices(false), trace_config_path(hadronization_config_path),
-      rd(), gen(rd()), dist(0., 1.) {
+Hadronizer::Hadronizer(const std::string& hadronization_config_path, std::uint64_t seed_context)
+    : pythia(), trace_vertices(false),
+      trace_config_path(std::filesystem::weakly_canonical(hadronization_config_path).string()),
+      gen(EHIJING::seeds::engine(EHIJING::seeds::derive(seed_context, EHIJING::seeds::Stream::HadronHelpers))), dist(0., 1.) {
 
     if (!pythia.readFile(hadronization_config_path)) {
         throw std::runtime_error("Hadronizer: failed to read config file: " +
@@ -121,7 +123,12 @@ Hadronizer::Hadronizer(const std::string& hadronization_config_path)
 
     apply_smash_particle_data_overrides(pythia);
 
-    pythia.init();
+    if (!pythia.readString("Random:setSeed = on") ||
+        !pythia.readString("Random:seed = " + std::to_string(EHIJING::seeds::pythia_seed(
+            EHIJING::seeds::derive(seed_context, EHIJING::seeds::Stream::HadronPythia)))) ||
+        !pythia.readString("eHIJING:SeedContext = " + std::to_string(seed_context)) ||
+        !pythia.readString("eHIJING:SeedRole = 1") || !pythia.init())
+        throw std::runtime_error("Hadronizer: seeded PYTHIA initialization failed; rebuild bundled PYTHIA");
     trace_vertices = pythia.settings.flag("HadronVertex:trace");
 }
 
@@ -136,7 +143,7 @@ std::optional<HadronizationResult> Hadronizer::hadronize(Pythia& pythiaIn,
                                                       double Ry,
                                                       double Rz,
                                                       int64_t event_id,
-                                                      int attempt,
+                                                      int64_t attempt,
                                                       SpacetimeHistory* history) {
 
     std::ostringstream trace_output;

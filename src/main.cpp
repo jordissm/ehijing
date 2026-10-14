@@ -7,13 +7,13 @@
 #include "hadronizer.hpp"
 #include "modified_ff.hpp"
 #include "spacetime_history.hpp"
+#include "random_seed.hpp"
+#include "file_digest.hpp"
 
 using namespace Pythia8;
 namespace constants = ehijing::constants;
 #include <algorithm>
 #include <chrono>
-#include <cstdlib> // for rand() and srand()
-#include <ctime>   // for time()
 #include <fstream>
 #include <random>
 #include <memory>
@@ -26,8 +26,6 @@ namespace constants = ehijing::constants;
 #include <unordered_map>
 
 
-std::random_device rrd;  // Non-deterministic generator
-std::mt19937 gen(rrd()); // Mersenne Twister engine
 
 // Helper function to set Pythia settings
 template <class T> void add_arg(Pythia& pythia, std::string name, T value) {
@@ -54,7 +52,15 @@ int main(int argc, char* argv[]) {
     const std::string& dis_cuts_config_path         = cfg.dis_cuts_config_path;
     const int64_t first_event_id                    = cfg.first_event_id;
     const int64_t chunk_size                        = cfg.chunk_size;
-    const uint32_t seed                             = cfg.seed;
+    const uint64_t seed                             = cfg.seed;
+    using EHIJING::seeds::Stream;
+    const auto seed_context = EHIJING::seeds::chunk(seed, first_event_id);
+    auto spectator_rng = EHIJING::seeds::engine(EHIJING::seeds::derive(seed_context, Stream::Spectators));
+    if (EHIJING::seed_policy_version() != 1) {
+        std::cerr << "ERROR: incompatible eHIJING seed policy; rebuild bundled PYTHIA\n";
+        return 2;
+    }
+    std::cout << "INFO: " << ehijing::seed_metadata(seed, first_event_id, 0) << '\n';
 
     if (cfg.nuclear_target) {
         try {
@@ -91,7 +97,7 @@ int main(int argc, char* argv[]) {
     int nuclear_modification = (atomic_number > 2) ? 3 : 0;
 
     // Initialize the Pythia instance for hadronization
-    Hadronizer hadronizer(hadronization_config_path);
+    Hadronizer hadronizer(hadronization_config_path, seed_context);
 
     const DISCuts dis_cuts = load_dis_cuts(dis_cuts_config_path);
 
@@ -99,17 +105,23 @@ int main(int argc, char* argv[]) {
     Pythia pythia;
 
     // Read settings from the config file and apply them to the Pythia instance
-    pythia.readFile(hard_process_config_path);
+    if (!pythia.readFile(hard_process_config_path)) {
+        std::cerr << "ERROR: cannot read hard-process settings\n"; return 2;
+    }
     
     // Make Pythia deterministic
-    pythia.readString("Random:setSeed = on");
-    pythia.readString("Random:seed = " + std::to_string(seed));
+    if (!pythia.readString("Random:setSeed = on") ||
+        !pythia.readString("Random:seed = " + std::to_string(EHIJING::seeds::pythia_seed(
+            EHIJING::seeds::derive(seed_context, Stream::HardPythia)))) ||
+        !pythia.readString("eHIJING:SeedContext = " + std::to_string(seed_context)) ||
+        !pythia.readString("eHIJING:SeedRole = 0")) {
+        std::cerr << "ERROR: cannot configure seeded PYTHIA; rebuild library and XML settings\n";
+        return 2;
+    }
 
     // Override the default proton mass with the PDG value to ensure consistency with the nuclear geometry and kinematics
     pythia.particleData.m0(2212, 0.938);
 
-    gen.seed(seed);
-    std::srand(seed);
 
     // Set Pythia and eHIJING settings from command line arguments
     // Note: Command line arguments will override settings in the config file if there are conflicts
@@ -139,7 +151,16 @@ int main(int argc, char* argv[]) {
                             tmd_k_constant, 
                             xg_n,
                             xg_lambda, 
-                            tabulation_path);
+                            tabulation_path, seed_context);
+
+    std::ostringstream inputs;
+    inputs << "{\"hard_process\":\"" << ehijing::file_sha256(hard_process_config_path)
+        << "\",\"hadronization\":\"" << ehijing::file_sha256(hadronization_config_path)
+        << "\",\"dis_cuts\":\"" << ehijing::file_sha256(dis_cuts_config_path)
+        << "\",\"Qs.dat\":\"" << ehijing::file_sha256(std::filesystem::path(tabulation_path)/"Qs.dat") << '"';
+    if (medium_modification_mode == 1 && pythia.settings.flag("eHIJING:all"))
+        inputs << ",\"GHT.dat\":\"" << ehijing::file_sha256(std::filesystem::path(tabulation_path)/"GHT.dat") << '"';
+    inputs << '}';
 
     // Define counter for events written to output
     int n_written = 0;
@@ -147,7 +168,7 @@ int main(int argc, char* argv[]) {
     // Define counter for events that failed to generate
     int n_generation_failed = 0;
     int n_recoil_rejected = 0, n_balance_rejected = 0;
-    int attempts_since_written = 0;
+    int64_t attempts_since_written = 0;
 
     // Define counter for events that failed the DIS trigger
     int n_trigger_failed = 0;
@@ -203,7 +224,7 @@ int main(int argc, char* argv[]) {
             double Rz = pythia.event.Rz();
             std::unique_ptr<SpacetimeHistory> history;
             if (cfg.history) {
-                history = std::make_unique<SpacetimeHistory>(first_event_id + n_written, attempt + 1);
+                history = std::make_unique<SpacetimeHistory>(first_event_id + n_written, attempts_since_written);
                 history->set_context(Vec4(Rx, Ry, Rz, 0.0), kinematics.pProton,
                                      pythia.settings.flag("PartonVertex:setVertex"));
                 history->capture(pythia.process, "hard_process", "process", "source_parton_vertices");
@@ -236,13 +257,13 @@ int main(int argc, char* argv[]) {
             // Put the parton-level event into the separate hadronizer
             auto hadronized_event_opt = hadronizer.hadronize(
                 pythia, atomic_number, mass_number, Rx, Ry, Rz,
-                first_event_id + n_written, attempt + 1, history.get());
+                first_event_id + n_written, attempts_since_written, history.get());
             if (!hadronized_event_opt) {
-                std::cerr << "WARNING: hadronization failed for event " << (first_event_id + n_written) << " on attempt " << (attempt + 1) << "/" << hadronization_retries_max << "\n";
+                std::cerr << "WARNING: hadronization failed for event " << (first_event_id + n_written) << " on attempt " << (attempts_since_written) << "\n";
                 n_hadronization_failed++;
                 continue;
             }
-            std::cout << "INFO: hadronization succeeded for event " << (first_event_id + n_written) << " on attempt " << (attempt + 1) << "/" << hadronization_retries_max << "\n";
+            std::cout << "INFO: hadronization succeeded for event " << (first_event_id + n_written) << " on attempt " << (attempts_since_written) << "\n";
             const auto& hadronization_result = *hadronized_event_opt;
             
             const auto target = pythia.event.nuclearTarget();
@@ -256,6 +277,9 @@ int main(int argc, char* argv[]) {
             const int64_t event_id = first_event_id + n_written;
             
             // All event outputs share the same event ID and shard directory.
+            auto reproducibility = ehijing::seed_metadata(seed, first_event_id, attempts_since_written);
+            reproducibility.pop_back();
+            reproducibility += ",\"inputs_sha256\":" + inputs.str() + "}";
             const EventPaths paths = make_event_paths(std::filesystem::path(run_path), event_id, chunk_size);
 
             // Open OSCAR output file
@@ -294,7 +318,7 @@ int main(int argc, char* argv[]) {
                                hadronization_result.particles,
                                event_out,
                                meta_out,
-                               history.get(), target.get());
+                               history.get(), target.get(), &spectator_rng, reproducibility);
 
             if (history) {
                 try {
