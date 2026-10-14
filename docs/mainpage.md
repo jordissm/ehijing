@@ -470,9 +470,8 @@ rate is related to an effective gluon TMD per nucleon by
 These are the rate and parametrization in paper Eqs. (9), (19). The function
 stored in the code is the product \f$\alpha_s\phi_g\f$; multiplying it by
 another running coupling would change the model. In this normalization
-\f$K\f$ supplies the momentum-squared dimension needed for
-\f$\alpha_s\phi_g\f$ to have units \f$\mathrm{GeV}^{-2}\f$; the CLI
-accepts its numerical value in the source's GeV convention. The input
+\f$K\f$ is dimensionless: the denominator supplies the
+\f$\mathrm{GeV}^{-2}\f$ units of \f$\alpha_s\phi_g\f$. The input
 `--K` sets `eHIJING:TransverseMomentumDistributionConstant` in both shower
 stages. The HERMES settings use \f$n=4\f$ and \f$\lambda=-0.25\f$;
 the XML default for \f$\lambda\f$ is \f$-0.2\f$ when no override is read.
