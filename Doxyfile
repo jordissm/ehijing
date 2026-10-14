@@ -6,6 +6,7 @@ OUTPUT_DIRECTORY       = docs/doxygen
 
 INPUT                  = README.md \
                          docs/mainpage.md \
+                         docs/assumptions.md \
                          docs/units.md \
                          include \
                          src

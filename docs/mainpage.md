@@ -4,6 +4,9 @@ eHIJING is the event-generation component that combines PYTHIA DIS event
 generation with eHIJING medium modification, hadronization, and OSCAR2013-style
 output.
 
+See [Physical assumptions and open questions](assumptions.md) for the current
+model scope, known implementation limits and unresolved consistency checks.
+
 The executable workflow is:
 
 1. Parse runtime configuration into `RunConfig`.
@@ -121,7 +124,8 @@ for readability. Each circular **A** connector returns to the start of a fresh
 generation attempt at the top. HT and GHT are alternative kernels, and the high-scale
 shower and low-scale adapter cover different emission regions. The geometry
 is frozen even when momenta recoil. Radiation is sampled before the collected
-elastic updates are sorted, so the diagram's arrows describe execution order,+rather than a complete ordering of physical formation events.
+elastic updates are sorted, so the diagram's arrows describe execution order,
+rather than a complete ordering of physical formation events.
 
 **Acceptance and optional branches.** Only a successful attempt writes an
 event or its optional diagnostics. The history collector observes existing

@@ -8,6 +8,10 @@ scale, multiple scattering, HT/GHT radiation and LPM interference, shower
 matching, recoil, and Lund hadronization, with LaTeX equations and an explicit
 account of the implementation's approximations.
 
+[Physical assumptions and open questions](docs/assumptions.md) separates
+model choices, source-confirmed limitations, unresolved consistency questions
+and the validation still needed for the current implementation.
+
 [Unit conventions](docs/units.md) describe spacetime units, conversion factors,
 interface requirements, and remaining review items.
 
