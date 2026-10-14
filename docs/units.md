@@ -79,9 +79,13 @@ a Lorentz transformation nor a translation.
    freestream to t = 0 using `x(0) = x(form) - (p/E) * form_time`, with c = 1.
 
 `prod_time` and `form_time` are coordinate times in the particle reference
-frame. They are not proper-time intervals. SMASH's configured
-`proper_formation_time_` is a separate proper-time quantity. Frame consistency
-and the downstream use of imported formation times require their own review.
+frame. They are not proper-time intervals. SMASH's list input requires both
+`prod_time` and `form_time` in `Optional_Quantities` and a value for each on
+every particle row. They directly set the start
+and end of the slow formation profile via `set_slow_formation_times`, without
+an additional unit conversion or Lorentz factor. Missing times stop execution;
+there is no configured proper-time fallback for list input. Frame consistency
+requires its own review.
 
 ## Explicit nuclear-target frame handling
 
@@ -131,6 +135,7 @@ source mappings and comment attributes.
   `Modified_FF` are still preserved, and PYTHIA still computes hadron breakup
   and formation vertices. Restoring the source shower history is a separate
   change to the spacetime model.
-- Custom/legacy coordinate-frame consistency and SMASH's use of the imported
-  `form_time` require separate review. Explicit-target boosts are implemented
-  at the eHIJING interfaces; downstream transport timing remains separate. Unit conversion does not address either issue.
+- Custom/legacy coordinate-frame consistency requires separate review.
+  Explicit-target boosts are implemented at the eHIJING interfaces; SMASH uses
+  the imported coordinate times directly. Unit conversion does not address
+  frame consistency.
