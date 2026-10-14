@@ -2,6 +2,12 @@
 
 The eHIJING headers and sources are documented with Doxygen.
 
+[Physics included in eHIJING](docs/mainpage.md#physics-included-in-ehijing)
+details DIS kinematics, nuclear PDFs and geometry, the gluon TMD and saturation
+scale, multiple scattering, HT/GHT radiation and LPM interference, shower
+matching, recoil, and Lund hadronization, with LaTeX equations and an explicit
+account of the implementation's approximations.
+
 [Unit conventions](docs/units.md) describe spacetime units, conversion factors,
 interface requirements, and remaining review items.
 
