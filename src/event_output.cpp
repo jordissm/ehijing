@@ -107,6 +107,14 @@ void write_final_hadrons(
         const double prod_time = p.hasProductionTime()
             ? p.tProduction() * constants::units::mm_to_fm
             : 0.0;
+        const int prod_time_status = p.hasProductionTime() ? 1 : 0;
+        if (p.hasProductionTime()
+            && (!std::isfinite(p.vProductionFirst().e())
+                || !std::isfinite(p.vProductionSecond().e())
+                || !std::isfinite(prod_time))) {
+            throw std::invalid_argument("Non-finite production time for PDG "
+                                        + std::to_string(p.id()));
+        }
         double x_hadron = local_pos.px();
         double y_hadron = local_pos.py();
         double z_hadron = local_pos.pz();
@@ -142,7 +150,8 @@ void write_final_hadrons(
             << charge << " "
             << prod_time << " "
             << form_time << " "
-            << 0.0 << '\n';
+            << 0.0 << " "
+            << prod_time_status << '\n';
 
         if (history) history->output_particle(p, particle_index,
             Vec4(x_hadron, y_hadron, z_hadron, 0.0) * constants::units::fm_to_mm);
@@ -197,7 +206,7 @@ void write_spectator_nucleons(
             << 1 << " "
             << 0.0 << " "
             << 0.0 << " "
-            << 1.0 << '\n';
+            << 1.0 << " 2\n";
 
         if (history) history->output_particle(
             Particle(constants::pdg::proton_id, 1, 0, 0, 0, 0, 0, 0,
@@ -239,7 +248,7 @@ void write_spectator_nucleons(
             << 0 << " "
             << 0.0 << " "
             << 0.0 << " "
-            << 1.0 << '\n';
+            << 1.0 << " 2\n";
 
         if (history) history->output_particle(
             Particle(constants::pdg::neutron_id, 1, 0, 0, 0, 0, 0, 0,
@@ -264,7 +273,7 @@ void write_target_spectators(const EHIJING::NuclearTarget& target,
         const int pid = n.proton ? 2212 : 2112;
         out << std::fixed << std::setprecision(5) << 0. << ' ' << x << ' ' << y << ' ' << z
             << ' ' << mass << ' ' << p.e() << ' ' << p.px() << ' ' << p.py() << ' ' << p.pz()
-            << ' ' << pid << ' ' << index << ' ' << (n.proton ? 1 : 0) << " 0 0 1\n";
+            << ' ' << pid << ' ' << index << ' ' << (n.proton ? 1 : 0) << " 0 0 1 2\n";
         if (history) {
             Particle spectator(pid,1,0,0,0,0,0,0,p,mass);
             spectator.nuclearTargetId(id);
@@ -317,8 +326,8 @@ SpectatorBalance calculate_spectator_balance(
 }
 
 void write_event_headers(std::ostream& out) {
-    out << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge prod_time form_time xsecfac\n";
-    out << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none fm fm none\n";
+    out << "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge prod_time form_time xsecfac prod_time_status\n";
+    out << "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none fm fm none none\n";
 }
 
 void write_event_output(

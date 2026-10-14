@@ -128,6 +128,26 @@ labelled `admissible=false` and `spectator_policy="legacy_unmodified"`. This
 fallback does not apply to explicit-target events. Charged-current DIS remains
 outside the supported hadronic charge budget.
 
+OSCAR particle rows append `prod_time_status` after `xsecfac`: `0` means no
+production reference is available (`prod_time` is a zero placeholder), `1`
+means an available reference, including a genuine zero or an origin-only
+assignment, and `2` means not applicable for pre-existing spectator nucleons.
+Spectators retain `prod_time = form_time = 0`. Non-finite available production
+references are errors.
+
+The checked-in SMASH template declares
+`Optional_Quantities: ["ID", "charge", "prod_time", "form_time", "xsecfac", "prod_time_status"]`.
+The reader forces the profile start time to zero for status `0` and prints a
+warning to stderr with the particle's PDG code; status `1` and `2` use the
+supplied times without that warning. Warnings occur during startup validation
+as well as when particles are imported. This explicitly retains the zero
+fallback without assigning a physical production event to missing information.
+Rebuild eHIJING and SMASH (or their container) to use the new interface. For
+older OSCAR files, omit `prod_time_status` from `Optional_Quantities`; the reader
+then retains the numerical-time behavior without availability information.
+The local Python and SLURM workflows both use this template unless overridden;
+custom configurations must match the columns and their order.
+
 ## Diagnostic spacetime history
 
 When enabled, each successful eHIJING event writes `event_00000042.history` next to its
@@ -187,8 +207,9 @@ sampled collision arrays are attributes. PYTHIA's range and copy conventions
 still apply to those ancestry fields. Final hadronizer particles have an
 `oscar_id`; OSCAR observations map back to the corresponding hadronizer index.
 Spectators are marked separately and do not acquire invented shower ancestry.
-The output snapshot also retains the actual OSCAR production/formation times
-and cross-section factors, alongside its extrapolated t = 0 positions. Native
+The output snapshot also retains the actual OSCAR production/formation times,
+`oscar_prod_time_status`, and cross-section factors, alongside its extrapolated
+t = 0 positions. Native
 decay endpoints from PYTHIA's stored vertex and lifetime are recorded when
 available in the hadronizer record.
 The PYTHIA system entry at index zero is retained and marked as bookkeeping.

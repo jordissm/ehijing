@@ -62,8 +62,11 @@ void write_event_headers(std::ostream& out);
  * Hadron positions are freestreamed from the saved vertex to t = 0. With
  * HadronVertex:mode = 2, form_time records the late formation time from
  * Particle::tProd(), and prod_time records the earlier breakup time from
- * Particle::tProduction(). A missing breakup pair gives prod_time = 0.
- * Spectator nucleons have both times set to zero.
+ * Particle::tProduction(), including origin-only production assignments.
+ * The appended prod_time_status column is 1 for an available production
+ * reference (including zero), 0 for unavailable information (prod_time = 0),
+ * and 2 for not applicable (spectator nucleons, with both times zero).
+ * Non-finite production references are errors rather than status values.
  *
  * Units: input particle vertices in mm and coordinate times in mm/c;
  * output positions in fm and t, prod_time and form_time in fm/c. Momentum,

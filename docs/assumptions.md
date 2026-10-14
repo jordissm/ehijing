@@ -154,7 +154,7 @@ an independent check; it is not a measured ranking of their numerical effects.
 | C3 | Confirmed mismatch | The two legacy qhat helpers have different dimensions. |
 | C4 | Confirmed limitation | The CLI seed does not control all random engines. |
 | C5 | Resolved configuration mismatch | The checked-in SMASH template now declares the production and formation columns required by the current reader. |
-| C6 | Confirmed limitation | Missing production-time information can become a numerical zero in output. |
+| C6 | Resolved output ambiguity; explicit fallback | Production-time status distinguishes missing information, available times and spectators; SMASH warns when using the zero fallback. |
 | C7 | Confirmed limitation | Cached table files do not establish their parameter provenance. |
 | Q1 | Open consistency question | How much does rejection condition the accepted physics sample? |
 | Q2 | Open consistency question | Does the transfer proposal/veto sequence reproduce the intended rate and cutoff? |
@@ -276,7 +276,7 @@ directly to `set_slow_formation_times()`. The eHIJING writer exports both
 columns. ELECTRA's checked-in `input/smash/config_files/config.yaml` now declares
 
 ```yaml
-Optional_Quantities: ["ID", "charge", "prod_time", "form_time", "xsecfac"]
+Optional_Quantities: ["ID", "charge", "prod_time", "form_time", "xsecfac", "prod_time_status"]
 ```
 
 The Python `smash_physical_event_task()` overrides the input filename,
@@ -298,22 +298,51 @@ containers may use another interface.
 
 ### C6. Missing versus zero production times
 
-**Evidence.** `write_final_hadrons()` in `src/event_output.cpp` writes zero
-when `hasProductionTime()` is false. The plain OSCAR particle row does not
-carry that availability flag. In contrast, the diagnostic particle record
-can retain whether a production reference existed.
+**Original limitation.** `write_final_hadrons()` in `src/event_output.cpp`
+wrote zero when `hasProductionTime()` was false without retaining availability
+in the OSCAR row. An assigned zero and unavailable production information were
+therefore indistinguishable to the reader, although diagnostics retained the
+production-reference flag.
 
-**Physical consequence.** A numerical `prod_time = 0` may mean an assigned
-zero or unavailable production information. The SMASH reader nevertheless
-receives a numerical start time for its formation profile. Neither the
-presence of a column nor a zero value establishes the physical production
-event of every hadron or decay product.
+**Resolution.** Every OSCAR particle row now appends the dimensionless integer
+`prod_time_status` after `xsecfac`:
 
-**Evidence needed to resolve it.** Count missing references by fragmentation
-branch, copy/decay history and final species. Check how availability propagates
-to the final exported particles. Decide an explicit policy for unavailable
-references and test it through the writer and reader; do not interpret an
-unlabeled zero as evidence of formation at the hard vertex.
+| Value | Meaning | Exported production time |
+| --- | --- | --- |
+| `0` | Production reference unavailable | Zero placeholder |
+| `1` | Production reference available, including origin-only assignments | Stored coordinate time, which may be zero |
+| `2` | Not applicable: pre-existing spectator nucleon | Zero, with formation time also zero |
+
+The status comes from the final exported particle's `hasProductionTime()`
+flag, with spectators handled separately in both legacy and explicit-target
+output. Non-finite available production references cause an error rather than
+an exceptional status. The optional history retains the same value as
+`oscar_prod_time_status`.
+
+The checked-in SMASH template declares the new column in `Optional_Quantities`.
+`src/smash/src/listmodus.cc` validates status values and forces the numerical
+profile start time to zero for status `0`, even if a nonzero placeholder was
+supplied. It prints a warning to stderr identifying the PDG species and the
+zero fallback. Status `1` and `2` use the supplied numerical times without
+that warning. Warnings occur during startup validation and particle import.
+Legacy files configured without the status column retain their numerical
+times, without inferring availability or emitting this warning. Rebuild the
+writer and reader binaries/container and update custom configurations to use
+the new schema; configuration order must match the particle rows.
+
+**Validation.** Synthetic writer/history checks cover missing references,
+available zero and nonzero times, origin-only assignments, both spectator
+paths and non-finite references. Focused SMASH reader tests cover the new
+particle-row schema, field order, stderr warnings, zero fallback, malformed or
+missing statuses, and legacy numerical-time input. No simulation events were
+generated for this interface change.
+
+**Physical consequence and remaining scope.** The missing-versus-zero output
+ambiguity is resolved for the new schema. The zero fallback is an explicit
+transport policy, not evidence of production at the hard vertex. This change
+does not reconstruct missing references or establish the physical production
+event of every hadron or decay product. Missing-reference rates by fragmentation
+branch, copy/decay history and final species remain a separate physics audit.
 
 ### C7. Table provenance, saturation roots and scale floors
 

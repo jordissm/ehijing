@@ -228,6 +228,8 @@ void SpacetimeHistory::finish_output() {
         attribute(p, "spectator", output_spectators_[i] ? "1" : "0");
         attribute(p, "oscar_form_time_fm", scalar_text(output_formation_times_mm_[i] * units::mm_to_fm));
         attribute(p, "oscar_prod_time_fm", scalar_text(output_particles_[i].tProduction() * units::mm_to_fm));
+        attribute(p, "oscar_prod_time_status", output_spectators_[i] ? "2"
+            : (output_particles_[i].hasProductionTime() ? "1" : "0"));
         attribute(p, "oscar_xsecfac", output_spectators_[i] ? "1" : "0");
         if (!output_spectators_[i] && i < final_hadronizer_indices_.size()) {
             attribute(p, "source_record", "hadronizer");

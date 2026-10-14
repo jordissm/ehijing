@@ -1248,7 +1248,12 @@ boost factor or formation-time conversion is introduced here.
 
 It separately writes `prod_time` and `form_time` as coordinate times in that
 same frame. These are not proper-time intervals to be multiplied by a new
-Lorentz factor. The extrapolated \f$t=0\f$ position is not a new physical
+Lorentz factor. The appended dimensionless `prod_time_status` is `0` for
+unavailable production information (a zero placeholder), `1` for an available
+production reference including zero, and `2` for not applicable spectator
+nucleons. SMASH uses zero for status `0` and warns on stderr; this is an
+explicit fallback, not a reconstructed production event. The extrapolated
+\f$t=0\f$ position is not a new physical
 interaction or formation vertex. The writer adds no spatial smearing.
 eHIJING stops at this output interface; any subsequent hadron rescattering or
 formation-dependent interaction profile is part of SMASH's configured model.

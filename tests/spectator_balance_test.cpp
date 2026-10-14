@@ -1,8 +1,10 @@
 #include "event_output.hpp"
 #include "spacetime_history.hpp"
+#include "HepMC3/GenParticle.h"
 #include "HepMC3/ReaderAscii.h"
 
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 
@@ -81,6 +83,10 @@ int main() {
         DISKinematics kin{};
         std::vector<Pythia8::Particle> products = {
             particle(proton), particle(proton), particle(neutron)};
+        // Origin-only production and a genuine zero are both available;
+        // the neutron has no production reference.
+        products[0].productionOrigin(Pythia8::Vec4(0., 0., 0., 2.e-12));
+        products[1].productionVertices(Pythia8::Vec4(), Pythia8::Vec4(0., 0., 0., 2.e-12));
         balance = calculate_spectator_balance(6, 12, StruckNucleon::Proton, products);
         require(balance.admissible && balance.protons == 4 && balance.neutrons == 5,
                 "Medium baryons were not removed from spectators");
@@ -99,10 +105,16 @@ int main() {
             if (line.empty() || line[0] == '#') continue;
             std::istringstream row(line);
             double t, x, y, z, m, e, px, py, pz, production, formation, factor;
-            int pdg, id, q;
+            int pdg, id, q, production_status;
             require(bool(row >> t >> x >> y >> z >> m >> e >> px >> py >> pz
-                             >> pdg >> id >> q >> production >> formation >> factor),
+                             >> pdg >> id >> q >> production >> formation >> factor
+                             >> production_status),
                     "Invalid OSCAR row");
+            std::string extra;
+            require(!(row >> extra), "Unexpected OSCAR column");
+            require(production_status == (rows < 2 ? 1 : rows == 2 ? 0 : 2),
+                    "Production-time status lost available zero or spectator distinction");
+            require(production == (rows == 0 ? 2.0 : 0.0), "Production time changed");
             require(id == rows, "Output IDs are not contiguous");
             charge += q;
             baryons += pdg == 2212 || pdg == 2112;
@@ -126,6 +138,14 @@ int main() {
         reader.read_event(snapshot);
         require(!reader.failed(), "Updated history is not HepMC3 ASCII");
         require(snapshot.attribute_as_string("target_A") == "12", "History omits target A");
+        for (const auto& p : snapshot.particles()) {
+            const auto index = p->attribute_as_string("record_index");
+            if (index.empty()) continue;
+            const int id = std::stoi(index);
+            require(p->attribute_as_string("oscar_prod_time_status")
+                        == (id < 2 ? "1" : id == 2 ? "0" : "2"),
+                    "History and OSCAR production-time status disagree");
+        }
         require(snapshot.attribute_as_string("nuclear_bookkeeping").find(
                     "\"electric_charge_conserved\": true") != std::string::npos,
                 "History omits conservation status");
@@ -145,6 +165,8 @@ int main() {
         write_event_output(44,1,2,StruckNucleon::Proton,kin,products,target_oscar,target_meta,&target_history,&target);
         require(target_oscar.str().find("0.19733 0.39465 0.59198")!=std::string::npos,
                 "Original spectator position discarded");
+        require(target_oscar.str().find(" 0 0 1 2\n") != std::string::npos,
+                "Explicit spectator lacks not-applicable production status");
         require(target_meta.str().find("untouched_target_identities")!=std::string::npos,
                 "Explicit spectator policy missing");
         target.nucleons()[1].hits=5;
@@ -170,6 +192,24 @@ int main() {
                     != std::string::npos, "Impossible event fallback not disclosed");
         require(invalid_oscar.str().find("# event 43 out 7\n") == 0,
                 "Non-admissible event was rejected or its spectators changed");
+        std::ostringstream headers;
+        write_event_headers(headers);
+        require(headers.str().find("xsecfac prod_time_status\n") != std::string::npos,
+                "OSCAR header omits appended production-time status");
+        require(headers.str().find("fm fm none none\n") != std::string::npos,
+                "OSCAR units header omits dimensionless production-time status");
+        auto invalid_time = particle(proton);
+        invalid_time.productionVertices(Pythia8::Vec4(), Pythia8::Vec4(
+            0., 0., 0., std::numeric_limits<double>::quiet_NaN()));
+        bool rejected = false;
+        try {
+            std::ostringstream output, meta;
+            write_event_output(45, 1, 1, StruckNucleon::Proton, kin,
+                               {invalid_time}, output, meta);
+        } catch (const std::invalid_argument&) {
+            rejected = true;
+        }
+        require(rejected, "Non-finite production reference was exported as available");
         std::cout << "Spectator baryon and charge balance checks passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
