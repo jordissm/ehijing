@@ -79,7 +79,7 @@ a Lorentz transformation nor a translation.
    freestream to t = 0 using `x(0) = x(form) - (p/E) * form_time`, with c = 1.
 
 `prod_time` and `form_time` are coordinate times in the particle reference
-frame. They are not proper-time intervals. SMASH's list input requires both
+frame. They are not proper-time intervals. SMASH's default OSCAR mode requires both
 `prod_time` and `form_time` in `Optional_Quantities` and a value for each on
 every particle row. The dimensionless integer `prod_time_status`, appended
 after `xsecfac`, distinguishes unavailable production information (`0`), an
@@ -91,10 +91,19 @@ numerical production time without that warning. Invalid status values and
 non-finite production times used by the profile stop execution. The writer
 also rejects non-finite available production references.
 
-These times directly set the start and end of the slow formation profile via
-`set_slow_formation_times`, without an additional unit conversion or Lorentz
-factor. Missing numerical time columns still stop execution; there is no
-configured proper-time fallback for list input. Legacy files may omit
+In the default `OSCAR` formation-time mode, these times directly set the start
+and end of the slow formation profile via `set_slow_formation_times`, without
+an additional unit conversion or Lorentz factor. Missing numerical time
+columns still stop execution; there is no automatic proper-time fallback.
+The optional `Constant_Proper_Time` mode instead keeps the imported production
+time and sets `t_form = t_prod + (E/m) * tau_0`, where `tau_0` is configured by
+`Collision_Term.Cross_Section_Formation_Scaling.Formation_Time.Proper_Time`
+in fm/c. `Mode` in the same section selects the prescription (default `OSCAR`).
+The Lorentz factor uses the validated SMASH momentum and effective mass in GeV.
+Status `0` still starts at zero with a warning; status `2` sets both endpoints
+to the production time, keeping pre-existing spectators fully formed. This
+mode requires `prod_time`; `form_time` may be omitted or is read and ignored.
+Neither mode changes the imported trajectory or position. Legacy files may omit
 `prod_time_status` if their `Optional_Quantities` configuration also omits it;
 their supplied numerical times are used without inferring availability or
 issuing the status-0 warning. Frame consistency requires its own review.

@@ -153,6 +153,16 @@ then retains the numerical-time behavior without availability information.
 The local Python and SLURM workflows both use this template unless overridden;
 custom configurations must match the columns and their order.
 
+SMASH uses the imported Lund-based times by default (`Formation_Time.Mode:
+OSCAR` under `Collision_Term.Cross_Section_Formation_Scaling`). The bundled
+SMASH config omits this section to use the default implicitly. An explicit
+secondary `Constant_Proper_Time` mode is available by setting `Mode` in that
+section and specifying `Proper_Time` (default 1.0 fm/c).
+It retains the OSCAR production time and replaces the endpoint by
+`t_prod + (E/m) * Proper_Time`, with the proper interval in fm/c and status-2
+spectators already formed. There is no automatic fallback from missing Lund
+formation times to this mode.
+
 ## Diagnostic spacetime history
 
 When enabled, each successful eHIJING event writes `event_00000042.history` next to its
