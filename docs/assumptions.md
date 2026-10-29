@@ -550,7 +550,7 @@ Quantify recoil-scheme sensitivity under an explicitly selected comparison
 plan; do not assume that changing one setting restores the published setup.
 
 **Sources:** ELECTRA's
-`input/ehijing/experiments/hermes/hard_process.setting`, the modified
+`input/ehijing/experiments/hermes_2007/hard_process.setting`, the modified
 `TimeShower.cc`, and `src/dis_kinematics.cpp`.
 
 ## What existing tests establish

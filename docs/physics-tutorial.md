@@ -1235,7 +1235,7 @@ repository root:
 
 ```bash
 rg -n 'WeakBosonExchange|SpaceShower|TimeShower|PDF:|eHIJING:' \
-  input/ehijing/experiments/hermes/hard_process.setting
+  input/ehijing/experiments/hermes_2007/hard_process.setting
 rg -n 'alphas_PhiG|Qs2_self_consistent_eq|sample_z_stochastic' \
   src/ehijing/external/pythia8/src/eHIJING.cc
 rg -n 'SeparationScale|formation_time|lt2|recoil_two_body' \

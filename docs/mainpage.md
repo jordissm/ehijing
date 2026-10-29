@@ -1360,8 +1360,15 @@ using the names `hard_process.setting`, `hadronization.setting`, and
 the required `EXPERIMENT` variable; each config path can still be overridden
 independently when needed. Use a separate experiment directory when detector
 acceptance or reconstruction assumptions require different settings, including
-hadronization settings. Add bundles only for experiments with configured files;
-the repository currently supplies the HERMES bundle.
+hadronization settings. Add bundles only for experiments with configured files.
+ELECTRA currently supplies `clas`, `hermes_2007`, `hermes_2011`, `hermes_2012`,
+`emc_Ebeam-100`, `emc_Ebeam-120`, `emc_Ebeam-200` and `emc_Ebeam-280`.
+Use the exact directory name; the former `hermes` directory is now split by year.
+CLAS uses 5.014 GeV electrons, the HERMES bundles use 27.6 GeV electrons,
+and the EMC bundles use muons at the energy in the directory name (GeV).
+All currently share hadronization settings, but their DIS selections differ;
+select all three files from the intended bundle. Target species and downstream
+analysis selections are configured separately.
 
 The DIS cuts file is parsed by `load_dis_cuts()` and supports the optional keys
 `yMin`, `yMax`, `xBMin`, `xBMax`, `nuMin`, `nuMax`, `Q2Min`, `Q2Max`, `W2Min`,
