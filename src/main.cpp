@@ -28,17 +28,24 @@ namespace constants = ehijing::constants;
 
 
 // Helper function to set Pythia settings
-template <class T> void add_arg(Pythia& pythia, std::string name, T value) {
+template <class T> bool add_arg(Pythia& pythia, std::string name, T value) {
     std::stringstream ss;
-    ss << name << " = " << value;
+    ss << std::setprecision(17) << name << " = " << value;
     std::cout << ss.str() << std::endl;
-    pythia.readString(ss.str());
+    return pythia.readString(ss.str());
 }
 
 
 int main(int argc, char* argv[]) {
 
-    const RunConfig cfg = parse_args(argc, argv);
+    RunConfig cfg;
+    try { cfg = parse_args(argc, argv); }
+    catch (const std::exception& error) {
+        std::cerr << "ERROR: " << error.what() << '\n'; return 2;
+    }
+    if (cfg.describe_nucleus) {
+        std::cout << describe_nucleus(cfg) << '\n'; return 0;
+    }
 
     const int n_events                              = cfg.n_events;
     const int atomic_number                         = cfg.atomic_number;
@@ -60,13 +67,17 @@ int main(int argc, char* argv[]) {
         std::cerr << "ERROR: incompatible eHIJING seed policy; rebuild bundled PYTHIA\n";
         return 2;
     }
+    if (EHIJING::nuclear_target_abi_version() != 2) {
+        std::cerr << "ERROR: rebuild bundled PYTHIA for configurable nuclear targets\n";
+        return 2;
+    }
     std::cout << "INFO: " << ehijing::seed_metadata(seed, first_event_id, 0) << '\n';
 
     if (cfg.nuclear_target) {
         try {
             EHIJING::NuclearTarget validate(mass_number, atomic_number, cfg.nucleon_width_fm,
-                cfg.nuclear_radius_fm, cfg.nuclear_surface_fm);
-            if (EHIJING::nuclear_target_abi_version() != 1) return 2;
+                cfg.nuclear_radius_fm, cfg.nuclear_surface_fm,
+                cfg.hulthen_alpha_fm_inv, cfg.hulthen_beta_fm_inv);
         } catch (const std::exception& e) {
             std::cerr << "ERROR: " << e.what() << '\n'; return 2;
         }
@@ -137,6 +148,10 @@ int main(int argc, char* argv[]) {
     add_arg<double>(pythia, "eHIJING:NucleonWidth", cfg.nucleon_width_fm);
     add_arg<double>(pythia, "eHIJING:NuclearRadius", cfg.nuclear_radius_fm);
     add_arg<double>(pythia, "eHIJING:NuclearSurface", cfg.nuclear_surface_fm);
+    if (!add_arg<double>(pythia, "eHIJING:HulthenAlpha", cfg.hulthen_alpha_fm_inv) ||
+        !add_arg<double>(pythia, "eHIJING:HulthenBeta", cfg.hulthen_beta_fm_inv)) {
+        std::cerr << "ERROR: update bundled PYTHIA library and XML settings\n"; return 2;
+    }
     // Initialize Pythia
     if (!pythia.init()) {
         std::cerr << "ERROR: PYTHIA initialization failed\n"; return 2;
@@ -160,6 +175,8 @@ int main(int argc, char* argv[]) {
         << "\",\"Qs.dat\":\"" << ehijing::file_sha256(std::filesystem::path(tabulation_path)/"Qs.dat") << '"';
     if (medium_modification_mode == 1 && pythia.settings.flag("eHIJING:all"))
         inputs << ",\"GHT.dat\":\"" << ehijing::file_sha256(std::filesystem::path(tabulation_path)/"GHT.dat") << '"';
+    if (!cfg.nucleus_database.empty())
+        inputs << ",\"nucleus_database\":\"" << ehijing::file_sha256(cfg.nucleus_database) << '"';
     inputs << '}';
 
     // Define counter for events written to output
@@ -280,6 +297,10 @@ int main(int argc, char* argv[]) {
             auto reproducibility = ehijing::seed_metadata(seed, first_event_id, attempts_since_written);
             reproducibility.pop_back();
             reproducibility += ",\"inputs_sha256\":" + inputs.str() + "}";
+            if (!cfg.nucleus.empty()) {
+                reproducibility.pop_back();
+                reproducibility += ",\"nucleus_parameters\":" + describe_nucleus(cfg) + "}";
+            }
             const EventPaths paths = make_event_paths(std::filesystem::path(run_path), event_id, chunk_size);
 
             // Open OSCAR output file

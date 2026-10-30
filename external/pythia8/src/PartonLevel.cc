@@ -83,6 +83,8 @@ bool PartonLevel::init( Info* infoPtrIn, Settings& settings,
   nucleonWidth = settings.parm("eHIJING:NucleonWidth");
   nuclearRadius = settings.parm("eHIJING:NuclearRadius");
   nuclearSurface = settings.parm("eHIJING:NuclearSurface");
+  hulthenAlpha = settings.parm("eHIJING:HulthenAlpha");
+  hulthenBeta = settings.parm("eHIJING:HulthenBeta");
   eHIJING_MassNumber    = settings.parm("eHIJING:MassNumber");
   eHIJING_AtomicNumber  = settings.parm("eHIJING:AtomicNumber");
   const auto seedContext = std::stoull(settings.word("eHIJING:SeedContext"));
@@ -1392,7 +1394,7 @@ void PartonLevel::setupHardSys(Event& process, Event& event) {
         int(eHIJING_AtomicNumber),
         nucleonWidth,
         nuclearRadius,
-        nuclearSurface);
+        nuclearSurface, hulthenAlpha, hulthenBeta);
       target->sample([this]() { return rndmPtr->flat(); });
       event.nuclearTarget(target);
       process.nuclearTarget(target);

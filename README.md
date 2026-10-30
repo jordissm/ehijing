@@ -40,7 +40,8 @@ sampling; this is a geometrical assignment, without a Fermi-motion model.
 The geometry follows [TRENTo's nucleus prescriptions](https://github.com/Duke-QCD/trento/blob/master/src/nucleus.cxx)
 and its [Gaussian nucleon profile](https://github.com/Duke-QCD/trento/blob/master/doc/usage.rst):
 A=1 is a single nucleon; A=2, Z=1 uses the Hulthén proton-neutron separation
-with a=0.228 and b=1.18 fm^-1, placing nucleons at opposite half-separations.
+with default a=0.228 and b=1.18 fm^-1, placing nucleons at opposite half-separations.
+Named targets load these inverse lengths from the YAML entry.
 Heavy targets use spherical Woods–Saxon centres with the volume Jacobian and
 radial cutoff R+10a. Centres are independent, without minimum-distance
 correlations or recentering. Density is the sum of normalized spherical
@@ -50,7 +51,29 @@ Collision sampling retains straight eikonal rays; kicks do not resample paths. N
 hotspots, strength fluctuations, nuclear binding, deformations, or TRENTo3D
 heavy-ion energy-deposition prescription are added.
 
-Default Woods–Saxon parameters in fm are:
+Select a target with `--nucleus d`, `--nucleus C12`, or another key in the
+ELECTRA `input/ehijing/woods_saxon.yaml` database. The C++ executable reads A,
+Z, the Gaussian nucleon width, and Woods–Saxon or Hulthén parameters from the
+selected entry. `--nucleus-database PATH` selects a custom YAML file. Otherwise,
+lookup checks `ELECTRA_NUCLEUS_DATABASE`, `input/ehijing/woods_saxon.yaml` in the
+working directory, `../share/electra/ehijing/woods_saxon.yaml` relative to the
+executable, and the build-time source/install paths. Unknown names, invalid
+entries and missing databases fail before generation. To inspect the resolved
+parameters without initializing PYTHIA or writing events:
+
+```bash
+ehijing --nucleus C12 --describe-nucleus
+```
+
+The build requires yaml-cpp in addition to the existing physics dependencies.
+CMake installs the selected database under `share/electra/ehijing`; standalone
+checkouts can set `-DEHIJING_NUCLEUS_DATABASE=/path/to/woods_saxon.yaml`.
+Rebuild the modified PYTHIA library, application and XML settings together:
+the explicit-target ABI version is now 2. Hulthén inverse lengths are loaded
+from the database in fm^-1; the existing separation convention is preserved.
+
+Legacy `--Z` and `--A` remain supported instead of `--nucleus`. Their built-in
+Woods–Saxon defaults in fm are:
 
 | A | R | a |
 | --- | --- | --- |
@@ -60,13 +83,17 @@ Default Woods–Saxon parameters in fm are:
 | 208 | 6.62 | 0.546 |
 | 238 | 6.81 | 0.600 |
 
-Other A>2 require both `--nuclear-radius-fm` and `--nuclear-surface-fm`.
-These two flags also override the listed values. Both must be positive.
-The same optional arguments are available on `electra ehijing run`; no local
-or SLURM positional arguments or output layouts change. The SLURM submit script
-accepts optional `NUCLEAR_TARGET=on|off`, `NUCLEON_WIDTH_FM`, `NUCLEAR_RADIUS_FM`
-and `NUCLEAR_SURFACE_FM` key=value parameters. Python forwards the
-options only when supplied, preserving invocation of older executables.
+Other A>2 in legacy mode require both `--nuclear-radius-fm` and
+`--nuclear-surface-fm`. These flags, and `--nucleon-width-fm`, also override
+database values for named targets. Lengths must be finite and positive;
+Woods–Saxon overrides are rejected for Hulthén targets. Names and explicit A/Z
+cannot be mixed.
+
+The same named-target arguments are available on `electra ehijing run`, which
+defaults to `d`. SLURM accepts `NUCLEUS=C12` and optional `NUCLEUS_DATABASE=PATH`,
+alongside `NUCLEAR_TARGET=on|off`, `NUCLEON_WIDTH_FM`, `NUCLEAR_RADIUS_FM` and
+`NUCLEAR_SURFACE_FM`. Output layouts are unchanged. Named-target metadata stores
+the resolved parameters and database SHA-256; Python resume checks include both.
 
 The [eHIJING model](https://arxiv.org/html/2304.10779v2) still supplies the gluon
 TMD, transfer proposal/veto kernel, Qs equation, HT/GHT splitting kernels and

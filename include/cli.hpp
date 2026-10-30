@@ -19,11 +19,14 @@
  *
  * The configuration supports:
  * - Event generation control (number of events, seeds)
- * - Nuclear system definition (Z, A)
+ * - Nuclear system definition (database name, resolved Z and A)
  * - Output organization (run directories, chunking)
  * - Physics configuration (TMD parameters, external config files)
  */
 struct RunConfig {
+
+    std::string nucleus, nucleus_database, distribution;
+    bool describe_nucleus = false;
 
     /// Total number of events to generate in this invocation.
     int n_events;
@@ -79,6 +82,7 @@ struct RunConfig {
     bool history = false;
     bool nuclear_target = true;
     double nucleon_width_fm = .5, nuclear_radius_fm = 0., nuclear_surface_fm = 0.;
+    double hulthen_alpha_fm_inv = .228, hulthen_beta_fm_inv = 1.18;
 };
 
 /**
@@ -113,3 +117,6 @@ void usage(const char* prog);
  *       usage() output.
  */
 RunConfig parse_args(int argc, char* argv[]);
+
+/// Resolved target parameters as JSON; does not initialize a generator.
+std::string describe_nucleus(const RunConfig& cfg);

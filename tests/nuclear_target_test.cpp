@@ -37,6 +37,16 @@ int main() {
         EHIJING::NuclearTarget deuteron(2,1,.5); deuteron.sample(random);
         const auto& d = deuteron.nucleons();
         for (int j=0;j<3;++j) close(d[0].position[j],-d[1].position[j],1e-12,"Hulthen COM");
+        // Scaling both inverse lengths must rescale positions, using the same
+        // random numbers. This checks that configurable values reach sampling.
+        std::mt19937 first_engine(19), second_engine(19);
+        auto first_random = [&]() { return uniform(first_engine); };
+        auto second_random = [&]() { return uniform(second_engine); };
+        EHIJING::NuclearTarget standard(2,1,.5), compact(2,1,.5,0.,0.,.456,2.36);
+        standard.sample(first_random); compact.sample(second_random);
+        for (int j=0;j<3;++j)
+            close(standard.nucleons()[0].position[j],2.*compact.nucleons()[0].position[j],1e-12,
+                  "Configured Hulthen parameters did not rescale geometry");
         const int spectator=1-deuteron.primary();
         deuteron.nucleons()[spectator].position={0.,0.,0.};
         const double w=deuteron.width();

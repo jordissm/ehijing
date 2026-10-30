@@ -23,8 +23,11 @@ class NuclearTarget {
 public:
     static constexpr double hbarc = 0.19732698;
     NuclearTarget(int A, int Z, double width_fm,
-                  double radius_fm = 0., double surface_fm = 0.)
-        : nucleons_(A > 0 ? A : 0), Z_(Z), width_(width_fm / hbarc) {
+                  double radius_fm = 0., double surface_fm = 0.,
+                  double hulthen_alpha_fm_inv = .228, double hulthen_beta_fm_inv = 1.18)
+        : nucleons_(A > 0 ? A : 0), Z_(Z), width_(width_fm / hbarc),
+          hulthen_alpha_(hulthen_alpha_fm_inv * hbarc),
+          hulthen_beta_(hulthen_beta_fm_inv * hbarc) {
         if (A < 1 || Z < 0 || Z > A || !(width_fm > 0.) || !std::isfinite(width_fm))
             throw std::invalid_argument("Invalid explicit nuclear target");
         if (A > 2) {
@@ -47,6 +50,10 @@ public:
         surface_ = surface_fm / hbarc;
         if (A == 2 && Z != 1)
             throw std::invalid_argument("Hulthen target requires A=2, Z=1");
+        if (A == 2 && (!(hulthen_alpha_fm_inv > 0.) ||
+            !(hulthen_beta_fm_inv > hulthen_alpha_fm_inv) ||
+            !std::isfinite(hulthen_alpha_fm_inv) || !std::isfinite(hulthen_beta_fm_inv)))
+            throw std::invalid_argument("Hulthen requires finite 0 < alpha < beta");
     }
 
     void sample(const std::function<double()>& random) {
@@ -56,7 +63,7 @@ public:
         }
         if (nucleons_.size() == 2) {
             // r is the proton-neutron separation, not either COM radius.
-            const double a = .228 * hbarc, b = 1.18 * hbarc;
+            const double a = hulthen_alpha_, b = hulthen_beta_;
             double r;
             do { r = -std::log(open(random())) / (2. * a); }
             while (random() > std::pow(1. - std::exp(-(b - a) * r), 2));
@@ -174,6 +181,7 @@ private:
     std::vector<TargetNucleon> nucleons_;
     int Z_, primary_ = -1;
     double width_, radius_, surface_;
+    double hulthen_alpha_, hulthen_beta_;
 };
 
 // Link-time guard: rebuilding the modified PYTHIA library is required.

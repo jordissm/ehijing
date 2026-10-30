@@ -18,6 +18,12 @@ relative to the hard interaction. The hadronizer adds the nuclear origin once.
 | Particle momentum, energy and mass | GeV |
 
 eHIJING's core medium calculations use natural units, with hbar = c = 1.
+Named targets load Woods–Saxon radii, diffusenesses and Gaussian nucleon widths
+from the nuclear YAML database in fm. Hulthén alpha and beta are in fm^-1 and
+refer to proton–neutron separation. `NuclearTarget` divides input lengths by
+`hbarc` and multiplies inverse lengths by `hbarc` before sampling. Selecting a
+target by name does not change the internal coordinate or density conventions.
+
 Nuclear density is expressed in GeV³ and nuclear thickness in GeV². Geometry
 must retain its natural units while used in those formulas. Converting a
 coordinate for a particle vertex does not change the core geometry convention.

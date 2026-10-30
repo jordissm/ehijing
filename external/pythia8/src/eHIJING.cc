@@ -380,7 +380,7 @@ int MultipleCollision::sample_all_qt2(int pid, double E, double L, double Thickn
     return q2_list.size();
 }
 
-int nuclear_target_abi_version() { return 1; }
+int nuclear_target_abi_version() { return 2; }
 
 int MultipleCollision::sample_all_qt2_target(int pid, double E,
     const NuclearTarget& target, const std::array<double, 3>& start,

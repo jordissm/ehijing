@@ -33,10 +33,27 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 find_package(Pythia8 REQUIRED)
 find_package(HepMC3 REQUIRED)
 find_package(GSL REQUIRED)
+find_package(yaml-cpp CONFIG REQUIRED)
+if(TARGET yaml-cpp::yaml-cpp)
+  set(EHIJING_YAML_TARGET yaml-cpp::yaml-cpp)
+else()
+  set(EHIJING_YAML_TARGET yaml-cpp)
+endif()
+
+include(GNUInstallDirs)
+set(EHIJING_NUCLEUS_DATABASE "${CMAKE_CURRENT_SOURCE_DIR}/../../input/ehijing/woods_saxon.yaml"
+    CACHE FILEPATH "Nuclear parameter YAML to use and install")
+add_library(ehijing_config STATIC src/cli.cpp src/nucleus_database.cpp)
+target_compile_features(ehijing_config PUBLIC cxx_std_17)
+target_include_directories(ehijing_config PUBLIC include)
+target_link_libraries(ehijing_config PUBLIC ${EHIJING_YAML_TARGET})
+target_compile_definitions(ehijing_config PRIVATE
+  EHIJING_SOURCE_NUCLEUS_DATABASE="${EHIJING_NUCLEUS_DATABASE}"
+  EHIJING_INSTALLED_NUCLEUS_DATABASE="${CMAKE_INSTALL_FULL_DATADIR}/electra/ehijing/woods_saxon.yaml"
+)
 
 # ---- Executable ----
 add_executable(ehijing
-  src/cli.cpp
   src/file_digest.cpp
   src/dis_kinematics.cpp
   src/event_output.cpp
@@ -62,6 +79,7 @@ target_include_directories(ehijing PRIVATE
 
 # Link libraries (target-scoped)
 target_link_libraries(ehijing PRIVATE
+  ehijing_config
   ${PYTHIA8_LIBRARIES}
   ${HEPMC3_LIBRARIES}
   ${GSL_LIBRARIES}
@@ -79,14 +97,21 @@ endif()
 # Install
 include(GNUInstallDirs)
 install(TARGETS ehijing RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+if(EXISTS "${EHIJING_NUCLEUS_DATABASE}")
+  install(FILES "${EHIJING_NUCLEUS_DATABASE}"
+          DESTINATION ${CMAKE_INSTALL_DATADIR}/electra/ehijing RENAME woods_saxon.yaml)
+endif()
 
 # Synthetic diagnostics tests: no event generation or reference data required.
 include(CTest)
 if(BUILD_TESTING)
-  add_executable(seed_policy_test tests/seed_policy_test.cpp src/cli.cpp src/file_digest.cpp)
+  add_executable(nucleus_database_test tests/nucleus_database_test.cpp)
+  target_link_libraries(nucleus_database_test PRIVATE ehijing_config)
+  add_test(NAME nucleus_database COMMAND nucleus_database_test --test-database "${EHIJING_NUCLEUS_DATABASE}")
+  add_executable(seed_policy_test tests/seed_policy_test.cpp src/file_digest.cpp)
   target_compile_features(seed_policy_test PRIVATE cxx_std_17)
   target_include_directories(seed_policy_test PRIVATE include ${PYTHIA8_INCLUDE_DIR})
-  target_link_libraries(seed_policy_test PRIVATE ${PYTHIA8_LIBRARIES} ${GSL_LIBRARIES} Threads::Threads)
+  target_link_libraries(seed_policy_test PRIVATE ehijing_config ${PYTHIA8_LIBRARIES} ${GSL_LIBRARIES} Threads::Threads)
   add_test(NAME seed_policy COMMAND seed_policy_test)
   add_executable(spacetime_history_test
     tests/spacetime_history_test.cpp
